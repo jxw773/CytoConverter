@@ -2,9 +2,9 @@
 Change directory to file directory script is in before running script
 Packages stringr and stringi are required for package. The script will attempt to install and load packages by default
 
-run script once to output function CytoConverter which accepts a string consisting of a karyotype or a table with one column denoting the sample name and the second column denoting the sample karyotype. Sample names must be different.
+Run script once to output function CytoConverter which accepts a string consisting of a karyotype or a table with one column denoting the sample name and the second column denoting the sample karyotype. Sample names must be different.
 
-supplementary file is cytoband.txt
+Supplementary file is cytoband.txt
 if wanted, the user can supply thier own list of cytobands to process as CytoConverter uses the bands at 800 resolution for build GCHr38.
 
 
