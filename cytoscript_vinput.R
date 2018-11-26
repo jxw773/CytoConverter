@@ -23,6 +23,18 @@ if(require("stringi")){
     }  
 }
 
+##reference file to load
+##specific loc
+Cyto_ref_table <-
+  sapply(as.data.frame(
+    read.delim("cytoBand.txt", header = FALSE)
+  ), as.character)
+
+##ref_table <-sapply(as.data.frame(read.delim("GRCh38.d1.vd1.fa.fai",nrows = 25, header = FALSE)), as.character)
+ref_table <-as.data.frame(Cyto_ref_table[sapply(unique(Cyto_ref_table[,1]),function(x){grep(x,Cyto_ref_table[,1])[length(grep(paste(x,"$",sep=""),Cyto_ref_table[,1]))]}),][,1:2])
+ref_table<-apply(ref_table,2,as.character)
+
+
 ##function wrapper, activate at the end
 CytoConverter<-function(in_data)
 {
@@ -153,16 +165,7 @@ CytoConverter<-function(in_data)
   
   rownames(Con_data)<-1:nrow(Con_data)
   
-  ##specific loc
-  Cyto_ref_table <-
-    sapply(as.data.frame(
-      read.delim("cytoBand.txt", header = FALSE)
-    ), as.character)
-  
-  ##ref_table <-sapply(as.data.frame(read.delim("GRCh38.d1.vd1.fa.fai",nrows = 25, header = FALSE)), as.character)
-  ref_table <-as.data.frame(Cyto_ref_table[sapply(unique(Cyto_ref_table[,1]),function(x){grep(x,Cyto_ref_table[,1])[length(grep(paste(x,"$",sep=""),Cyto_ref_table[,1]))]}),][,1:2])
-  ref_table<-apply(ref_table,2,as.character)
-  
+ 
   
   Con_data[, 2] <- gsub(" ", "", Con_data[, 2])
   ##any rejoins will be ;; now
@@ -2725,26 +2728,25 @@ CytoConverter<-function(in_data)
     ##sorted_sample_table<-sample_table
     
     ##correct format for sample table
-    ##something is very wrong here
     if (is.vector(sorted_sample_table))
     {
       sorted_sample_table[1]<-as.character(sorted_sample_table[1])
-      sorted_sample_table[2]<-as.numeric(as.character(sorted_sample_table[2]))
-      sorted_sample_table[3]<-as.numeric(as.character(sorted_sample_table[3]))
+      sorted_sample_table[2]<-as.integer(as.character(sorted_sample_table[2]))
+      sorted_sample_table[3]<-as.integer(as.character(sorted_sample_table[3]))
       sorted_sample_table[4]<-as.character(sorted_sample_table[4])
       sorted_sample_table <- t(sorted_sample_table)
     }else if(ncol(sorted_sample_table)==1){
       sorted_sample_table <- t(sorted_sample_table)
       sorted_sample_table<-as.data.frame(sorted_sample_table)
       sorted_sample_table[,1]<-as.character(sorted_sample_table[,1])
-      sorted_sample_table[,2]<-as.numeric(as.character(sorted_sample_table[,2]))
-      sorted_sample_table[,3]<-as.numeric(as.character(sorted_sample_table[,3]))
+      sorted_sample_table[,2]<-as.integer(as.character(sorted_sample_table[,2]))
+      sorted_sample_table[,3]<-as.integer(as.character(sorted_sample_table[,3]))
       sorted_sample_table[,4]<-as.character(sorted_sample_table[,4])
     }else if(nrow(sorted_sample_table)>1){
       sorted_sample_table<-as.data.frame(sorted_sample_table)
       sorted_sample_table[,1]<-as.character(sorted_sample_table[,1])
-      sorted_sample_table[,2]<-as.numeric(as.character(sorted_sample_table[,2]))
-      sorted_sample_table[,3]<-as.numeric(as.character(sorted_sample_table[,3]))
+      sorted_sample_table[,2]<-as.integer(as.character(sorted_sample_table[,2]))
+      sorted_sample_table[,3]<-as.integer(as.character(sorted_sample_table[,3]))
       sorted_sample_table[,4]<-as.character(sorted_sample_table[,4])
     }
     
