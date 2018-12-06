@@ -31,7 +31,7 @@ Cyto_ref_table <-
   ), as.character)
 
 ##ref_table <-sapply(as.data.frame(read.delim("GRCh38.d1.vd1.fa.fai",nrows = 25, header = FALSE)), as.character)
-ref_table <-as.data.frame(Cyto_ref_table[sapply(unique(Cyto_ref_table[,1]),function(x){grep(x,Cyto_ref_table[,1])[length(grep(paste(x,"$",sep=""),Cyto_ref_table[,1]))]}),][,1:2])
+ref_table <-as.data.frame(Cyto_ref_table[sapply(unique(Cyto_ref_table[,1]),function(x){grep(x,Cyto_ref_table[,1])[length(grep(paste(x,"$",sep=""),Cyto_ref_table[,1]))]}),][,c(1,3)])
 ref_table<-apply(ref_table,2,as.character)
 
 
@@ -40,7 +40,6 @@ CytoConverter<-function(in_data)
 {
   
   
-  ##table with desired output
   Final_table <- matrix(ncol = 5, nrow = 0)
   
   colnames(Final_table) <- c("Sample ID", "Chr", "Start", "End", "Type")
@@ -165,7 +164,7 @@ CytoConverter<-function(in_data)
   
   rownames(Con_data)<-1:nrow(Con_data)
   
- 
+
   
   Con_data[, 2] <- gsub(" ", "", Con_data[, 2])
   ##any rejoins will be ;; now
@@ -344,7 +343,7 @@ CytoConverter<-function(in_data)
           ##c(currentvec, paste(chr_table[grep(positions, chr_table[, 4])[length(grep(positions, chr_table[, 4]))] 
           ##           , 4], chr_table[nrow(chr_table), 4], sep = ''))
           currentvec <-
-            c(currentvec, paste(chr_table[grep(paste(positions,sep="",collapse="|"), chr_table[, 4])[length(grep(paste(positions,sep="",collapse="|"), chr_table[, 4]))] +
+            c(currentvec, paste(chr_table[grep(positions, chr_table[, 4])[length(grep(positions, chr_table[, 4]))] +
                                             1, 4], chr_table[nrow(chr_table), 4], sep = ''))
           
         }
@@ -1129,6 +1128,9 @@ CytoConverter<-function(in_data)
         }
         
       }
+      
+      ##make sure coords are in numerical order 
+      coord<-coord[order(coord[,1],coord[,2]),]
       ##fix this for different chromosomes
       ##excoord<-Cyto_ref_table[which(as.character(Cyto_ref_table[,1])=="chr16" & as.numeric(as.character(Cyto_ref_table[,2])) > 16800000 & as.numeric(as.character(Cyto_ref_table[,2]))<0),1:3]
       ##somehere here its grepping the wrong thing, seems speficical to vecotrs
@@ -1152,13 +1154,13 @@ CytoConverter<-function(in_data)
         
         if (is.vector(tempChr))
         {
-          if (!identical(as.character(tempChr[2]), "0"))
+          if (!identical(gsub(" ","",as.character(tempChr[2])), "0"))
           {
             excoord = rbind(excoord, cbind(tempChr[1], 0, tempChr[2], tempChr[4]))
           }
           
-          if (!identical(as.character(tempChr[3]),
-                         as.character(ref_table[grep(paste(tempChr[1], "$", sep = ""), ref_table), ][2])))
+          if (!identical(gsub(" ","",as.character(tempChr[3])),
+                         gsub(" ","",as.character(ref_table[grep(paste(tempChr[1], "$", sep = ""), ref_table), ][2]))))
             excoord = rbind(excoord,
                             cbind(tempChr[1], tempChr[3], ref_table[grep(paste(tempChr[1], "$", sep =
                                                                                  ""), ref_table), ][2], tempChr[4]))
@@ -1167,33 +1169,31 @@ CytoConverter<-function(in_data)
         else{
           for (z in 1:nrow(tempChr))
           {
-            if (z == 1 & tempChr[1, 2] != 0)
+            if (z == 1)
             {
-              excoord = rbind(excoord,
-                              cbind(tempChr[z, 1], 0, tempChr[z, 2], tempChr[z, 4]))
-              if (nrow(tempChr) > 1)
+              if( !identical(gsub(" ","",as.character(tempChr[1, 2])), as.character(0)))
+              {
+                excoord = rbind(excoord,
+                                cbind(tempChr[z, 1], 0, tempChr[z, 2], tempChr[z, 4]))
+              }
+              
+              if (nrow(tempChr) > 1 && !identical(gsub(" ","",as.character(tempChr[z,3])),gsub(" ","",as.character(tempChr[z+1,2]))))
               {
                 excoord = rbind(excoord,
                                 cbind(tempChr[z, 1], tempChr[z, 3], tempChr[z + 1, 2], tempChr[z, 4]))
               }
               
-            } else if (z == 1)
-            {
-              if (nrow(tempChr) > 1)
-              {
-                excoord = rbind(excoord,
-                                cbind(tempChr[z, 1], tempChr[z, 3], tempChr[z + 1, 2], tempChr[z, 4]))
-              }
+              
               
             } else if (z == nrow(tempChr) &
-                       !identical(as.character(tempChr[z, 3]),
-                                  as.character(ref_table[grep(as.character(paste(tempChr[z, 1], "$", sep =
-                                                                                 "")), ref_table), ][2]))) {
+                       !identical(gsub(" ","",as.character(tempChr[z, 3])),
+                                  gsub(" ","",as.character(ref_table[grep(as.character(paste(tempChr[z, 1], "$", sep =
+                                                                                             "")), ref_table), ][2])))) {
               excoord = rbind(excoord,
                               cbind(tempChr[z, 1], tempChr[z, 3], ref_table[grep(as.character(paste(tempChr[z, 1], "$", sep =
                                                                                                       "")), ref_table), ][2], tempChr[z, 4]))
               
-            } else if (z < nrow(tempChr) & z > 1) {
+            } else if (z < nrow(tempChr) & z > 1 && !identical(gsub(" ","",as.character(tempChr[z,3])),gsub(" ","",as.character(tempChr[z+1,2])))) {
               excoord = rbind(excoord,
                               cbind(tempChr[z, 1], tempChr[z, 3], tempChr[z + 1, 2], tempChr[z, 4]))
             }
@@ -1372,13 +1372,13 @@ CytoConverter<-function(in_data)
     if(length(bads)>0){out<-out[-bads,]}
     origMat<-data.frame(Start=c(v1[1],v2[1]), End=c(v1[2], v2[2]), 
                         Type=labs)
-    if(nrow(out)==nrow(origMat) && all(out==origMat))
+    if(nrow(out)==nrow(origMat) && identical(out,origMat))
     {
-      out<-list(out,TRUE)
+      out=list(out,TRUE)
     }
     else
     {
-      out<-list(out,FALSE)
+      out=list(out,FALSE)
     }
     return(out)}
   
@@ -1391,7 +1391,7 @@ CytoConverter<-function(in_data)
     ##L[,1:2]<-apply(L[,1:2],2,as.numeric)
     origL<-L
     while(nrow(L)>0 & i<=nrow(G)){
-      newL<-matrix(ncol=2, nrow=0)
+      newL<-matrix(ncol=3, nrow=0)
       j<-1
       modified<-TRUE
       ##print(list(i,modified))
@@ -1921,9 +1921,9 @@ CytoConverter<-function(in_data)
                   ex_table[intersect(intersect(
                     grep(paste("chr", Mainchr, sep = "",collapse="|"), ex_table[, 1]),
                     grep(
-                      "t\\(",
+                      "(t|ins)\\(",
                       ex_table[, 4]
-                    )), grep("^t\\(",ex_table[,4],invert=T)
+                    )), grep("^(t|ins)\\(",ex_table[,4],invert=T)
                   ), 4] <- "Loss"
                 }
                 ##temp_table[, 4] <-
@@ -2728,6 +2728,7 @@ CytoConverter<-function(in_data)
     ##sorted_sample_table<-sample_table
     
     ##correct format for sample table
+    ##something is very wrong here
     if (is.vector(sorted_sample_table))
     {
       sorted_sample_table[1]<-as.character(sorted_sample_table[1])
