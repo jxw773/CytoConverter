@@ -23,23 +23,51 @@ if(require("stringi")){
     }  
 }
 
+CytoConverter<-function(in_data,build){
 ##reference file to load
 ##specific loc
-Cyto_ref_table <-
-  sapply(as.data.frame(
-    read.delim("cytoBand.txt", header = FALSE)
-  ), as.character)
-
-##ref_table <-sapply(as.data.frame(read.delim("GRCh38.d1.vd1.fa.fai",nrows = 25, header = FALSE)), as.character)
-ref_table <-as.data.frame(Cyto_ref_table[sapply(unique(Cyto_ref_table[,1]),function(x){grep(x,Cyto_ref_table[,1])[length(grep(paste(x,"$",sep=""),Cyto_ref_table[,1]))]}),][,c(1,3)])
-ref_table<-apply(ref_table,2,as.character)
-
-
-##function wrapper, activate at the end
-CytoConverter<-function(in_data)
+if(build =="GRCh38")
 {
+  Cyto_ref_table <-
+    sapply(as.data.frame(
+      read.delim("cytoBand_GRCh38.txt", header = FALSE)
+    ), as.character)
+}else if(build =="hg19"){
+  Cyto_ref_table <-
+    sapply(as.data.frame(
+      read.delim("cytoBand_hg19.txt", header = FALSE)
+    ), as.character)
+}else if(build =="hg18"){
+  Cyto_ref_table <-
+    sapply(as.data.frame(
+      read.delim("cytoBand_hg18.txt", header = FALSE)
+    ), as.character)
+}else if(build=="hg17"){
+  Cyto_ref_table <-
+    sapply(as.data.frame(
+      read.delim("cytoBand_hg17.txt", header = FALSE)
+    ), as.character)
+  
+}else if(is.null(build))
+{
+  ##default is grch38
+  Cyto_ref_table <-
+    sapply(as.data.frame(
+      read.delim("G:/My Drive/BRB work/cyto_project/cytoBand_GRCh38.txt", header = FALSE)
+    ), as.character) 
+}else{
+  return("build incorrectly specified")
+}
   
   
+  ##reference object for end of the string 
+  ref_table <-as.data.frame(Cyto_ref_table[sapply(unique(Cyto_ref_table[,1]),function(x){grep(x,Cyto_ref_table[,1])[length(grep(paste(x,"$",sep=""),Cyto_ref_table[,1]))]}),][,c(1,3)])
+  ref_table<-apply(ref_table,2,as.character)
+  
+  
+  
+  
+  ##table with desired output
   Final_table <- matrix(ncol = 5, nrow = 0)
   
   colnames(Final_table) <- c("Sample ID", "Chr", "Start", "End", "Type")
@@ -164,7 +192,6 @@ CytoConverter<-function(in_data)
   
   rownames(Con_data)<-1:nrow(Con_data)
   
-
   
   Con_data[, 2] <- gsub(" ", "", Con_data[, 2])
   ##any rejoins will be ;; now
@@ -172,12 +199,13 @@ CytoConverter<-function(in_data)
   ##Con_data[, 2] <- gsub(":", ";", Con_data[, 2])
   Con_data[, 2] <- gsub("crYp", "", Con_data[, 2])
   
-  ## taking all reads with ? and ~ as well inot dump table
-  unsure_table <- Con_data[grep("\\?|\\~|inc", Con_data[, 2]), ]
+  ## taking all reads with ? and ~ as well into dump table
+  ##adding marker and add material as well
+  unsure_table <- Con_data[grep("\\?|\\~|inc|mar|add", Con_data[, 2]), ]
   Dump_table <- if(is.vector(unsure_table)){
-    rbind(Dump_table, c(unsure_table, "?/~/ or incomplete karyotype detected"))
+    rbind(Dump_table, c(unsure_table, "?,~,marker, unknown additional material or incomplete karyotype detected"))
   }else{
-    rbind(Dump_table, cbind(unsure_table, "?/~/ or incomplete karyotype detected"))
+    rbind(Dump_table, cbind(unsure_table, "?,~, marker, unknown additional material or incomplete karyotype detected"))
     
   }
   
@@ -649,7 +677,7 @@ CytoConverter<-function(in_data)
               
               
               ##above is all to find vectors of o that are excluded
-              if (o == length(temp[[(lengthcount * 2-1)]]))
+              if (o == 1)
               {
                 temptrans <-
                   rbind(temptrans, cbind(
@@ -658,7 +686,7 @@ CytoConverter<-function(in_data)
                       "der(",
                       temp[[(lengthcount * 2-1)]][o],
                       ";",
-                      temp[[(lengthcount * 2-1)]][1],
+                      temp[[(lengthcount * 2-1)]][length(temp[[(lengthcount * 2-1)]])],
                       if (length(currentvec) > 1) {
                         ";"
                       },
@@ -666,7 +694,7 @@ CytoConverter<-function(in_data)
                       ")(",
                       currentvec[1],
                       ";",
-                      temp[[lengthcount * 2]][1],
+                      temp[[lengthcount * 2]][length(temp[[(lengthcount * 2-1)]])],
                       if (length(currentvec) > 1) {
                         ";"
                       },
@@ -686,7 +714,7 @@ CytoConverter<-function(in_data)
                       "der(",
                       temp[[(lengthcount * 2-1)]][o],
                       ";",
-                      temp[[(lengthcount * 2-1)]][o + 1],
+                      temp[[(lengthcount * 2-1)]][o - 1],
                       if (length(currentvec) > 1) {
                         ";"
                       },
@@ -694,7 +722,7 @@ CytoConverter<-function(in_data)
                       ")(",
                       currentvec[1],
                       ";",
-                      temp[[lengthcount * 2]][o + 1],
+                      temp[[lengthcount * 2]][o - 1],
                       if (length(currentvec) > 1) {
                         ";"
                       },
@@ -768,7 +796,7 @@ CytoConverter<-function(in_data)
             within=T
           }
           
-          if (!any(grepl(inschrom, names(transloctable))))
+          if (!any(grepl(reginschrom, names(transloctable))))
           {
             ##entire translocation only if nessesary
             tempins <- data.frame()
@@ -801,26 +829,41 @@ CytoConverter<-function(in_data)
                 ""
               ))
             
+            ##change this to be a del chromosome
             currentvec <- getCytoBands(lengthcount, 2,temp,coln,derMods)
             
-            tempins <-
-              rbind(tempins, cbind(
-                paste("der(", temp[[(lengthcount * 2-1)]][2], ")", sep = ''),
-                paste(
-                  "der(",
-                  temp[[(lengthcount * 2-1)]][2],
-                  ";",
-                  temp[[(lengthcount * 2-1)]][2],
-                  ")(",
-                  currentvec[1],
-                  ";",
-                  currentvec[2],
-                  ")",
-                  sep = '',
-                  collapse = ";"
-                ),
-                ""
-              ))
+            ##tempins <-
+            ##rbind(tempins, cbind(
+            ##paste("der(", temp[[(lengthcount * 2-1)]][2], ")", sep = ''),
+            ##paste(
+            ##"del(",
+            ##temp[[(lengthcount * 2-1)]][2],
+            ##")(",
+            ##temp[[(lengthcount*2)]][2],
+            ##")",
+            ##sep = '',
+            ##collapse = ";"
+            ##),
+            ##""
+            ##))
+            
+            tempins<-rbind(tempins, cbind(
+              paste("der(", temp[[(lengthcount * 2-1)]][2], ")", sep = ''),
+              paste(
+                "der(",
+                temp[[(lengthcount * 2-1)]][2],
+                ";",
+                temp[[(lengthcount * 2-1)]][2],
+                ")(",
+                currentvec[1],
+                ";",
+                currentvec[2],
+                ")",
+                sep = '',
+                collapse = ";"
+              ),
+              ""
+            ))
             
             transloctable <- c(transloctable, list(tempins))
             names(transloctable)[length(transloctable)] <- inschrom
@@ -874,7 +917,7 @@ CytoConverter<-function(in_data)
             
             ##convert all - to ~ and cut out outer part of ~ if it is between 2 numbers
             ##need to do this better
-            if (grepl("~|-", temp[[lengthcount * 2]][i]) )
+            if (grepl("~|(- &!(->))", temp[[lengthcount * 2]][i]) )
             {
               ##maybe add function to make this less conservative
               ##right now it takes earlier one
@@ -902,7 +945,7 @@ CytoConverter<-function(in_data)
               ##ask tom about this one
               ##only splits first one
               longform_table <-
-                strsplit(strsplit(temp[[lengthcount * 2]][i], "::")[[1]], "~>")
+                strsplit(strsplit(temp[[lengthcount * 2]][i], "::")[[1]], "(~>)|(->)")
               ##take away any front loaded : 
               longform_table <-lapply(longform_table,function(x){gsub(':','',x)})
               
@@ -977,30 +1020,91 @@ CytoConverter<-function(in_data)
                   matrix(chr_table_2[grep(paste(positions, collapse = "|", sep = "|"),
                                           chr_table_2[, 4]), ], ncol = 5)
                 
-                if (is.vector(positions_table))
+                if (is.vector(positions_table)| nrow(positions_table)==1 |ncol(positions_table)==1)
                 {
-                  positions_table <- t(positions_table)
+                  if(ncol(positions_table)==1)
+                  {
+                    positions_table<-t(positions_table)
+                  }
+                  in_table <-
+                    rbind(
+                      in_table,
+                      cbind(
+                        chr_table_2[1, 1],
+                        positions_table[2],
+                        positions_table[3],
+                        derMods[(lengthcount * 2-1)]
+                      )
+                    )
+                  
+                }else{
+                  
+                  
+                  in_table <-
+                    rbind(
+                      in_table,
+                      cbind(
+                        chr_table_2[1, 1],
+                        positions_table[1, 2],
+                        positions_table[nrow(positions_table), 3],
+                        derMods[(lengthcount * 2-1)]
+                      )
+                    )
                 }
                 
-                in_table <-
-                  rbind(
-                    in_table,
-                    cbind(
-                      chr_table_2[1, 1],
-                      positions_table[1, 2],
-                      positions_table[nrow(positions_table), 3],
-                      derMods[(lengthcount * 2-1)]
-                    )
-                  )
               }
               
-              ##make table of all chromosomes used in this, then make table
+              
+              
+              
+              ##detect multis, combine with coord
+              ##do multi (X2) processing 
+              ##for over X2 times, its a gain 
+              ##if (nrow(in_table) > 0 && any(grepl("multi", in_table[, 4])))
+              ##{
+              
+              ##n <- multi - 1
+              ##multimasterin_table<-in_table
+              ## multimasterexin_table<-exin_table
+              ##for (f in 1:n)
+              ##{
+              ##if(f>1)
+              ##{
+              ##multitemp<-in_table[grep("multi", in_table[, 4]), ]
+              ##multitemp[,4]<-paste("+",multitemp[,4],sep='')
+              ##multimasterin_table<- rbind(multimasterin_table, multitemp)
+              ##if (any(nrow(exin_table) > 0 && grepl("multi", exin_table[, 4])))
+              ##{
+              ##multitemp<-exin_table[grep("multi", exin_table[, 4]), ]
+              ##  multitemp[,4]<-paste("+",multitemp[,4],sep='')
+              ##  multimasterexin_table <- rbind(multimasterexin_table, multitemp)
+              ##  }
+              
+              ##}else{
+              ##multimasterin_table<- rbind(in_table, in_table[grep("multi", in_table[, 4]), ])
+              ##  if (any(nrow(exin_table) > 0 && grepl("multi", exin_table[, 4])))
+              ##{
+              ##multimasterexin_table <- rbind(multimasterexin_table, exin_table[grep("multi", exin_table[, 4]), ])
+              
+              ##}
+              ##}
+              ##}
+              ##in_table<-multimasterin_table
+              ##excoord<-multimasterexcoord
+              
+              
+              ##}
+              
+              
+              #add to coord
+              
+              ##combine piecewise with total count    
               coord <- rbind(coord, in_table)
               ##make note where the breaks are
               ##excoord<-rbind(excoord,) ##constant exclusion
               
-              
             } else {
+              in_table<-data.frame()
               positions <-
                 strsplit(gsub("q", ",q", gsub("p", ",p", temp[[lengthcount * 2]][i])), ",")[[1]][2:length(strsplit(gsub(
                   "q", ",q", gsub("p", ",p", temp[[lengthcount * 2]][i])
@@ -1029,14 +1133,14 @@ CytoConverter<-function(in_data)
                 {
                   if (is.vector(positions_table))
                   {
-                    coord <-
-                      rbind(coord,
+                    in_table <-
+                      rbind(in_table,
                             cbind(chr_table[1, 1], "0", positions_table[3], derMods[lengthcount * 2 -
                                                                                       1]))
                     
                   } else{
-                    coord <-
-                      rbind(coord,
+                    in_table <-
+                      rbind(in_table,
                             cbind(chr_table[1, 1], "0", positions_table[nrow(positions_table), 3], derMods[lengthcount *
                                                                                                              2 - 1]))
                   }
@@ -1045,9 +1149,9 @@ CytoConverter<-function(in_data)
                 {
                   if (is.vector(positions_table))
                   {
-                    coord <-
+                    in_table <-
                       rbind(
-                        coord,
+                        in_table,
                         cbind(
                           chr_table[1, 1],
                           positions_table[2],
@@ -1057,9 +1161,9 @@ CytoConverter<-function(in_data)
                       )
                     
                   } else{
-                    coord <-
+                    in_table <-
                       rbind(
-                        coord,
+                        in_table,
                         cbind(
                           chr_table[1, 1],
                           positions_table[1, 2],
@@ -1070,9 +1174,9 @@ CytoConverter<-function(in_data)
                   }
                 }
               } else{
-                coord <-
+                in_table <-
                   rbind(
-                    coord,
+                    in_table,
                     cbind(
                       chr_table[1, 1],
                       positions_table[1, 2],
@@ -1081,13 +1185,59 @@ CytoConverter<-function(in_data)
                     )
                   )
               }
+              
+              ##do multi (X2) processing 
+              ##for over X2 times, its a gain 
+              ##if (nrow(in_table) > 0 && any(grepl("multi", in_table[, 4])))
+              ##{
+              
+              ##n <- multi - 1
+              ##multimasterin_table<-in_table
+              ## multimasterexin_table<-exin_table
+              ##for (f in 1:n)
+              ##{
+              ##if(f>1)
+              ##{
+              ##multitemp<-in_table[grep("multi", in_table[, 4]), ]
+              ##multitemp[,4]<-paste("+",multitemp[,4],sep='')
+              ##multimasterin_table<- rbind(multimasterin_table, multitemp)
+              ##if (any(nrow(exin_table) > 0 && grepl("multi", exin_table[, 4])))
+              ##{
+              ##multitemp<-exin_table[grep("multi", exin_table[, 4]), ]
+              ##  multitemp[,4]<-paste("+",multitemp[,4],sep='')
+              ##  multimasterexin_table <- rbind(multimasterexin_table, multitemp)
+              ##  }
+              
+              ##}else{
+              ##multimasterin_table<- rbind(in_table, in_table[grep("multi", in_table[, 4]), ])
+              ##  if (any(nrow(exin_table) > 0 && grepl("multi", exin_table[, 4])))
+              ##{
+              ##multimasterexin_table <- rbind(multimasterexin_table, exin_table[grep("multi", exin_table[, 4]), ])
+              
+              ##}
+              ##}
+              ##}
+              ##  in_table<-multimasterin_table
+              ##excoord<-multimasterexcoord
+              
+              
+              
+              ##}
+              
+              ##combine piecewise with total count    
+              coord <- rbind(coord, in_table)
+              ##make note where the breaks are
+              ##excoord<-rbind(excoord,) ##constant exclusion
+              
             }
+            
             
             
           }
         }
       }
     }
+    
     
     
     ##for loop every chr
@@ -1110,32 +1260,85 @@ CytoConverter<-function(in_data)
         })
       
       ##sort in order numerically
-      coord[,2:3]<-t(apply(coord[,2:3],1,function(x){sort(x)}))
+      ##coord[,2:3]<-t(apply(coord[,2:3],1,function(x){sort(x)}))
       
       ##if there are two translocations, fix coordinate overlap so only overlap counts,
-      if(str_count(Cyto_sample[coln],"t\\(")>1)
-      {
-        ##find which chromosomes have more than one reading
-        ##index of entries with chromosomes
-        chromindex<-lapply(unique(coord[,1]),function(x){grep(x,coord[,1])})
-        ##which index in chrom index have more than 2 readings
-        relevantindex<-which(lapply(chromindex,length)>1)
-        for(z in 1:length(relevantindex))
-        {
-          tempcoord<-coord[chromindex[[relevantindex[z]]],]
-          
-          
-        }
-        
-      }
+      
+      ##if(str_count(Cyto_sample[coln],"t\\(")>1)
+      ##{
+      ##find which chromosomes have more than one reading
+      ##index of entries with chromosomes
+      
+      #add to coord
+      
+      ##combine piecewise with total count    
+      ##coord <- rbind(coord, in_table)
+      ##make note where the breaks are
+      ##excoord<-rbind(excoord,) ##constant exclusion
+      ##chromindex<-lapply(unique(coord[,1]),function(x){grep(x,coord[,1])})
+      ##which index in chrom index have more than 2 readings
+      ##relevantindex<-which(lapply(chromindex,length)>1)
+      ##for(z in 1:length(relevantindex))
+      ##{
+      ##  tempcoord<-coord[chromindex[[relevantindex[z]]],]
+      
+      
+      ##    }
+      
+      ##}
       
       ##make sure coords are in numerical order 
       coord<-coord[order(coord[,1],coord[,2]),]
-      ##fix this for different chromosomes
-      ##excoord<-Cyto_ref_table[which(as.character(Cyto_ref_table[,1])=="chr16" & as.numeric(as.character(Cyto_ref_table[,2])) > 16800000 & as.numeric(as.character(Cyto_ref_table[,2]))<0),1:3]
-      ##somehere here its grepping the wrong thing, seems speficical to vecotrs
-      ##something wrong is happening here - 37 long  der()t()del() <- think somethieng here is over experessiong
-      ##Chr<-unique(c(Mainchr,Allchr))
+      
+      
+      
+      ##all chromosomes used
+      Chr<-unique(c(Mainchr,Allchr))
+      
+      
+      #make sure translocations are consistant
+      for(p in 1:length(Chr))
+      {
+        curChr <- Chr[p]
+        
+        tempChr = coord[grep(paste(
+          "chr",
+          curChr,
+          "$" ,
+          sep = "",
+          collapse = "|"
+        ),
+        coord[, 1]), ]
+        tempChr = apply(tempChr, 2, as.character)
+        
+        
+        
+        if(!is.vector(tempChr) && grepl("t\\(",tempChr[,4]) && nchar(addBool)>0)
+        {
+          ##sub out translocations--delete areas of no overlap, mainchr only, translocatios only
+          ##transloc<-tempChr[grep(paste("der\\(",gsub("\\$","",curChr),"t\\(",sep=""),tempChr[,4]),]
+          transloc<-tempChr[grep("t\\(",tempChr[,4]),]
+          if((is.data.frame(transloc) | is.matrix(transloc))&&nrow(transloc) > 1)
+          {
+            temptransloc<-c(tempChr[1,1],mergeIntOverlap(as.numeric(transloc[1,2:3]),as.numeric(transloc[2,2:3])),tempChr[1,4])
+            tempChr<-tempChr[-1*grep("t\\(",tempChr[,4]),]
+            tempChr<-rbind(tempChr,temptransloc)
+            coord<-rbind(temptransloc,coord[-1*intersect(grep("t\\(",coord[,4]),grep(paste("chr",curChr,sep=""),coord[,1])),])
+          }
+        }
+        if(is.data.frame(tempChr)&&nrow(tempChr)==1)
+        {
+          tempChr<-as.vector(tempChr)
+        }
+      }
+      
+      
+      ##make sure coords are in numerical order again
+      coord<-coord[order(coord[,1],coord[,2]),]
+      
+      
+      ##make excoord table
+      
       for (p in 1:length(Mainchr))
       {
         ##need something for $ so chr 1 doesnt net chr 10
@@ -1150,6 +1353,7 @@ CytoConverter<-function(in_data)
         ),
         coord[, 1]), ]
         tempChr = apply(tempChr, 2, as.character)
+        
         
         
         if (is.vector(tempChr))
@@ -1167,11 +1371,13 @@ CytoConverter<-function(in_data)
           
         }
         else{
+          
+          
           for (z in 1:nrow(tempChr))
           {
             if (z == 1)
             {
-              if( !identical(gsub(" ","",as.character(tempChr[1, 2])), as.character(0)))
+              if( !identical(gsub(" ","",as.character(tempChr[1, 2])), "0"))
               {
                 excoord = rbind(excoord,
                                 cbind(tempChr[z, 1], 0, tempChr[z, 2], tempChr[z, 4]))
@@ -1251,15 +1457,28 @@ CytoConverter<-function(in_data)
       }
       if(length(bads)>0)
       {
-        excoord<-excoord[-bads,]
+        if(nrow(excoord[-bads,])>0){
+          excoord<-excoord[-bads,]
+        }else
+        {
+          excoord<-data.frame()
+        }
       }
       excoord[, 4] <- paste(addBool, excoord[, 4], sep = "")
       
     }
     
+    
+    
     ##make sure this does what i want it to
     ##excoord<-unique(excoord)
     ##coord<-unique(coord)
+    
+    ##}
+    
+    
+    ##have to fix derivative chromosomes  with two translocations , if they overlap in a chromosome , its the overlapping increment that maters
+    
     
     ##do multi (X2) processing right now
     ##for over X2 times, its a gain 
@@ -1295,10 +1514,6 @@ CytoConverter<-function(in_data)
       coord<-multimastercoord
       excoord<-multimasterexcoord
     }
-    
-    ##have to fix derivative chromosomes  with two translocations , if they overlap in a chromosome , its the overlapping increment that maters
-    
-    
     
     
     
@@ -1350,8 +1565,8 @@ CytoConverter<-function(in_data)
   
   mergeGL<-function(v1,v2){
     labs<-c("Gain", "Loss")
-    v1<-as.vector(as.integer(as.numeric(v1[1:2])))
-    v2<-as.vector(as.integer(as.numeric(v2[1:2])))
+    v1<-as.vector(as.integer(as.numeric(apply(v1[1:2],1,as.character))))
+    v2<-as.vector(as.integer(as.numeric(apply(v2[1:2],1,as.character))))
     out<-as.data.frame(matrix(nrow=0,ncol=3))
     colnames(out)<-c("Start","End","Type")
     out<-cbind(as.integer(as.numeric(out[,1])),as.integer(as.numeric(out[,2])),out[,3])
@@ -1362,9 +1577,9 @@ CytoConverter<-function(in_data)
       v2<-tmp}
     
     if(v1[2]>=v2[2]){
-      out<-data.frame(Start=c(v1[1],v2[2]+1), End=c(v2[1]-1, v1[2]), 
+      out<-data.frame(Start=c(v1[1],v2[2]), End=c(v2[1], v1[2]), 
                       Type=rep(labs[1],2))} else{if(v1[2]>=v2[1]){
-                        out<-data.frame(Start=c(v1[1],v1[2]+1), End=c(v2[1]-1, v2[2]), 
+                        out<-data.frame(Start=c(v1[1],v1[2]), End=c(v2[1], v2[2]), 
                                         Type=labs)} else{out<-data.frame(Start=c(v1[1],v2[1]), End=c(v1[2], v2[2]), 
                                                                          Type=labs)}}
     
@@ -1375,9 +1590,7 @@ CytoConverter<-function(in_data)
     if(nrow(out)==nrow(origMat) && identical(out,origMat))
     {
       out=list(out,TRUE)
-    }
-    else
-    {
+    }else{
       out=list(out,FALSE)
     }
     return(out)}
@@ -1400,8 +1613,11 @@ CytoConverter<-function(in_data)
         modified<-nxt[[2]]
         nxt<-nxt[[1]]
         w<-which(nxt[,3]=="Loss")
-        if(length(w)>0){newL<-rbind(newL, nxt[w,],if(nrow(L[-j])<j){L[-j,][j:nrow(L[-j,]),]})}else if(nrow(nxt)>0){newL<-rbind(newL,if(nrow(L[-j])<j){L[-j,][j:nrow(L[-j,]),]})}
-        ##print(list(j,modified,newL))
+        if(length(w)>0){newL<-rbind(newL, nxt[w,],
+                                    if(nrow(L[-j,])>=j){L[-j,][j:nrow(L[-j,]),]}
+        )
+        }else if(nrow(nxt)>0){newL<-rbind(newL,if(nrow(L[-j,])>=j){L[-j,][j:nrow(L[-j,]),]})}else{newL<-rbind(newL,apply(L[-j,],2,as.character))}
+        print(list(j,modified,newL))
         j<-j+1
       }
       L<-newL
@@ -1411,7 +1627,7 @@ CytoConverter<-function(in_data)
     
     i<-1
     while(nrow(G)>0 & i<=nrow(origL)){
-      newG<-matrix(ncol=2, nrow=0)
+      newG<-matrix(ncol=3, nrow=0)
       j<-1
       modified<-TRUE
       ##print(list(i,G))
@@ -1421,13 +1637,23 @@ CytoConverter<-function(in_data)
         modified<-nxt[[2]]
         nxt<-nxt[[1]]
         w<-which(nxt[,3]=="Gain")
-        if(length(w)>0){newG<-rbind(newG, nxt[w,],if(nrow(G[-j])<j){G[-j,][j:nrow(G[-j,]),]})}else if(nrow(nxt)>0){newG<-rbind(newG,if(nrow(G[-j])<j){G[-j,][j:nrow(G[-j,]),]})}
-        ##print(list(j,modified,newG))
+        if(length(w)>0){newG<-rbind(newG, nxt[w,],
+                                    if(nrow(G[-j,])>=j ){G[-j,][j:nrow(G[-j,]),]}
+        )
+        }else if(nrow(nxt)>0){newG<-rbind(newG,if(nrow(G[-j,])>=j){G[-j,][j:nrow(G[-j,]),]})}else{newG<-rbind(newG,G[-j,])}
+        print(list(j,modified,newG))
         j<-j+1
       }
       G<-newG
       i<-i+1
     }
+    
+    G[,1]<-as.numeric(as.character(G[,1]))
+    G[,2]<-as.numeric(as.character(G[,2]))
+    L[,1]<-as.numeric(as.character(L[,1]))
+    L[,2]<-as.numeric(as.character(L[,2]))
+    
+    
     
     out<-data.frame(Start=c(G[,1], L[,1]), End=c(G[,2],L[,2]), 
                     Type=c(rep("Gain", nrow(G)), rep("Loss", nrow(L))))
@@ -1471,6 +1697,8 @@ CytoConverter<-function(in_data)
   ### v1 and v2 are each two-vectors giving the interval  
   
   mergeInt<-function(v1,v2){
+    v1<-as.integer(as.character(v1))
+    v2<-as.integer(as.character(v2))
     if(is.na(prod(c(v1,v2)))){return(NA)}
     if(v1[1]>v2[1]){
       tmp<-v1
@@ -1480,6 +1708,22 @@ CytoConverter<-function(in_data)
     if(v1[2]+1<v2[1]){return(NA)}
     
     return(c(v1[1], max(c(v1[2], v2[2]))))}
+  
+  ##returns overlaped region, deletes unoverlaps
+  mergeIntOverlap<-function(v1,v2){
+    if(is.na(prod(c(v1,v2)))){return(NA)}
+    if(v1[1]>v2[1]| v2[1]<v1[2]){
+      
+      v3<-sort(c(v1,v2))
+      v3<-v3[c(2,3)]
+      
+    }
+    
+    ##if(v1[2]+1<v2[1]){return(NA)}
+    
+    return(v3)
+  }
+  
   
   ##mergeintL
   mergeIntL<-function(v1,v2){
@@ -1938,7 +2182,7 @@ CytoConverter<-function(in_data)
               {
                 ##deals with if there is one deletion, will deal w multiple cases later
                 ##this is a factor problem
-                deleted <- temp_table[intersect(grep("del", temp_table[-1, 4]),grep("^del", temp_table[-1, 4],invert=T)), ]
+                deleted <- temp_table[-1,][intersect(grep("del", temp_table[-1, 4]),grep("^del", temp_table[-1, 4],invert=T)), ]
                 if(length(deleted)>0 && nrow(deleted)>0)
                 {
                   
@@ -1990,7 +2234,7 @@ CytoConverter<-function(in_data)
                         for(l in 1:length(tempChrTableIndex))
                         {
                           if (identical(as.numeric(deleted[k, 2]),
-                                        as.numeric(temp_table[tempChrTableIndex[1], 2])))
+                                        as.numeric(temp_table[tempChrTableIndex[l], 2])))
                           {
                             temp_table[1, 2] <- deleted[k,3]
                           } else if (identical(as.numeric(deleted[k,3]),
@@ -2079,10 +2323,10 @@ CytoConverter<-function(in_data)
                 ##do inclusion and exclusion based on deleted case
                 
                 temp_table[grep("ider\\(.*", temp_table[, 4]), 4] <-
-                  "Loss"
+                  "Gain"
                 if(nrow(ex_table)>0)
                 {
-                  ex_table[grep("ider\\(.*", ex_table[, 4]), 4] <- "Gain"
+                  ex_table[grep("ider\\(.*", ex_table[, 4]), 4] <- "Loss"
                 }
                 temp_table[, 4] <-
                   paste(additionTable[[1]], temp_table[, 4], sep = "")
@@ -2094,7 +2338,6 @@ CytoConverter<-function(in_data)
                 temp_table <- rbind(temp_table, ex_table)
                 
               }
-              ##fix this stuff dic
               
               if (any(grepl("idic\\(.*", temp_table[, 4])))
               {
@@ -2789,7 +3032,7 @@ CytoConverter<-function(in_data)
     if(any(grepl("ids",Cyto_sample)))
     {
       ##index of anything thats - in a clonal evolution step
-      mut_gone_index<-grep("-[[:alpha:]]+\\(&!?",Cyto_sample)
+      mut_gone_index<-grep("-[[:alpha:]]+\\(",Cyto_sample)
       if(length(mut_gone_index)>0)
       {
         mut_list<-sapply(Cyto_sample[mut_gone_index],function(x){gsub("\\)","\\\\)",gsub("\\(","\\\\(",substr(x,2,nchar(x))))})
@@ -2799,8 +3042,10 @@ CytoConverter<-function(in_data)
     }
     
     ##check to make sure the input is roughly a karyotype before processing
-    if(grepl("[[:digit:]]+((~|-)[[:digit:]]+)*(<[[:digit:]]+n>)*,",paste(Cyto_sample,collapse=',',sep='')))
+    if(grepl("[[:digit:]]+((~|-)[[:digit:]]+)*(<[[:digit:]]+n>)*,",paste(Cyto_sample,collapse=',',sep=''))&&grepl("[[:digit:]]",Cyto_sample[1]))
     {
+      
+      
       tottable<-samparse(i)
       if(is.character(tottable))
       {
@@ -2847,9 +3092,14 @@ CytoConverter<-function(in_data)
           }
         }
       }
-    }else
-    {
-      ##Dump_table<-rbind(Dump_table,c(Con_data[i, ], "karyotype is incorrect"))
+    }else{
+      if(grepl("[[:digit:]]",Cyto_sample[1]))
+      {
+        Dump_table<-rbind(Dump_table,c(Con_data[i, ], "karyotype number not specified"))
+        
+      }else{
+        Dump_table<-rbind(Dump_table,c(Con_data[i, ], "karyotype is incorrect"))
+      }
     }
   }
   
@@ -2911,7 +3161,7 @@ CytoConverter<-function(in_data)
     }
     else{
       ##nxt <- nxt / sum(nxt)
-      if(is_cp)
+      if(any(is_cp))
       {
         col3[w] <- paste("1-",nxt," of ",sum(nxt),sep='')
       }else
@@ -2972,5 +3222,223 @@ CytoConverter<-function(in_data)
   
   result<-list(Final_Final_table,Dump_table)
   names(result)<-list("Result","Error_log")
+  
 return(result)
+}
+
+
+##setting up blank plot
+cyto_graph<-function(cyto_list,ref_list){
+  
+  ##if it is string, set it equal to one of the stuff  
+  if(length(ref_list)<=1)
+  {
+    if(ref_list =="GRCh38")
+    {
+      ref_list <-
+        sapply(as.data.frame(
+          read.delim("cytoBand_GRCh38.txt", header = FALSE)
+        ), as.character)
+    }else if(ref_list =="hg19"){
+      ref_list <-
+        sapply(as.data.frame(
+          read.delim("cytoBand_hg19.txt", header = FALSE)
+        ), as.character)
+    }else if(ref_list =="hg18"){
+      ref_list <-
+        sapply(as.data.frame(
+          read.delim("cytoBand_hg18.txt", header = FALSE)
+        ), as.character)
+    }else if(ref_list=="hg17"){
+      ref_list <-
+        sapply(as.data.frame(
+          read.delim("cytoBand_hg17.txt", header = FALSE)
+        ), as.character)
+      
+    }else if(is.null(ref_list))
+    {
+      ##default is grch38
+      ref_list <-
+        sapply(as.data.frame(
+          read.delim("G:/My Drive/BRB work/cyto_project/cytoBand_GRCh38.txt", header = FALSE)
+        ), as.character) 
+    }else{
+      return("ref_list incorrectly specified")
+    }
+    
+    
+    ref_list <-as.data.frame(ref_list[sapply(unique(ref_list[,1]),function(x){grep(x,ref_list[,1])[length(grep(paste(x,"$",sep=""),ref_list[,1]))]}),][,c(1,3)])
+    ref_list<-apply(ref_list,2,as.character)  
+  }
+  
+  
+  
+  ##if not assume ref list was inputted 
+  
+  sorted_reflist<-ref_list[c(order(as.numeric(gsub("chr","",ref_list[1:22,1]))),23:24),]
+  coords<-as.numeric(sorted_reflist[,2])
+  ##length_coords<-coordss[2:length(coordss)]-coordss[1:(length(coordss)-1)]
+  cum_length_coords=cumsum(coords/(sum(coords)))
+  start_cum_length=c(0,cum_length_coords[1:length(cum_length_coords)-1])
+  ##setting up lables
+  
+  ##x coord starting point
+  xbegin=0
+  ##default parameters 
+  xcoord_master=0
+  
+  #determine how big graph should be
+  ##if(length(uniq_coord_name)<=2)
+  ##{
+  ##  y_above=0.90
+  ##  y_below=0.70
+  ##}
+  ##else if(length(uniq_coord_name)>10)
+  ##{
+  y_above=0.90
+  y_below=0.15
+  ##}else{
+  ##  y_above=0.90
+  ##  y_below=0.40
+  ##}
+  
+  uniq_coord_name<-vector()
+  rect_maker<-data.frame()
+  
+  
+  if(!is.null(cyto_list)&& nrow(cyto_list)>0)
+  {
+    ##plotting data values
+    coord_name<-cyto_list[,1]
+    coords_listed<-cyto_list[,2:5]
+    
+    ##adjust this for X and Y 
+    temp_coords<-gsub("chr","",coords_listed[,1])
+    temp_coords[grep("Y",temp_coords)]<-24
+    temp_coords[grep("X",temp_coords)]<-23
+    coordlist<-as.numeric(temp_coords);
+    
+    ##adjust chrom name for x and y for input data
+    coords_listed[grep("X",coords_listed[,1]),1]<-23
+    coords_listed[grep("Y",coords_listed[,1]),1]<-24
+    
+    
+    
+    ##y coordinates (by name)
+    uniq_coord_name<-unique(coord_name)
+    if(length(uniq_coord_name)>1)
+    {
+      matched_coord_names<-lapply(uniq_coord_name,function(x){y=which(x==coord_name);cbind(as.vector(y),rep(which(x==uniq_coord_name),length(y)))})
+    }else{
+      y=which(uniq_coord_name==coord_name)
+      matched_coord_names<-cbind(as.vector(y),rep(1,length(y)))
+    }
+    
+    if(is.list(matched_coord_names))
+    {
+      temp_coord_matrix<-data.frame()
+      for(i in length(matched_coord_names))
+      {
+        rbind(temp_coord_matrix,matched_coord_names[[i]])
+      }
+    }
+    
+    y_coordlist<-matrix(ncol=2,nrow=0)
+    if(is.list(matched_coord_names))
+    {
+      for(i in 1:length(matched_coord_names))
+      {
+        y_coordlist<-rbind(y_coordlist,matched_coord_names[[i]])
+      }
+    }else{
+      y_coordlist<-matched_coord_names
+      
+    }
+    
+    xcoord_master=max(nchar(as.character(uniq_coord_name)))*0.005+xbegin
+    
+    
+    
+    
+    y_area_coord=cbind((y_coordlist[,2]-1)*-(y_above-y_below)/length(uniq_coord_name)+y_above,y_above-y_coordlist[,2]*(y_above-y_below)/length(uniq_coord_name))
+    
+    
+    ##calculating where rectangle should start from how long the sample is
+    
+    
+    
+    ##x coordinates
+    xstart<-(start_cum_length[coordlist]+(as.numeric(coords_listed[,2]))/(sum(coords)))*(1-xcoord_master)+xcoord_master
+    xend<-(start_cum_length[coordlist]+(as.numeric(coords_listed[,3]))/(sum(coords)))*(1-xcoord_master)+xcoord_master
+    
+    
+    ##all info for coordinates
+    rect_maker<-as.data.frame(cbind(xstart,xend,y_area_coord,coords_listed[,4]))
+    rect_maker[,1:4]<-apply(rect_maker[,1:4],2,function(x){as.numeric(as.character(x))})
+    rect_maker[,5]<-as.character(rect_maker[,5])
+  }
+  sorted_reflist<-as.data.frame(sorted_reflist)
+  sorted_reflist[,1]<-as.character(sorted_reflist[,1])
+  sorted_reflist[,2]<-as.numeric(as.character(sorted_reflist[,2]))
+  return(list(rect_maker,xbegin,xcoord_master,y_above,y_below,sorted_reflist,cum_length_coords,start_cum_length,uniq_coord_name))
+}
+
+
+##actually plot the function from cyto graph
+plot_cyto_graph<-function(list_from_cyto){
+  
+  rect_maker<-list_from_cyto[[1]]
+  xbegin<-list_from_cyto[[2]]
+  xcoord_master<-list_from_cyto[[3]]
+  y_above<-list_from_cyto[[4]]
+  y_below<-list_from_cyto[[5]]
+  sorted_reflist<-list_from_cyto[[6]]
+  cum_length_coords<-list_from_cyto[[7]]
+  start_cum_length<-list_from_cyto[[8]]
+  uniq_coord_name<-list_from_cyto[[9]]  
+  
+  plot.new()
+  
+  plot.window(c(0,1),c(0,1),mar=rep(0,4))
+  
+  rect(xleft=xcoord_master, xright=1,ybottom=y_below,ytop=y_above,col="gray90")
+  
+  if(nrow(rect_maker)>0)
+  {
+    apply(rect_maker,1,
+          function(x){ 
+            if(x[5]=="Gain")
+            {
+              rect(xleft=x[1], xright=x[2],ybottom=x[3],ytop=x[4],col="red",border=NA)
+              
+            }else if(x[5]=="Loss"){
+              rect(xleft=x[1], xright=x[2],ybottom=x[3],ytop=x[4],col=rgb(0,0,1,alpha=0.5),border=NA)
+              
+            }
+            
+          })
+    
+    
+    ##take lines away if number of samples is over 20
+    if(length(uniq_coord_name)<20)
+    {
+      sapply(unique((rect_maker[,3])),function(x){lines(x=c(xcoord_master,1),y=c(x[1],x[1]))})
+    }
+    
+    text(x=xcoord_master,y=c(unique((rect_maker[,3]+rect_maker[,4])/2)),labels=uniq_coord_name,cex=0.8,pos=2)
+    
+  }
+  
+  lines(x=c(xcoord_master,xcoord_master),y=c(y_above+0.02,y_above+0.08))
+  sapply(cum_length_coords*(1-xcoord_master)+xcoord_master,function(x){lines(x=c(x,x),y=c(y_above+0.02,y_above+0.08));lines(x=c(x,x),y=c(y_above,y_below),col="white")})
+  lines(x=c(xcoord_master,1),y=c(y_above+0.02,y_above+0.02))
+  text(x=c(start_cum_length*(1-xcoord_master)+xcoord_master+as.numeric(sorted_reflist[,2])/sum(as.numeric(sorted_reflist[,2]))/2*(1-xcoord_master)),y=(y_above*2+0.1)/2,labels=gsub("chr","",sorted_reflist[,1]),cex=1,offset=0)
+  
+  
+  rect(xleft=xcoord_master, xright=1,ybottom=y_below,ytop=y_above,col=NA)
+  
+  ##legend(x=0.20,y= 0.2,uniq_coord_name)
+  legend(x=1,y= y_below-0.03,legend=c("Gain","Hemizygous Loss","Homozygous Loss"),fill=c("red",rgb(0,0,1,alpha=0.5),"blue"),xjust=1,yjust=1,cex=0.7)
+  ##xlab("Chromosome")
+  ##ylab("Sample")
 }
