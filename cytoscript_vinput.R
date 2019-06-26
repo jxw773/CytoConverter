@@ -11,6 +11,19 @@ if(require("stringr")){
   }
 }
   
+
+if(require("DescTools")){
+  print("DescTools is loaded correctly")
+} else {
+  print("trying to install DescTools")
+  install.packages("DescTools")
+  if(require("DescTools")){
+    print("DescTools installed and loaded")
+  } else {
+    stop("could not install DescTools")
+  }
+}
+
 if(require("stringi")){
   print("stringi is loaded correctly")
 } else {
@@ -23,29 +36,38 @@ if(require("stringi")){
     }  
 }
 
-CytoConverter<-function(in_data,build){
+#' CytoConverter Function
+#' 
+#' This function accepts string or matrix input. Strings must be karyotypes and tables must have sample name in the first column and karyotype in the second column. The function outputs a table  
+#' @param in_data
+#' @param build
+#' @keyword
+#' @export
+#' @examples 
+#' CytoConverter()
+CytoConverter<-function(in_data,build="GRCh38"){
 ##reference file to load
 ##specific loc
 if(build =="GRCh38")
 {
   Cyto_ref_table <-
     sapply(as.data.frame(
-      read.delim("cytoBand_GRCh38.txt", header = FALSE)
+      read.delim("Builds/cytoBand_GRCh38.txt", header = FALSE)
     ), as.character)
 }else if(build =="hg19"){
   Cyto_ref_table <-
     sapply(as.data.frame(
-      read.delim("cytoBand_hg19.txt", header = FALSE)
+      read.delim("Builds/cytoBand_hg19.txt", header = FALSE)
     ), as.character)
 }else if(build =="hg18"){
   Cyto_ref_table <-
     sapply(as.data.frame(
-      read.delim("cytoBand_hg18.txt", header = FALSE)
+      read.delim("Builds/cytoBand_hg18.txt", header = FALSE)
     ), as.character)
 }else if(build=="hg17"){
   Cyto_ref_table <-
     sapply(as.data.frame(
-      read.delim("cytoBand_hg17.txt", header = FALSE)
+      read.delim("Builds/cytoBand_hg17.txt", header = FALSE)
     ), as.character)
   
 }else if(is.null(build))
@@ -53,7 +75,7 @@ if(build =="GRCh38")
   ##default is grch38
   Cyto_ref_table <-
     sapply(as.data.frame(
-      read.delim("G:/My Drive/BRB work/cyto_project/cytoBand_GRCh38.txt", header = FALSE)
+      read.delim("Builds/cytoBand_GRCh38.txt", header = FALSE)
     ), as.character) 
 }else{
   return("build incorrectly specified")
@@ -550,9 +572,9 @@ if(build =="GRCh38")
     ##adds +etc on if it starts with something with +something
     ##this part is being messed up
     multi = 1 ##check if there is a X3 etc value , if there is pick that up, store, add to addtot, make it process through twice later
-    if (grepl("\\)X|\\)×", Cyto_sample[coln]))
+    if (grepl("\\)X|\\)x", Cyto_sample[coln]))
     {
-      multi = unlist(strsplit(Cyto_sample[coln], ")X|)×"))[2]
+      multi = unlist(strsplit(Cyto_sample[coln], ")X|)x"))[2]
       if (grepl("-|~", multi))
       {
         multi <- unlist(strsplit(multi, "~|-"))[1]
@@ -937,7 +959,7 @@ if(build =="GRCh38")
             ##if long form
             
             if (any(grepl("::", temp[[lengthcount * 2]][i]) |
-                    grepl("~>", temp[[lengthcount * 2]][i]))) {
+                    grepl("~>", temp[[lengthcount * 2]][i]) |   grepl("->", temp[[lengthcount * 2]][i]) )) {
               #parse data according to ::, in front of p and q are chromosomes, if qter or pter, do stuff, afterward is position, make table of things included, then make list of stuff excluded
               ##ask tom about this one
               ##find p or q, take stuff before take stuff after, before is chromosomes after is positions, this will return 2 objects, must take into account
@@ -1320,10 +1342,13 @@ if(build =="GRCh38")
           transloc<-tempChr[grep("t\\(",tempChr[,4]),]
           if((is.data.frame(transloc) | is.matrix(transloc))&&nrow(transloc) > 1)
           {
-            temptransloc<-c(tempChr[1,1],mergeIntOverlap(as.numeric(transloc[1,2:3]),as.numeric(transloc[2,2:3])),tempChr[1,4])
-            tempChr<-tempChr[-1*grep("t\\(",tempChr[,4]),]
-            tempChr<-rbind(tempChr,temptransloc)
-            coord<-rbind(temptransloc,coord[-1*intersect(grep("t\\(",coord[,4]),grep(paste("chr",curChr,sep=""),coord[,1])),])
+            if(as.numeric(transloc[1,2:3]) %overlaps% as.numeric(transloc[2,2:3]))
+            {  
+              temptransloc<-c(tempChr[1,1],mergeIntOverlap(as.numeric(transloc[1,2:3]),as.numeric(transloc[2,2:3])),tempChr[1,4])
+              tempChr<-tempChr[-1*grep("t\\(",tempChr[,4]),]
+              tempChr<-rbind(tempChr,temptransloc)
+              coord<-rbind(temptransloc,coord[-1*intersect(grep("t\\(",coord[,4]),grep(paste("chr",curChr,sep=""),coord[,1])),])
+            }
           }
         }
         if(is.data.frame(tempChr)&&nrow(tempChr)==1)
@@ -1435,7 +1460,7 @@ if(build =="GRCh38")
     }
     
     ##probably have to rework this because of inversions and insersions
-    if (length(excoord) > 0)
+    if (length(excoord) > 0 && !is.vector(excoord)&& ncol(excoord)>1)
     {
       ##excoord<-excoord[grep(paste(Mainchr,collapse="|"),excoord[,1]),]
       excoord[, 2:3] <-
@@ -1464,8 +1489,26 @@ if(build =="GRCh38")
           excoord<-data.frame()
         }
       }
-      excoord[, 4] <- paste(addBool, excoord[, 4], sep = "")
+      if(is.vector(excoord))
+      {
+        excoord[4]<-paste(addBool, excoord[ 4], sep = "")
+      }else if(ncol(excoord)==1){
+        excoord<-t(excoord)
+        excoord[4]<-paste(addBool, excoord[ 4], sep = "")
+        
+      }else
+      {
+        excoord[, 4] <- paste(addBool, excoord[, 4], sep = "")
+      }
+    }else if(ncol(excoord)==1)
+    {
+      excoord<-t(excoord)
+      ecoord[2:3]<-as.numeric(as.character(excoord[2:3]))
+      excoord[4]<-paste(addBool, excoord[ 4], sep = "")
+    }else if(is.vector(excoord)){
       
+      ecoord[2:3]<-as.numeric(as.character(excoord[2:3]))
+      excoord[4]<-paste(addBool, excoord[ 4], sep = "")
     }
     
     
@@ -1565,8 +1608,8 @@ if(build =="GRCh38")
   
   mergeGL<-function(v1,v2){
     labs<-c("Gain", "Loss")
-    v1<-as.vector(as.integer(as.numeric(apply(v1[1:2],1,as.character))))
-    v2<-as.vector(as.integer(as.numeric(apply(v2[1:2],1,as.character))))
+    v1<-as.vector(as.integer(as.numeric(as.character(v1[1:2]))))
+    v2<-as.vector(as.integer(as.numeric(as.character(v2[1:2]))))
     out<-as.data.frame(matrix(nrow=0,ncol=3))
     colnames(out)<-c("Start","End","Type")
     out<-cbind(as.integer(as.numeric(out[,1])),as.integer(as.numeric(out[,2])),out[,3])
@@ -1614,9 +1657,9 @@ if(build =="GRCh38")
         nxt<-nxt[[1]]
         w<-which(nxt[,3]=="Loss")
         if(length(w)>0){newL<-rbind(newL, nxt[w,],
-                                    if(nrow(L[-j,])>=j){L[-j,][j:nrow(L[-j,]),]}
+                                    if(nrow(L[-j,])>=j && !modified){L[-j,][j:nrow(L[-j,]),]}
         )
-        }else if(nrow(nxt)>0){newL<-rbind(newL,if(nrow(L[-j,])>=j){L[-j,][j:nrow(L[-j,]),]})}else{newL<-rbind(newL,apply(L[-j,],2,as.character))}
+        }else if(nrow(nxt)>0){newL<-rbind(newL,if(nrow(L[-j,])>=j && !modified){L[-j,][j:nrow(L[-j,]),]})}else{newL<-rbind(newL,apply(L[-j,],2,as.character))}
         print(list(j,modified,newL))
         j<-j+1
       }
@@ -1711,8 +1754,9 @@ if(build =="GRCh38")
   
   ##returns overlaped region, deletes unoverlaps
   mergeIntOverlap<-function(v1,v2){
+    v3=NA
     if(is.na(prod(c(v1,v2)))){return(NA)}
-    if(v1[1]>v2[1]| v2[1]<v1[2]){
+    if(v1[1] > v2[1]| v2[2] < v1[2] | v1[2] > v2[1] | v2[2] < v1[1]){
       
       v3<-sort(c(v1,v2))
       v3<-v3[c(2,3)]
@@ -2399,18 +2443,18 @@ if(build =="GRCh38")
                 mod = TRUE
                 if(any(grepl("long",temp_table[,4])))
                 {
-                  ex_table[intersect(grep("trc\\(.*", ex_table[, 4]),grep(paste(Mainchr[1],Mainchr[3],sep='|'),ex_table[,4])),4]<-"Loss"
+                  ex_table[intersect(grep("trc\\(.*", ex_table[, 4]),grep(paste(Mainchr[1],Mainchr[3],sep='|'),ex_table[,1])),4]<-"Loss"
                   
                 }else
                 {
-                  temp_table[intersect(grep("trc\\(.*", temp_table[, 4]),grep(paste(Mainchr[1],Mainchr[3],sep='|'),temp_table[,4])),4]<-"Loss"
+                  temp_table[intersect(grep("trc\\(.*", temp_table[, 4]),grep(paste(Mainchr[1],Mainchr[3],sep='|'),temp_table[,1])),4]<-"Loss"
                 }
                 
                 temp_table[, 4] <-
                   paste(additionTable[[1]], temp_table[, 4], sep = "")
                 if(nrow(ex_table)>0)
                 {
-                  ex_table[intersect(grep("trc\\(.*", ex_table[, 4]),grep(Mainchr[2],ex_table[,4])), 4] <- "Loss"
+                  ex_table[intersect(grep("trc\\(.*", ex_table[, 4]),grep(Mainchr[2],ex_table[,1])), 4] <- "Loss"
                   ex_table[, 4] <-
                     paste(additionTable[[2]], ex_table[, 4], sep = "")
                 }
@@ -3227,218 +3271,3 @@ return(result)
 }
 
 
-##setting up blank plot
-cyto_graph<-function(cyto_list,ref_list){
-  
-  ##if it is string, set it equal to one of the stuff  
-  if(length(ref_list)<=1)
-  {
-    if(ref_list =="GRCh38")
-    {
-      ref_list <-
-        sapply(as.data.frame(
-          read.delim("cytoBand_GRCh38.txt", header = FALSE)
-        ), as.character)
-    }else if(ref_list =="hg19"){
-      ref_list <-
-        sapply(as.data.frame(
-          read.delim("cytoBand_hg19.txt", header = FALSE)
-        ), as.character)
-    }else if(ref_list =="hg18"){
-      ref_list <-
-        sapply(as.data.frame(
-          read.delim("cytoBand_hg18.txt", header = FALSE)
-        ), as.character)
-    }else if(ref_list=="hg17"){
-      ref_list <-
-        sapply(as.data.frame(
-          read.delim("cytoBand_hg17.txt", header = FALSE)
-        ), as.character)
-      
-    }else if(is.null(ref_list))
-    {
-      ##default is grch38
-      ref_list <-
-        sapply(as.data.frame(
-          read.delim("G:/My Drive/BRB work/cyto_project/cytoBand_GRCh38.txt", header = FALSE)
-        ), as.character) 
-    }else{
-      return("ref_list incorrectly specified")
-    }
-    
-    
-    ref_list <-as.data.frame(ref_list[sapply(unique(ref_list[,1]),function(x){grep(x,ref_list[,1])[length(grep(paste(x,"$",sep=""),ref_list[,1]))]}),][,c(1,3)])
-    ref_list<-apply(ref_list,2,as.character)  
-  }
-  
-  
-  
-  ##if not assume ref list was inputted 
-  
-  sorted_reflist<-ref_list[c(order(as.numeric(gsub("chr","",ref_list[1:22,1]))),23:24),]
-  coords<-as.numeric(sorted_reflist[,2])
-  ##length_coords<-coordss[2:length(coordss)]-coordss[1:(length(coordss)-1)]
-  cum_length_coords=cumsum(coords/(sum(coords)))
-  start_cum_length=c(0,cum_length_coords[1:length(cum_length_coords)-1])
-  ##setting up lables
-  
-  ##x coord starting point
-  xbegin=0
-  ##default parameters 
-  xcoord_master=0
-  
-  #determine how big graph should be
-  ##if(length(uniq_coord_name)<=2)
-  ##{
-  ##  y_above=0.90
-  ##  y_below=0.70
-  ##}
-  ##else if(length(uniq_coord_name)>10)
-  ##{
-  y_above=0.90
-  y_below=0.15
-  ##}else{
-  ##  y_above=0.90
-  ##  y_below=0.40
-  ##}
-  
-  uniq_coord_name<-vector()
-  rect_maker<-data.frame()
-  
-  
-  if(!is.null(cyto_list)&& nrow(cyto_list)>0)
-  {
-    ##plotting data values
-    coord_name<-cyto_list[,1]
-    coords_listed<-cyto_list[,2:5]
-    
-    ##adjust this for X and Y 
-    temp_coords<-gsub("chr","",coords_listed[,1])
-    temp_coords[grep("Y",temp_coords)]<-24
-    temp_coords[grep("X",temp_coords)]<-23
-    coordlist<-as.numeric(temp_coords);
-    
-    ##adjust chrom name for x and y for input data
-    coords_listed[grep("X",coords_listed[,1]),1]<-23
-    coords_listed[grep("Y",coords_listed[,1]),1]<-24
-    
-    
-    
-    ##y coordinates (by name)
-    uniq_coord_name<-unique(coord_name)
-    if(length(uniq_coord_name)>1)
-    {
-      matched_coord_names<-lapply(uniq_coord_name,function(x){y=which(x==coord_name);cbind(as.vector(y),rep(which(x==uniq_coord_name),length(y)))})
-    }else{
-      y=which(uniq_coord_name==coord_name)
-      matched_coord_names<-cbind(as.vector(y),rep(1,length(y)))
-    }
-    
-    if(is.list(matched_coord_names))
-    {
-      temp_coord_matrix<-data.frame()
-      for(i in length(matched_coord_names))
-      {
-        rbind(temp_coord_matrix,matched_coord_names[[i]])
-      }
-    }
-    
-    y_coordlist<-matrix(ncol=2,nrow=0)
-    if(is.list(matched_coord_names))
-    {
-      for(i in 1:length(matched_coord_names))
-      {
-        y_coordlist<-rbind(y_coordlist,matched_coord_names[[i]])
-      }
-    }else{
-      y_coordlist<-matched_coord_names
-      
-    }
-    
-    xcoord_master=max(nchar(as.character(uniq_coord_name)))*0.005+xbegin
-    
-    
-    
-    
-    y_area_coord=cbind((y_coordlist[,2]-1)*-(y_above-y_below)/length(uniq_coord_name)+y_above,y_above-y_coordlist[,2]*(y_above-y_below)/length(uniq_coord_name))
-    
-    
-    ##calculating where rectangle should start from how long the sample is
-    
-    
-    
-    ##x coordinates
-    xstart<-(start_cum_length[coordlist]+(as.numeric(coords_listed[,2]))/(sum(coords)))*(1-xcoord_master)+xcoord_master
-    xend<-(start_cum_length[coordlist]+(as.numeric(coords_listed[,3]))/(sum(coords)))*(1-xcoord_master)+xcoord_master
-    
-    
-    ##all info for coordinates
-    rect_maker<-as.data.frame(cbind(xstart,xend,y_area_coord,coords_listed[,4]))
-    rect_maker[,1:4]<-apply(rect_maker[,1:4],2,function(x){as.numeric(as.character(x))})
-    rect_maker[,5]<-as.character(rect_maker[,5])
-  }
-  sorted_reflist<-as.data.frame(sorted_reflist)
-  sorted_reflist[,1]<-as.character(sorted_reflist[,1])
-  sorted_reflist[,2]<-as.numeric(as.character(sorted_reflist[,2]))
-  return(list(rect_maker,xbegin,xcoord_master,y_above,y_below,sorted_reflist,cum_length_coords,start_cum_length,uniq_coord_name))
-}
-
-
-##actually plot the function from cyto graph
-plot_cyto_graph<-function(list_from_cyto){
-  
-  rect_maker<-list_from_cyto[[1]]
-  xbegin<-list_from_cyto[[2]]
-  xcoord_master<-list_from_cyto[[3]]
-  y_above<-list_from_cyto[[4]]
-  y_below<-list_from_cyto[[5]]
-  sorted_reflist<-list_from_cyto[[6]]
-  cum_length_coords<-list_from_cyto[[7]]
-  start_cum_length<-list_from_cyto[[8]]
-  uniq_coord_name<-list_from_cyto[[9]]  
-  
-  plot.new()
-  
-  plot.window(c(0,1),c(0,1),mar=rep(0,4))
-  
-  rect(xleft=xcoord_master, xright=1,ybottom=y_below,ytop=y_above,col="gray90")
-  
-  if(nrow(rect_maker)>0)
-  {
-    apply(rect_maker,1,
-          function(x){ 
-            if(x[5]=="Gain")
-            {
-              rect(xleft=x[1], xright=x[2],ybottom=x[3],ytop=x[4],col="red",border=NA)
-              
-            }else if(x[5]=="Loss"){
-              rect(xleft=x[1], xright=x[2],ybottom=x[3],ytop=x[4],col=rgb(0,0,1,alpha=0.5),border=NA)
-              
-            }
-            
-          })
-    
-    
-    ##take lines away if number of samples is over 20
-    if(length(uniq_coord_name)<20)
-    {
-      sapply(unique((rect_maker[,3])),function(x){lines(x=c(xcoord_master,1),y=c(x[1],x[1]))})
-    }
-    
-    text(x=xcoord_master,y=c(unique((rect_maker[,3]+rect_maker[,4])/2)),labels=uniq_coord_name,cex=0.8,pos=2)
-    
-  }
-  
-  lines(x=c(xcoord_master,xcoord_master),y=c(y_above+0.02,y_above+0.08))
-  sapply(cum_length_coords*(1-xcoord_master)+xcoord_master,function(x){lines(x=c(x,x),y=c(y_above+0.02,y_above+0.08));lines(x=c(x,x),y=c(y_above,y_below),col="white")})
-  lines(x=c(xcoord_master,1),y=c(y_above+0.02,y_above+0.02))
-  text(x=c(start_cum_length*(1-xcoord_master)+xcoord_master+as.numeric(sorted_reflist[,2])/sum(as.numeric(sorted_reflist[,2]))/2*(1-xcoord_master)),y=(y_above*2+0.1)/2,labels=gsub("chr","",sorted_reflist[,1]),cex=1,offset=0)
-  
-  
-  rect(xleft=xcoord_master, xright=1,ybottom=y_below,ytop=y_above,col=NA)
-  
-  ##legend(x=0.20,y= 0.2,uniq_coord_name)
-  legend(x=1,y= y_below-0.03,legend=c("Gain","Hemizygous Loss","Homozygous Loss"),fill=c("red",rgb(0,0,1,alpha=0.5),"blue"),xjust=1,yjust=1,cex=0.7)
-  ##xlab("Chromosome")
-  ##ylab("Sample")
-}
