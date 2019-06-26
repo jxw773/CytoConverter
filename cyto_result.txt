@@ -1,0 +1,8 @@
+Sample ID	Chr	Start	End	Type	Cells Present
+ABC_1	chr1	0	125000000	Loss	unknown
+ABC_1	chr19	26500000	59128983	Loss	unknown
+DEF_1	chr10	17300000	135534747	Gain	unknown
+DEF_1	chr21	16400000	48129895	Gain	unknown
+P_10_1	chrX	0	155270560	Gain	30 of 80
+P_10_2	chr7	0	159138663	Gain	50 of 80
+P_10_2	chr9	0	141213431	Gain	50 of 80
