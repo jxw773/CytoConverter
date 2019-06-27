@@ -41,96 +41,99 @@ cyto_graph<-function(cyto_list,ref_list="GRCh38"){
     
     ref_list <-as.data.frame(ref_list[sapply(unique(ref_list[,1]),function(x){grep(x,ref_list[,1])[length(grep(paste(x,"$",sep=""),ref_list[,1]))]}),][,c(1,3)])
     ref_list<-apply(ref_list,2,as.character)  
+  }else{
+    ref_list<-apply(ref_list,2,as.character)  
   }
   
   ##cyto_list<-cyto_list[order(cyto_list[,1],order(cyto_list[,2],cyto_list[,3])),]
+  if(nrow(cyto_list) >= 1)
+  {
+      
+    double_loss<-cyto_list[which(cyto_list[,5]=="Loss"),]
+    double_loss[,1]<-as.character(double_loss[,1])
   
-    
-  double_loss<-cyto_list[which(cyto_list[,5]=="Loss"),]
-  double_loss[,1]<-as.character(double_loss[,1])
-
-  if(nrow(double_loss)>1)
-  {
-    loss_overlap<-data.frame()
-    chr_list<-unique(double_loss[,2])
-    name_list<-as.character(unique(double_loss[,1]))
-    
-  for(i in 1:length(chr_list))
-  {
-        for(k in 1:length(name_list))
-        {
-          chr_table<-double_loss[intersect(which(double_loss[,2]==chr_list[i]) , which(double_loss[,1]==name_list[k] )),]
-          
-          ##don't do this, check for complete overlap first, if so , skip any that are in completely 
-          
-          ##chr_table_ctr<-cbind("test",unique.data.frame(chr_table[,2:4]),"Loss")
-          if(nrow(chr_table) >=2)
+    if(nrow(double_loss)>1)
+    {
+      loss_overlap<-data.frame()
+      chr_list<-unique(double_loss[,2])
+      name_list<-as.character(unique(double_loss[,1]))
+      
+    for(i in 1:length(chr_list))
+    {
+          for(k in 1:length(name_list))
           {
-            chr_table <- chr_table[order(chr_table[,2],chr_table[,3]),]
+            chr_table<-double_loss[intersect(which(double_loss[,2]==chr_list[i]) , which(double_loss[,1]==name_list[k] )),]
             
-            for(d in 1:(nrow(chr_table)-1))
+            ##don't do this, check for complete overlap first, if so , skip any that are in completely 
+            
+            ##chr_table_ctr<-cbind("test",unique.data.frame(chr_table[,2:4]),"Loss")
+            if(nrow(chr_table) >=2)
             {
-              overlap=F
-              if(!is.na(chr_table[d,1])){
-                for(j in (d+1):(nrow(chr_table))){
-                    if(!is.na(chr_table[j,1])){
-                    
-                      first <- as.numeric(chr_table[d,3:4])
-                      sec <- as.numeric(chr_table[j,3:4])
-                      if(first %overlaps% sec)
-                      {
-                        overlap=T
-                        ##if(first[2] >  sec[1]){
-                         ## chr_table[d,3] <- sec[1]
-                       ## }
-                       
-                        
-                        ##if(first[1] >  sec[2]){
-                        ##  chr_table[d,2] <- sec[2]
-                       ## }
-                        if(first[2] >  sec[2]){
-                          chr_table[d,4] <- sec[2]
-                        }
-                        
-                        if(first[1] <  sec[1]){
-                          chr_table[d,3] <- sec[1]
-                        }
-                        chr_table[j,] <- rep(NA,6)
-                        
-                      }
-                  }
-                }
-
-              }
+              chr_table <- chr_table[order(chr_table[,2],chr_table[,3]),]
               
-              if(overlap)
+              for(d in 1:(nrow(chr_table)-1))
               {
-                loss_overlap<-rbind(loss_overlap,chr_table[d,])
-              }
-
-            }
-          }
-          
-    
-        }
-
-  }
-    if(is.vector(loss_overlap)&& !is.na(loss_overlap[1]))
-    {
-      
-      loss_overlap[5]<-"Double"
-      cyto_list<-rbind(cyto_list,loss_overlap)
-      
-    }else if(nrow(loss_overlap)>0)
-    {
-      
-      loss_overlap <- loss_overlap[which(!is.na(loss_overlap[,1])),]
-      loss_overlap[,5]<-"Double"
-      cyto_list<-rbind(cyto_list,loss_overlap)
-    }  
-  }
-  ##if not assume ref list was inputted 
+                overlap=F
+                if(!is.na(chr_table[d,1])){
+                  for(j in (d+1):(nrow(chr_table))){
+                      if(!is.na(chr_table[j,1])){
+                      
+                        first <- as.numeric(chr_table[d,3:4])
+                        sec <- as.numeric(chr_table[j,3:4])
+                        if(first %overlaps% sec)
+                        {
+                          overlap=T
+                          ##if(first[2] >  sec[1]){
+                           ## chr_table[d,3] <- sec[1]
+                         ## }
+                         
+                          
+                          ##if(first[1] >  sec[2]){
+                          ##  chr_table[d,2] <- sec[2]
+                         ## }
+                          if(first[2] >  sec[2]){
+                            chr_table[d,4] <- sec[2]
+                          }
+                          
+                          if(first[1] <  sec[1]){
+                            chr_table[d,3] <- sec[1]
+                          }
+                          chr_table[j,] <- rep(NA,6)
+                          
+                        }
+                    }
+                  }
   
+                }
+                
+                if(overlap)
+                {
+                  loss_overlap<-rbind(loss_overlap,chr_table[d,])
+                }
+  
+              }
+            }
+            
+      
+          }
+  
+    }
+      if(is.vector(loss_overlap)&& !is.na(loss_overlap[1]))
+      {
+        
+        loss_overlap[5]<-"Double"
+        cyto_list<-rbind(cyto_list,loss_overlap)
+        
+      }else if(nrow(loss_overlap)>0)
+      {
+        
+        loss_overlap <- loss_overlap[which(!is.na(loss_overlap[,1])),]
+        loss_overlap[,5]<-"Double"
+        cyto_list<-rbind(cyto_list,loss_overlap)
+      }  
+    }
+    ##if not assume ref list was inputted 
+  }
   sorted_reflist<-ref_list[c(order(as.numeric(gsub("chr","",ref_list[1:22,1]))),23:24),]
   coords<-as.numeric(sorted_reflist[,2])
   ##length_coords<-coordss[2:length(coordss)]-coordss[1:(length(coordss)-1)]
@@ -161,6 +164,7 @@ cyto_graph<-function(cyto_list,ref_list="GRCh38"){
   uniq_coord_name<-vector()
   rect_maker<-data.frame()
   matched_coord_names<-vector()
+  y_coordlist<-matrix(ncol=2,nrow=0)
   
   if(!is.null(cyto_list) && nrow(cyto_list) > 0)
   {
@@ -200,8 +204,7 @@ cyto_graph<-function(cyto_list,ref_list="GRCh38"){
     ##  }
   ##  }
   ##  
-   }
-    y_coordlist<-matrix(ncol=2,nrow=0)
+   
     if(is.list(matched_coord_names))
     {
       for(i in 1:length(matched_coord_names))
@@ -211,7 +214,7 @@ cyto_graph<-function(cyto_list,ref_list="GRCh38"){
     }else{
       y_coordlist<-matched_coord_names
     }
-  
+  }
     xcoord_master=max(nchar(as.character(uniq_coord_name)))*0.005+xbegin
     
     

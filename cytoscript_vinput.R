@@ -271,7 +271,7 @@ if(build =="GRCh38")
     
     
     if (any(grepl("::", temp[[lengthcount * 2]][i]) |
-            grepl("~>", temp[[lengthcount * 2]][i]))) {
+            grepl("~>", temp[[lengthcount * 2]][i]) | grepl("->", temp[[lengthcount * 2]][i])  )) {
       #parse data according to ::, in front of p and q are chromosomes, if qter or pter, do stuff, afterward is position, make table of things included, then make list of stuff excluded
       ##ask tom about this one
       ##find p or q, take stuff before take stuff after, before is chromosomes after is positions, this will return 2 objects, must take into account
@@ -279,7 +279,7 @@ if(build =="GRCh38")
       ##ask tom about this one
       ##only splits first one
       longform_table <-
-        strsplit(strsplit(temp[[lengthcount * 2]][i], "::")[[1]], "~>")
+        strsplit(strsplit(temp[[lengthcount * 2]][i], "::")[[1]], "(~>)|(->)")
       ##take away any front loaded : 
       longform_table <-lapply(longform_table,function(x){gsub(':','',x)})
       
@@ -353,8 +353,7 @@ if(build =="GRCh38")
         positions_table <-
           matrix(chr_table_2[grep(paste(positions, collapse = "|", sep = "|"),
                                   chr_table_2[, 4]), ], ncol = 5)
-        
-        
+
         
         if (is.vector(positions_table))
         {
@@ -409,13 +408,46 @@ if(build =="GRCh38")
           ##c(currentvec, paste(chr_table[grep(positions, chr_table[, 4]) 
           ##                          , 4][1], chr_table[1, 4], sep = ''))
         }
-      } else{
+      }else{
+        
+        ## restrict if positions are at the ends of the chromosome
+        pos<-grep(paste(positions,sep="",collapse="|"), chr_table[, 4])
+        if(pos[length(pos)] +1 >nrow(chr_table) && pos[1]==1)
+        {
+          currentvec<-c(
+            currentvec,
+            paste(chr_table[nrow(chr_table), 4], sep = ''),
+            paste(chr_table[1, 4], sep = '')
+          )
+          
+        }else if(pos[length(pos)] +1 >nrow(chr_table)){
+          ##if cyto is at the top
+          currentvec<-   c(
+            currentvec,
+            paste(chr_table[nrow(chr_table), 4], sep = ''),
+            paste(chr_table[pos[1] -1, 4], chr_table[1, 4], sep = '')
+          )
+            
+           
+        }else if(pos[1]==1){
+        ##if cyto is on the bottom
+          
+          currentvec<-    c(
+            currentvec,
+            paste(chr_table[pos[length(pos)] +
+                              1, 4], chr_table[nrow(chr_table), 4], sep = ''),
+            paste( chr_table[1, 4], sep = '')
+          )
+            
+
+        }else{
+        ##if not
         currentvec <-
           c(
             currentvec,
-            paste(chr_table[grep(paste(positions,sep="",collapse="|"), chr_table[, 4])[length(grep(paste(positions,collapse="|"), chr_table[, 4]))] +
+            paste(chr_table[pos[length(pos)] +
                               1, 4], chr_table[nrow(chr_table), 4], sep = ''),
-            paste(chr_table[grep(paste(positions,sep="",collapse="|"), chr_table[, 4])[1] -
+            paste(chr_table[pos[1] -
                               1, 4], chr_table[1, 4], sep = '')
           )
         ##c(
@@ -425,6 +457,7 @@ if(build =="GRCh38")
         ##paste(chr_table[grep(positions, chr_table[, 4])[length(grep(positions, chr_table[, 4]))] 
         ##                , 4], chr_table[1, 4], sep = '')
         ##)
+        }
       }
       
       
@@ -634,11 +667,11 @@ if(build =="GRCh38")
             {
               arm="q10"
             }
-            temp<-c(if((lengthcount*2-1)!=1){temp[1:(lengthcount*2-1)]}else{temp[(lengthcount*2-1)]},arm,if(length(temp)>=2){temp[[lengthcount*2:length(temp)]]})
+            temp<-c(if((lengthcount*2-1)!=1){temp[1:(lengthcount*2-1)]}else{temp[(lengthcount*2-1)]},arm,if(length(temp)>=2){temp[[(lengthcount*2):length(temp)]]})
             temp[[(lengthcount*2-1)]]<-gsub("p|q","",temp[[(lengthcount*2-1)]])
             
           }
-          if (grepl("(t|ins)\\(", derMods[(lengthcount * 2-1)]))
+          if (grepl("(t|ins)\\(", derMods[(lengthcount * 2-1)]) )
           {
             transchrom <-
               str_extract(Cyto_sample[coln], paste(gsub("\\(","\\\\(",derMods[(lengthcount*2-1)]),"\\)",sep=''))
@@ -651,7 +684,7 @@ if(build =="GRCh38")
             #####
             ##this isnt working 
             ###
-            temp<-c(if((lengthcount*2-1)!=1){temp[1:((lengthcount*2-1))]}else{transtemp[1]},transtemp[2],if(length(temp)>=lengthcount*2){temp[lengthcount*2:length(temp)]})
+            temp<-c(if((lengthcount*2-1)!=1){temp[1:((lengthcount*2-1))]}else{transtemp[1]},transtemp[2],if((length(temp)>=lengthcount*2) && (!grepl("p|q|->|:",derMods[length(temp)]) || (IsOdd(length(temp))))){temp[lengthcount*2:length(temp)]})
             
             ##instead of below, for now, replace with equivilent derivative chromosome 
             
@@ -670,7 +703,7 @@ if(build =="GRCh38")
           ##get chromosome , at 10 to other half, get coordinates for that
           temp[[(lengthcount*2-1)]]<-gsub("p|q","",temp[[(lengthcount*2-1)]])
         }
-        if (grepl("t\\(", derMods[(lengthcount * 2-1)])) {
+        if (grepl("t\\(", derMods[(lengthcount * 2-1)]) ) {
           ##if translocation , do this , shouldnt be placed , should be placed one loop above
           ## if not in the table, add to table
           ##names are just t(1;12)
@@ -787,7 +820,7 @@ if(build =="GRCh38")
           
           
         }
-        if (grepl("ins\\(", derMods[(lengthcount * 2-1)])) {
+        if (grepl("ins\\(", derMods[(lengthcount * 2-1)]) ) {
           currentvec<-vector()
           inschrom <-str_extract(Cyto_sample[coln], paste(gsub("\\(","\\\\(",derMods[(lengthcount*2-1)]),"\\)\\(.+?\\)",sep=''))
           
@@ -807,7 +840,7 @@ if(build =="GRCh38")
           ##if insertion is one whole sequence withint a chromosome
           ##if within is true, dont make another derivative chromosome
           within=F
-          if(length(temp[[lengthcount*2-1]])==1 && length(temp[[(lengthcount * 2-1)]])<str_count(temp[[lengthcount*2]],"p|q"))
+          if(length(temp[[lengthcount*2-1]])==1 && any(length(temp[[(lengthcount * 2-1)]]) < str_count(temp[[lengthcount*2]],"p|q")))
           {
             temp[[(lengthcount * 2-1)]]<- rep(temp[[(lengthcount * 2-1)]],2)
             
@@ -1489,14 +1522,14 @@ if(build =="GRCh38")
           excoord<-data.frame()
         }
       }
-      if(is.vector(excoord))
+      if(is.vector(excoord) && length(excoord)>0)
       {
         excoord[4]<-paste(addBool, excoord[ 4], sep = "")
       }else if(ncol(excoord)==1){
         excoord<-t(excoord)
         excoord[4]<-paste(addBool, excoord[ 4], sep = "")
         
-      }else
+      }else if(length(excoord)>0)
       {
         excoord[, 4] <- paste(addBool, excoord[, 4], sep = "")
       }
@@ -1505,7 +1538,7 @@ if(build =="GRCh38")
       excoord<-t(excoord)
       ecoord[2:3]<-as.numeric(as.character(excoord[2:3]))
       excoord[4]<-paste(addBool, excoord[ 4], sep = "")
-    }else if(is.vector(excoord)){
+    }else if(is.vector(excoord) && length(excoord) > 0){
       
       ecoord[2:3]<-as.numeric(as.character(excoord[2:3]))
       excoord[4]<-paste(addBool, excoord[ 4], sep = "")
@@ -2305,7 +2338,7 @@ if(build =="GRCh38")
               }
               
               
-              
+
               if (any(grepl(
                 "^\\++(der|rec)\\(.*|^(der|rec)\\(.*",
                 temp_table[, 4]
