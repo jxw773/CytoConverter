@@ -1,4 +1,4 @@
-
+setwd("G:/My Drive/BRB work/cyto_project/Cytogenetic software/R/")
 if(require("stringr")){
   print("stringr is loaded correctly")
 } else {
@@ -36,16 +36,34 @@ if(require("stringi")){
     }  
 }
 
+
+if(require("dplyr")){
+  print("dplyr is loaded correctly")
+} else {
+  print("trying to install stringr")
+  install.packages("dplyr")
+  if(require("dplyr")){
+    print("dplyr installed and loaded")
+  } else {
+    stop("could not install dplyr")
+  }  
+}
+
+
+##takes first option for or 
+## assumes order of abberations is from top to bottom 
+##assumes all output goes top to bottom (eg no q20p23)
 #' CytoConverter Function
 #' 
 #' This function accepts string or matrix input. Strings must be karyotypes and tables must have sample name in the first column and karyotype in the second column. The function outputs a table  
 #' @param in_data
+#' @param constitutional
 #' @param build
 #' @keyword
 #' @export
 #' @examples 
 #' CytoConverter()
-CytoConverter<-function(in_data,build="GRCh38"){
+CytoConverter<-function(in_data,build="GRCh38",constitutional=T,guess=F,guess_q=F,forMtn=T,orOption=T){
 ##reference file to load
 ##specific loc
 if(build =="GRCh38")
@@ -95,7 +113,7 @@ if(build =="GRCh38")
   colnames(Final_table) <- c("Sample ID", "Chr", "Start", "End", "Type")
   
   ##convert any single string into a table
-  if (is.vector(in_data))
+  if(is.vector(in_data))
   {
     in_data <- t(matrix(c("sample", in_data)))
   }
@@ -106,16 +124,21 @@ if(build =="GRCh38")
   Dump_table <- matrix(ncol = 3, nrow = 0)
   ##double check that this does not delete later data potentially
   fish_table <- in_data[grep("ish.*$", in_data[, 2]), ]
-  if (is.vector(fish_table))
+  if (is.vector(fish_table) & length(fish_table)>0)
   {
-    Dump_table <- rbind(Dump_table, c(fish_table, "fish reading"))
-  } else{
-    Dump_table <- rbind(Dump_table, cbind(fish_table, "fish reading"))
+    Dump_table <- rbind(Dump_table, c(fish_table, "Warning in fish reading"))
+    ##now take out ish readings
+    in_data[, 2] <- gsub("ish.*$", "", as.character(in_data[, 2]))
+    
+  }else {
+    Dump_table <- rbind(Dump_table, cbind(fish_table, "Warning in fish reading"))
+    ##now take out ish readings
+    
+    in_data[, 2] <- gsub("ish.*$", "", as.character(in_data[, 2]))
+    
   }
   
-  ##now take out ish readings
-  in_data[, 2] <- gsub("ish.*$", "", as.character(in_data[, 2]))
-  
+
   ##set everything to lowercase, then set x and y to uppercase
   in_data[, 2] <- tolower(in_data[, 2])
   in_data[, 2] <- chartr("x", "X", in_data[, 2])
@@ -225,9 +248,9 @@ if(build =="GRCh38")
   ##adding marker and add material as well
   unsure_table <- Con_data[grep("\\?|\\~|inc|mar|add", Con_data[, 2]), ]
   Dump_table <- if(is.vector(unsure_table)){
-    rbind(Dump_table, c(unsure_table, "?,~,marker, unknown additional material or incomplete karyotype detected"))
+    rbind(Dump_table, c(unsure_table, "Warning in ?,~,marker, unknown additional material or incomplete karyotype detected"))
   }else{
-    rbind(Dump_table, cbind(unsure_table, "?,~, marker, unknown additional material or incomplete karyotype detected"))
+    rbind(Dump_table, cbind(unsure_table, "Warning in ?,~, marker, unknown additional material or incomplete karyotype detected"))
     
   }
   
@@ -240,7 +263,6 @@ if(build =="GRCh38")
   ##take compliment of genomic coordinates
   
   ##convert to genomic coordinates (used in parser several times)
-  
   ##function for getting cytobands for translocations and insertions (taking compliment of stuff not included in discription)
   getCytoBands <- function(lengthcount, o, temp,coln,derMods) {
     ##must take into account acen and qter pter and only one listing (will have to relte to two), reuse later code for this
@@ -251,6 +273,9 @@ if(build =="GRCh38")
     ##for isoderivative chromosomes, end point is potentially different, make boolean now
     
     isiso=FALSE
+    
+    ##quit if karyotype returns false
+    earlyReturn=F 
     
     if(any(grepl("ider",Cyto_sample[coln])&grepl("t\\(",Cyto_sample[coln])))
     {
@@ -283,87 +308,89 @@ if(build =="GRCh38")
       ##take away any front loaded : 
       longform_table <-lapply(longform_table,function(x){gsub(':','',x)})
       
-      in_table = data.frame()
-      
-      ##mark for dic, trc
-      if(grepl("dic|trc",derMods[lengthcount]))
-      {
-        addBool<-paste("long",addBool,sep='')
-      }
-      
-      ##get data for each read of something->something
-      for (j in 1:length(longform_table))
-      {
-        stringdx <- str_locate_all(pattern = "p|q", longform_table[[j]])
-        chr_name_long <-
-          substr(longform_table[[j]][1], 0, stringdx[[1]][1] - 1)
-        positions <-
-          as.vector(cbind(
-            substr(
-              longform_table[[j]][1],
-              stringdx[[1]][1],
-              nchar(longform_table[[j]][1])
-            ),
-            substr(
-              longform_table[[j]][2],
-              stringdx[[2]][1],
-              nchar(longform_table[[j]][2])
-            )
-          ))
-        
-        if (nchar(chr_name_long) != 0)
-        {
-          chr_table_2 <-
-            Cyto_ref_table[grep(paste(paste(
-              "chr", chr_name_long, sep = ""
-            ), "$", sep = ""), Cyto_ref_table), ]
-        } else {
-          chr_table_2 <- chr_table
-        }
-        
-        ##account for terminal ends
-        if (any(grepl("pter", positions)))
-        {
-          positions[grep("pter", positions)] <- chr_table_2[1, 4]
-        }
-        if (any(grepl("qter", positions)))
-        {
-          positions[grep("qter", positions)] <- chr_table_2[nrow(chr_table_2), 4]
-        }
-        ##be careful on centromeneter
-        if (any(grepl("cen", positions)))
-        {
-          ##likey will have to be careful about this one
-          positions[grep("cen", positions)] <-
-            chr_table_2[grep("acen", chr_table_2[, 5]), ][1, 4]
-        }
-        
-        ##account for p10/q10
-        ##double check naming convention for this one
-        ##have to change the one for q
-        positions[grep("p10", positions)] <-
-          chr_table_2[grep("acen", chr_table_2[, 5]), ][1, 4]
-        positions[grep("q10", positions)] <-
-          chr_table_2[grep("acen", chr_table_2[, 5]), ][2, 4]
-        
-        ##make sure positions is in order to be processed correctly
-        positions<-positionsorter(positions)
-        
-        ##put stuff in table
-        positions_table <-
-          matrix(chr_table_2[grep(paste(positions, collapse = "|", sep = "|"),
-                                  chr_table_2[, 4]), ], ncol = 5)
-
-        
-        if (is.vector(positions_table))
-        {
-          positions_table <- t(positions_table)
-        }
-        currentvec<-c(currentvec, as.vector(positions_table[,4])[1],as.vector(positions_table[,4])[length(as.vector(positions_table[,4]))])
-        
-      }
       
       
+          in_table = data.frame()
+          
+          ##mark for dic, trc
+          if(grepl("dic|trc",derMods[lengthcount]))
+          {
+            addBool<-paste("long",addBool,sep='')
+          }
+          
+          ##get data for each read of something->something
+          for (j in 1:length(longform_table))
+          {
+            stringdx <- str_locate_all(pattern = "p|q", longform_table[[j]])
+            chr_name_long <-
+              substr(longform_table[[j]][1], 0, stringdx[[1]][1] - 1)
+            positions <-
+              as.vector(cbind(
+                substr(
+                  longform_table[[j]][1],
+                  stringdx[[1]][1],
+                  nchar(longform_table[[j]][1])
+                ),
+                substr(
+                  longform_table[[j]][2],
+                  stringdx[[2]][1],
+                  nchar(longform_table[[j]][2])
+                )
+              ))
+            
+            if (nchar(chr_name_long) != 0)
+            {
+              chr_table_2 <-
+                Cyto_ref_table[grep(paste(paste(
+                  "chr", chr_name_long, sep = ""
+                ), "$", sep = ""), Cyto_ref_table), ]
+            } else {
+              chr_table_2 <- chr_table
+            }
+            
+            ##account for terminal ends
+            if (any(grepl("pter", positions)))
+            {
+              positions[grep("pter", positions)] <- chr_table_2[1, 4]
+            }
+            if (any(grepl("qter", positions)))
+            {
+              positions[grep("qter", positions)] <- chr_table_2[nrow(chr_table_2), 4]
+            }
+            ##be careful on centromeneter
+            if (any(grepl("cen", positions)))
+            {
+              ##likey will have to be careful about this one
+              positions[grep("cen", positions)] <-
+                chr_table_2[grep("acen", chr_table_2[, 5]), ][1, 4]
+            }
+            
+            ##account for p10/q10
+            ##double check naming convention for this one
+            ##have to change the one for q
+            positions[grep("p10", positions)] <-
+              chr_table_2[grep("acen", chr_table_2[, 5]), ][1, 4]
+            positions[grep("q10", positions)] <-
+              chr_table_2[grep("acen", chr_table_2[, 5]), ][2, 4]
+            
+            ##make sure positions is in order to be processed correctly
+            positions<-positionsorter(positions)
+            
+            ##put stuff in table
+            positions_table <-
+              matrix(chr_table_2[grep(paste(positions, collapse = "|", sep = "|"),
+                                      chr_table_2[, 4]), ], ncol = 5)
+            
+            
+            if (is.vector(positions_table))
+            {
+              positions_table <- t(positions_table)
+            }
+            currentvec<-c(currentvec, as.vector(positions_table[,4])[1],as.vector(positions_table[,4])[length(as.vector(positions_table[,4]))])
+            
+          }
+          
+          
       
       
     } else {
@@ -377,89 +404,105 @@ if(build =="GRCh38")
       positions[grep("q10", positions)] <-
         chr_table[grep("acen", chr_table[, 5]), ][2, 4]
       positions<-positionsorter(positions)
-      ################################################
-      ##############################################
-      #########################################
-      ##if only one q or p , add on end point
-      ##something is wrong here
-      if (length(positions) == 1)
-      {
-        
-        if (any(grepl("p", positions)))
-        {
-          
-          ##currentvec <-
-          ##c(currentvec, paste(chr_table[grep(positions, chr_table[, 4])[length(grep(positions, chr_table[, 4]))] 
-          ##           , 4], chr_table[nrow(chr_table), 4], sep = ''))
-          currentvec <-
-            c(currentvec, paste(chr_table[grep(positions, chr_table[, 4])[length(grep(positions, chr_table[, 4]))] +
-                                            1, 4], chr_table[nrow(chr_table), 4], sep = ''))
-          
-        }
-        if (any(grepl("q", positions)))
-        {
-          currentvec <-
-            ##c(currentvec, paste(chr_table[grep(paste(positions,sep="",collapse="|"), chr_table[, 4])[length(grep(paste(positions,sep="",collapse="|"), chr_table[, 4]))] -
-            ##                              1, 4], chr_table[1, 4], sep = ''))
-            c(currentvec, paste(chr_table[grep(positions, chr_table[, 4])[1] 
-                                          -1, 4], chr_table[1, 4], sep = ''))
-          ##c(currentvec, paste(chr_table[grep(positions, chr_table[, 4])-1 
-          ##                              , 4][1], chr_table[1, 4], sep = ''))
-          ##c(currentvec, paste(chr_table[grep(positions, chr_table[, 4]) 
-          ##                          , 4][1], chr_table[1, 4], sep = ''))
-        }
-      }else{
-        
-        ## restrict if positions are at the ends of the chromosome
-        pos<-grep(paste(positions,sep="",collapse="|"), chr_table[, 4])
-        if(pos[length(pos)] +1 >nrow(chr_table) && pos[1]==1)
-        {
-          currentvec<-c(
-            currentvec,
-            paste(chr_table[nrow(chr_table), 4], sep = ''),
-            paste(chr_table[1, 4], sep = '')
-          )
-          
-        }else if(pos[length(pos)] +1 >nrow(chr_table)){
-          ##if cyto is at the top
-          currentvec<-   c(
-            currentvec,
-            paste(chr_table[nrow(chr_table), 4], sep = ''),
-            paste(chr_table[pos[1] -1, 4], chr_table[1, 4], sep = '')
-          )
-            
-           
-        }else if(pos[1]==1){
-        ##if cyto is on the bottom
-          
-          currentvec<-    c(
-            currentvec,
-            paste(chr_table[pos[length(pos)] +
-                              1, 4], chr_table[nrow(chr_table), 4], sep = ''),
-            paste( chr_table[1, 4], sep = '')
-          )
-            
-
-        }else{
-        ##if not
-        currentvec <-
-          c(
-            currentvec,
-            paste(chr_table[pos[length(pos)] +
-                              1, 4], chr_table[nrow(chr_table), 4], sep = ''),
-            paste(chr_table[pos[1] -
-                              1, 4], chr_table[1, 4], sep = '')
-          )
-        ##c(
-        ##currentvec,
-        ##paste(chr_table[grep(paste(positions,collapse=""), chr_table[, 4])[length(grep(paste(positions,collapse=""), chr_table[, 4]))] 
-        ##                , 4], chr_table[nrow(chr_table), 4], sep = ''),
-        ##paste(chr_table[grep(positions, chr_table[, 4])[length(grep(positions, chr_table[, 4]))] 
-        ##                , 4], chr_table[1, 4], sep = '')
-        ##)
-        }
-      }
       
+      
+    
+      
+      
+      ###########################################################################################################
+      #####################for mitelman data only###############################################################
+      #####check for more than one band per chromosome for translocations######################################
+      ##############################################################################################################
+      
+      if(forMtn==T & grepl("t\\(",derMods[lengthcount] ) & length(positions) > 1  )
+      {
+        earlyReturn=T
+        
+      }else{
+          
+          ################################################
+          ##############################################
+          #########################################
+          ##if only one q or p , add on end point
+          ##something is wrong here
+          if (length(positions) == 1)
+          {
+            
+            if (any(grepl("p", positions)))
+            {
+              
+              ##currentvec <-
+              ##c(currentvec, paste(chr_table[grep(positions, chr_table[, 4])[length(grep(positions, chr_table[, 4]))] 
+              ##           , 4], chr_table[nrow(chr_table), 4], sep = ''))
+              currentvec <-
+                c(currentvec, paste(chr_table[grep(positions, chr_table[, 4])[length(grep(positions, chr_table[, 4]))] +
+                                                1, 4], chr_table[nrow(chr_table), 4], sep = ''))
+              
+            }
+            if (any(grepl("q", positions)))
+            {
+              currentvec <-
+                ##c(currentvec, paste(chr_table[grep(paste(positions,sep="",collapse="|"), chr_table[, 4])[length(grep(paste(positions,sep="",collapse="|"), chr_table[, 4]))] -
+                ##                              1, 4], chr_table[1, 4], sep = ''))
+                c(currentvec, paste(chr_table[grep(positions, chr_table[, 4])[1] 
+                                              -1, 4], chr_table[1, 4], sep = ''))
+              ##c(currentvec, paste(chr_table[grep(positions, chr_table[, 4])-1 
+              ##                              , 4][1], chr_table[1, 4], sep = ''))
+              ##c(currentvec, paste(chr_table[grep(positions, chr_table[, 4]) 
+              ##                          , 4][1], chr_table[1, 4], sep = ''))
+            }
+          }else{
+            
+              ## restrict if positions are at the ends of the chromosome
+              pos<-grep(paste(positions,sep="",collapse="|"), chr_table[, 4])
+              if(pos[length(pos)] +1 >nrow(chr_table) && pos[1]==1)
+              {
+                currentvec<-c(
+                  currentvec,
+                  paste(chr_table[nrow(chr_table), 4], sep = ''),
+                  paste(chr_table[1, 4], sep = '')
+                )
+                
+              }else if(pos[length(pos)] +1 >nrow(chr_table)){
+                ##if cyto is at the top
+                currentvec<-   c(
+                  currentvec,
+                  paste(chr_table[nrow(chr_table), 4], sep = ''),
+                  paste(chr_table[pos[1] -1, 4], chr_table[1, 4], sep = '')
+                )
+                
+                
+              }else if(pos[1]==1){
+                ##if cyto is on the bottom
+                
+                currentvec<-    c(
+                  currentvec,
+                  paste(chr_table[pos[length(pos)] +
+                                    1, 4], chr_table[nrow(chr_table), 4], sep = ''),
+                  paste( chr_table[1, 4], sep = '')
+                )
+                
+                
+              }else{
+                ##if not
+                currentvec <-
+                  c(
+                    currentvec,
+                    paste(chr_table[pos[length(pos)] +
+                                      1, 4], chr_table[nrow(chr_table), 4], sep = ''),
+                    paste(chr_table[pos[1] -
+                                      1, 4], chr_table[1, 4], sep = '')
+                  )
+                ##c(
+                ##currentvec,
+                ##paste(chr_table[grep(paste(positions,collapse=""), chr_table[, 4])[length(grep(paste(positions,collapse=""), chr_table[, 4]))] 
+                ##                , 4], chr_table[nrow(chr_table), 4], sep = ''),
+                ##paste(chr_table[grep(positions, chr_table[, 4])[length(grep(positions, chr_table[, 4]))] 
+                ##                , 4], chr_table[1, 4], sep = '')
+                ##)
+              }
+        }
+      }  
       
       
     }
@@ -470,42 +513,52 @@ if(build =="GRCh38")
       currentvec<-sapply(currentvec,function(x){gsub(paste(unused,"[[:digit:]]+(\\.[[:digit:]])*",sep=''),temp[[(grep("ider",derMods))+1]],x)})
     }
     
-    return(currentvec)
+    return(list(currentvec,earlyReturn))
   }
   
   
   
   ##make sure the order of the bands is in the order we like (p to q highers ps to low, lower qs to high )
   positionsorter<-function(positions){
-    if(length(positions)==2)
+    ##if(length(positions)==2)
+    ##{
+      ##if(grepl("q",positions[1])&grepl("p",positions[2]))
+      ##{
+      ##  tempstorage<-positions[2]
+      ##  positions[2]<-positions[1]
+      ##  positions[1]<-tempstorage
+      ##}
+      ##if(grepl("q",positions[1])&grepl("q",positions[2]))
+      ##{
+      ##  bands<-sapply(positions,function(x){as.numeric(gsub("q","",x))})
+      ##  if(bands[1]>bands[2])
+      ##  {
+      ##    tempstorage<-positions[2]
+      ##    positions[2]<-positions[1]
+      ##    positions[1]<-tempstorage
+      ##  }
+      ##}
+      ##if(grepl("p",positions[1])&grepl("p",positions[2]))
+      ##{
+        ##bands<-sapply(positions,function(x){as.numeric(gsub("p","",x))})
+        ##if(bands[1]<bands[2])
+        ##{
+        ##  tempstorage<-positions[2]
+        ##  positions[2]<-positions[1]
+        ##  positions[1]<-tempstorage
+        ##}
+      ##}
+    ##}
+    
+    ###########################333
+    #######new
+    ##########################
+    ################################
+    if(length(unlist(strsplit(positions,"-|~")))>1)
     {
-      if(grepl("q",positions[1])&grepl("p",positions[2]))
-      {
-        tempstorage<-positions[2]
-        positions[2]<-positions[1]
-        positions[1]<-tempstorage
-      }
-      if(grepl("q",positions[1])&grepl("q",positions[2]))
-      {
-        bands<-sapply(positions,function(x){as.numeric(gsub("q","",x))})
-        if(bands[1]>bands[2])
-        {
-          tempstorage<-positions[2]
-          positions[2]<-positions[1]
-          positions[1]<-tempstorage
-        }
-      }
-      if(grepl("p",positions[1])&grepl("p",positions[2]))
-      {
-        bands<-sapply(positions,function(x){as.numeric(gsub("p","",x))})
-        if(bands[1]<bands[2])
-        {
-          tempstorage<-positions[2]
-          positions[2]<-positions[1]
-          positions[1]<-tempstorage
-        }
-      }
+      positions<-unlist(lapply(strsplit(positions,"-|~"),function(x){x[1]}))
     }
+    
     return(positions)
   }
   
@@ -515,8 +568,10 @@ if(build =="GRCh38")
   ##take into acc same chrom insestion
   ##add cen into here (pter qter analouge)
   
-  parser <- function(coln, xmod, ymod, transloctable,addtot)
+  parser <- function(coln, xmod, ymod, transloctable,addtot,Cyto)
   {
+    Cyto_sample<-Cyto
+    Cyto_sample[coln]<-gsub("or.*$","",Cyto_sample[coln])
     ##derivative chromosomes with translocations are a loss (on native chromosome) gain (on new chromosome)
     ##figure out what add bool is and consaolidate that
     ##string splits by ;, takes into account multiple chromosomes  odd values are chromosomes even are the positions, for derivaties, first one needs to be treated differently
@@ -539,6 +594,12 @@ if(build =="GRCh38")
     ##MiscChr<-matrix()
     ##remeber what this is supposed to do
     derMods <- strsplit(derMods, "\\)")[[1]]
+    
+    ##skip second +t if first one is triggered
+    plusT<-F
+    
+    ##regins
+    regtranschrom=NULL
     
     if (length(temp) > 0)
     {
@@ -594,6 +655,8 @@ if(build =="GRCh38")
         temp <- tail(temp, length(temp) - 1)
       }
     }
+    
+    
     ##if temp length is greater than 2 (derivative chromosome, then, dermods 1 is master indicator, not including ders above)
     if(length(temp)>2&(!(grepl("der|rec", Cyto_sample[coln])))||grepl("ider",Cyto_sample[coln]))
     {
@@ -613,6 +676,8 @@ if(build =="GRCh38")
         multi <- unlist(strsplit(multi, "~|-"))[1]
         
       }
+      ##multi=gsub("[^0-9]","",multi)
+      
       multi = as.numeric(multi)
       addBool <- paste(addBool, "multi", multi, sep = "")
     }
@@ -630,23 +695,60 @@ if(build =="GRCh38")
       ymod <- ymod + length(grep("Y", Mainchr))
     }
     
+ 
+
     ##make sure you count + properly for ? marks
-    if(any(grepl("\\?|\\~",Cyto_sample[coln])&grepl("\\+",Cyto_sample[coln])))
+    if(any(grepl("\\?|\\~",Cyto_sample[coln])&grepl("\\+",Cyto_sample[coln])) & (guess_q==F | grepl("\\?\\)",Cyto_sample[coln])))
     {
       addtot<-addtot+(1*multi)
     }
     
-    if ((length(test) > 1 | any(grepl("p|q",temp)))  & !any(grepl("\\?|\\~", temp)))
+    #########
+    ##if guess is true, try to process ? marks
+    ##think about how this can affect counting  + and \\?
+    ######new######
+    #############################
+    ##not processing things like t(9;22)(p?;q10)
+    
+    if(guess_q == T & any(grepl("\\?",temp)))
+    {
+      temp <- gsub("\\?","",temp)
+    }
+    
+    if(length(temp)==1){
+      
+      if (grepl("(t|ins)\\(", derMods[1] ))
+      {
+        
+        
+        transchrom <-
+          str_extract(Cyto_sample[coln], paste(gsub("\\+","\\\\+",gsub("\\(","\\\\(",derMods[1])),"\\)\\(.+?\\)",sep=''))
+        ##if this is not labled
+        if(is.na(transchrom))
+        {
+          transchrom <-
+            str_extract(Cyto_sample[coln], paste(gsub("\\+","\\\\+",gsub("\\(","\\\\(",derMods[1])),"\\)",sep=''))
+        }
+        
+        regtranschrom<-gsub("\\+","",gsub("\\)","\\\\)",gsub("\\(","\\\\(",transchrom)))
+      }
+    }
+    
+    
+    if ((length(test) > 1 | any(grepl("p|q",temp))| grepl("(9;22)|(22;9)",paste(unlist(temp),collapse=';',sep=";")) |(!is.null(regtranschrom) && any(grepl(regtranschrom, names(transloctable))) ) )  & (!any(grepl("\\?|\\~", temp))  ))
     {
       ##goes by steps of 2, odd indexes indicate chromosomes, even indicate positions
       ##length_temp<-(if((length(temp) / 2)==0.5){1}else{length(temp)/2})
-      for (lengthcount in 1:(if(!is.integer((length(temp) / 2))){ceiling(length(temp)/2)}else{length(temp)/2}))
+      lengthcount=1
+      repeat
       {
+        if(lengthcount > (if(!is.integer((length(temp) / 2))){ceiling(length(temp)/2)}else{length(temp)/2})) break
+        if(lengthcount> 60) {print("while loop not terminating");break}  
         Allchr <-
           c(Allchr, as.vector(paste(temp[[(lengthcount * 2-1)]], "$", sep = "")))
         
         ##handle those t(__;__) and ins (__;__) here with no follow up
-        if (((lengthcount * 2-1)) == length(temp) || if(length(temp) > lengthcount*2-1){
+        if ((((lengthcount * 2)-1)) == length(temp) || if(length(temp) > (lengthcount*2-1)){
           all(grepl("^[[:digit:]]+$", temp[[lengthcount * 2]]))}else{FALSE})
         {
           #######
@@ -659,33 +761,227 @@ if(build =="GRCh38")
           #########################
           if (any(grepl("[pq]", temp[[(lengthcount * 2-1)]])))
           {
-            if(grepl("p",temp[[(lengthcount*2-1)]]))
+            if(any(grepl("p",temp[[(lengthcount*2-1)]])))
             {
               arm="p10"
             }
-            if(grepl("q",temp[[(lengthcount*2-1)]]))
+            if(any(grepl("q",temp[[(lengthcount*2-1)]])))
             {
               arm="q10"
             }
             temp<-c(if((lengthcount*2-1)!=1){temp[1:(lengthcount*2-1)]}else{temp[(lengthcount*2-1)]},arm,if(length(temp)>=2){temp[[(lengthcount*2):length(temp)]]})
             temp[[(lengthcount*2-1)]]<-gsub("p|q","",temp[[(lengthcount*2-1)]])
             
-          }
+        }
+         
+          
+          if(any(grepl("^r\\(",derMods[lengthcount*2-1])) ){
+           
+             rindex<-lengthcount*2-1
+             
+             
+               rChr<-paste("chr",temp[[rindex]],"$",sep="")
+               tempRingPosition<-NULL
+               tempRing<-NULL
+               
+                for(c in 1:length(rChr))
+                {
+                   
+                   tempRingTable<-matrix(nrow=0,ncol=5)
+                   chr<-Cyto_ref_table[grep(rChr[c],Cyto_ref_table[,1]),] 
+                   tempRingTable<-rbind(tempRingTable,rbind(chr[1,],chr[nrow(chr),]))
+                   tempRingTable[,4]
+                   
+                  tempRingPosition<- c(tempRingPosition,paste(tempRingTable[,4],collapse=""))
+                   
+                }
+               
+                 tempRing<-list(unlist(temp[[rindex]]), tempRingPosition)
+                 derModsRing<-c(paste("r(",paste(unlist(temp),sep="",collapse=";"),sep=""),paste("(",paste(tempRingPosition,collapse = ";"),sep=""))
+                 tempstorage<-NULL
+                 tempdermods<-NULL
+                 
+                 if((length(temp))>(lengthcount*2))
+                 {
+                   tempstorage<-temp[((lengthcount*2)):length(temp)]
+                   tempdermods<-derMods[((lengthcount*2)):length(temp)]
+                   
+                   
+                 }
+                 
+                 temp[[(lengthcount*2-1)]]<-tempRing[[1]]
+                 
+                 if(length(temp)==1)
+                 {
+                   temp<-list(unlist(temp),tempRing[[2]])
+                 }else{
+                   
+                   temp[[lengthcount*2]]<-tempRing[[2]]
+                   
+                 }
+                 temp<-temp[1:(lengthcount*2)]
+                 
+                 derMods[(lengthcount*2)-1]<-derModsRing[1]
+                 
+                 if(length(derMods)==1)
+                 {
+                   derMods<-c(derMods,derModsRing[2])
+                 }else{
+                   derMods[lengthcount*2]<-derModsRing[2]
+                   
+                 }
+                 
+                 derMods<-derMods[1:(lengthcount*2)]
+                 
+                 if(!is.null(tempstorage))
+                 {
+                   temp<-c(temp,tempstorage)
+                   derMods<-c(derMods,tempdermods)
+                   
+                 }
+               
+              
+             
+          } 
+          
+          
           if (grepl("(t|ins)\\(", derMods[(lengthcount * 2-1)]) )
           {
-            transchrom <-
-              str_extract(Cyto_sample[coln], paste(gsub("\\(","\\\\(",derMods[(lengthcount*2-1)]),"\\)",sep=''))
-            selectedTransTable<-as.matrix(transloctable[grep(gsub("\\)","\\\\)",gsub("\\(","\\\\(",transchrom)),names(transloctable))][[1]])
-            transDer<-selectedTransTable[grep(paste("der\\(",paste(sapply(Mainchr,function(x){substr(x,0,nchar(x)-1)}),sep='',collapse=';'),"\\)",sep=''),selectedTransTable[,1]),][2]
-            transtemp <-
-              strsplit(gsub("[\\(\\)]", "", regmatches(
-                transDer, gregexpr("\\(.*?\\)",  transDer)
-              )[[1]]), ";")
-            #####
-            ##this isnt working 
-            ###
-            temp<-c(if((lengthcount*2-1)!=1){temp[1:((lengthcount*2-1))]}else{transtemp[1]},transtemp[2],if((length(temp)>=lengthcount*2) && (!grepl("p|q|->|:",derMods[length(temp)]) || (IsOdd(length(temp))))){temp[lengthcount*2:length(temp)]})
             
+            
+            transchrom <-
+              str_extract(Cyto_sample[coln], paste(gsub("\\+","\\\\+",gsub("\\(","\\\\(",derMods[(lengthcount*2-1)])),"\\)\\(.+?\\)",sep=''))
+            ##if this is not labled
+            if(is.na(transchrom))
+            {
+              transchrom <-
+                str_extract(Cyto_sample[coln], paste(gsub("\\+","\\\\+",gsub("\\(","\\\\(",derMods[(lengthcount*2-1)])),"\\)",sep=''))
+            }
+            
+            regtranschrom<-gsub("\\+","",gsub("\\)","\\\\)",gsub("\\(","\\\\(",transchrom)))
+            temptrans <- data.frame()
+            
+            
+            
+            ##make stuff now
+            if( !any(grepl(regtranschrom, names(transloctable))) & ((lengthcount*2)> length(temp)|| all(!grepl("p|q",temp[[(lengthcount*2)]]))) & all(grepl("9|22",transchrom)))
+            {
+              temptrans<-
+                rbind(temptrans,cbind(
+                  paste("der(", "9", ")", sep = ''),
+                  paste(
+                    "der(",
+                    "9",
+                    ";",
+                    "22",
+                    ")(",
+                    "q34.1p24.3",
+                    ";",
+                    "q13.33q11",
+                    ")",
+                    sep = '',
+                    collapse = ";"
+                  )
+                  
+                )
+                )
+              
+              temptrans<-
+                rbind(temptrans,cbind(
+                  paste("der(", "22", ")", sep = ''),
+                  paste(
+                    "der(",
+                    "9",
+                    ";",
+                    "22",
+                    ")(",
+                    "q34.3q34.1",
+                    ";",
+                    "q11.2p13",
+                    ")",
+                    sep = '',
+                    collapse = ";"
+                  )
+                  
+                )
+                )
+            
+              
+              transloctable <- c(transloctable, list(temptrans))
+              names(transloctable)[length(transloctable)] <-
+                gsub("\\+","",transchrom)
+              }
+            
+            
+            if(grepl("^\\++t\\(",derMods[(lengthcount*2-1)]) & !grepl("der",Cyto_sample[coln]))
+            {
+              plusT=T
+              
+              transderplus<-transloctable[grep(regtranschrom,names(transloctable))]
+              dertransextract<-transderplus[[1]][grep(paste("der\\(",temp[[(lengthcount*2)-1]],"\\)",sep="",collapse="|"),transderplus[[1]][,1]),2]
+              
+              transtemp <-
+                unlist(lapply(as.list(dertransextract),function(x){strsplit(gsub("[\\(\\)]", "", regmatches(
+                  x, gregexpr("\\(.*?\\)",  x)
+                )[[1]]), ";")}),recursive=F)
+              
+              transdermod<-unlist(lapply(dertransextract,function(x){y<-paste("+",x,sep="");strsplit(y, "\\)")}))
+              ##make temp storage for rest of temp
+              tempstorage<-NULL
+              tempdermods<-NULL
+              if((length(temp))>(lengthcount*2))
+              {
+                tempstorage<-temp[[((lengthcount*2)+1):length(temp)]]
+                tempdermods<-derMods[((lengthcount*2)+1):length(temp)]
+                
+                
+              }
+              
+              temp[[(lengthcount*2-1)]]<-transtemp[[1]]
+              
+              if(length(temp)==1)
+              {
+                temp<-list(unlist(temp),transtemp[[2]])
+              }else{
+                
+                temp[[lengthcount*2]]<-transtemp[[2]]
+                
+              }
+              temp<-c(temp[1:(lengthcount*2)],transtemp[3:length(transtemp)])
+              
+              derMods[(lengthcount*2)-1]<-transdermod[1]
+              if(length(derMods)==1)
+              {
+                derMods<-c(derMods,transdermod[2])
+              }else{
+                derMods[lengthcount*2]<-transdermod[2]
+                
+              }
+              derMods<-c(derMods[1:(lengthcount*2)],transdermod[3:length(transdermod)])
+              
+              
+              if(!is.null(tempstorage))
+              {
+                temp<-c(temp,tempstorage)
+                derMods<-c(derMods,tempdermods)
+                
+              }
+              
+            }else{
+            
+              transchrom <-
+                str_extract(Cyto_sample[coln], paste(gsub("\\+","\\\\+",gsub("\\(","\\\\(",derMods[(lengthcount*2-1)])),"\\)",sep=''))
+              selectedTransTable<-as.matrix(transloctable[grep(gsub("\\)","\\\\)",gsub("\\(","\\\\(",transchrom)),names(transloctable))][[1]])
+              transDer<-selectedTransTable[grep(paste("der\\(",paste(sapply(Mainchr,function(x){substr(x,0,nchar(x)-1)}),sep='',collapse=';'),"\\)",sep=''),selectedTransTable[,1]),][2]
+              transtemp <-
+                strsplit(gsub("[\\(\\)]", "", regmatches(
+                  transDer, gregexpr("\\(.*?\\)",  transDer)
+                )[[1]]), ";")
+              #####
+              ##this isnt working 
+              ###
+              temp<-c(if((lengthcount*2-1)!=1){temp[1:((lengthcount*2-1))]}else{transtemp[1]},transtemp[2],if((length(temp)>=lengthcount*2) && (!grepl("p|q|->|:",derMods[length(temp)]) || (IsOdd(length(temp))))){temp[lengthcount*2:length(temp)]})
+            }
             ##instead of below, for now, replace with equivilent derivative chromosome 
             
             ##get stuff in transloctable that matches same chromosom
@@ -696,7 +992,11 @@ if(build =="GRCh38")
             ##temp <- temp[[-((lengthcount * 2-1))]]
             ##derMods <- derMods[-(lengthcount)]
             ##lengthcount <- lengthcount - 1
+            
+            
           }
+          
+          
         }
         
         if (any(grepl("[pq]", temp[[(lengthcount * 2-1)]]))) {
@@ -707,17 +1007,30 @@ if(build =="GRCh38")
           ##if translocation , do this , shouldnt be placed , should be placed one loop above
           ## if not in the table, add to table
           ##names are just t(1;12)
+          
+          ######################################################################
+          ###################################################333
+          ##############################################################################
+          #######################################################################3
+          ##if its t(9;22) or t(22;9) , add to table if not already found
+          #########################################################################
+          #########################################################################
+          #############################################################################
+          #######################################################################
+          
           transchrom <-
-            str_extract(Cyto_sample[coln], paste(gsub("\\(","\\\\(",derMods[(lengthcount*2-1)]),"\\)\\(.+?\\)",sep=''))
+            str_extract(Cyto_sample[coln], paste(gsub("\\+","\\\\+",gsub("\\(","\\\\(",derMods[(lengthcount*2-1)])),"\\)\\(.+?\\)",sep=''))
           ##if this is not labled
           if(is.na(transchrom))
           {
             transchrom <-
-              str_extract(Cyto_sample[coln], paste(gsub("\\(","\\\\(",derMods[(lengthcount*2-1)]),"\\)",sep=''))
+              str_extract(Cyto_sample[coln], paste(gsub("\\+","\\\\+",gsub("\\(","\\\\(",derMods[(lengthcount*2-1)])),"\\)",sep=''))
           }
           regtranschrom<-gsub("\\+","",gsub("\\)","\\\\)",gsub("\\(","\\\\(",transchrom)))
           if (!any(grepl(regtranschrom, names(transloctable))))
           {
+            ###
+            ########
             ##entire translocation only if nessesary
             ##str_extract(mem, "t\\([[:digit:]]+(;[[:digit:]])*?\\)\\(.+?\\)")
             temptrans <- data.frame()
@@ -725,79 +1038,131 @@ if(build =="GRCh38")
             
             
             ##make stuff now
-            for (o in 1:length(temp[[(lengthcount * 2-1)]]))
+            if(  !any(grepl(regtranschrom, names(transloctable))) &((lengthcount*2)> length(temp)|| all(!grepl("p|q",temp[[(lengthcount*2)]]))) & all(grepl("9|22",transchrom)))
             {
-              currentvec <- getCytoBands(lengthcount, o, temp,coln,derMods)
-              ##vector of o cytobands ##includes everything but cytoband on der o indicated, double check how your doing this (going one band before, is this right?)
+              temptrans<-
+                rbind(temptrans,cbind(
+                  paste("der(", "9", ")", sep = ''),
+                  paste(
+                    "der(",
+                    "9",
+                    ";",
+                    "22",
+                    ")(",
+                    "q34.1p24.3",
+                    ";",
+                    "q13.33q11",
+                    ")",
+                    sep = '',
+                    collapse = ";"
+                  )
+                  
+                )
+                )
               
+              temptrans<-
+                rbind(temptrans,cbind(
+                  paste("der(", "22", ")", sep = ''),
+                  paste(
+                    "der(",
+                    "9",
+                    ";",
+                    "22",
+                    ")(",
+                    "q34.3q34.1",
+                    ";",
+                    "q11.2p13",
+                    ")",
+                    sep = '',
+                    collapse = ";"
+                  )
+                  
+                )
+                )
               
-              ##above is all to find vectors of o that are excluded
-              if (o == 1)
+            }else {
+              for (o in 1:length(temp[[(lengthcount * 2-1)]]))
               {
-                temptrans <-
-                  rbind(temptrans, cbind(
-                    paste("der(", temp[[(lengthcount * 2-1)]][o], ")", sep = ''),
-                    paste(
-                      "der(",
-                      temp[[(lengthcount * 2-1)]][o],
-                      ";",
-                      temp[[(lengthcount * 2-1)]][length(temp[[(lengthcount * 2-1)]])],
-                      if (length(currentvec) > 1) {
-                        ";"
-                      },
-                      rep(temp[[(lengthcount * 2-1)]][o], length(currentvec) - 1),
-                      ")(",
-                      currentvec[1],
-                      ";",
-                      temp[[lengthcount * 2]][length(temp[[(lengthcount * 2-1)]])],
-                      if (length(currentvec) > 1) {
-                        ";"
-                      },
-                      currentvec[-1],
-                      ")",
-                      sep = '',
-                      collapse = ";"
-                    ),
-                    ""
-                  ))
+                tempcurvec<- getCytoBands(lengthcount, o, temp,coln,derMods)
+                currentvec <- tempcurvec[[1]]
+                earlyReturn<-tempcurvec[[2]]
                 
-              } else{
-                temptrans <-
-                  rbind(temptrans, cbind(
-                    paste("der(", temp[[(lengthcount * 2-1)]][o], ")", sep = ''),
-                    paste(
-                      "der(",
-                      temp[[(lengthcount * 2-1)]][o],
-                      ";",
-                      temp[[(lengthcount * 2-1)]][o - 1],
-                      if (length(currentvec) > 1) {
-                        ";"
-                      },
-                      rep(temp[[(lengthcount * 2-1)]][o], length(currentvec) - 1),
-                      ")(",
-                      currentvec[1],
-                      ";",
-                      temp[[lengthcount * 2]][o - 1],
-                      if (length(currentvec) > 1) {
-                        ";"
-                      },
-                      currentvec[-1],
-                      ")",
-                      sep = '',
-                      collapse = ";"
-                    ),
-                    ""
-                  ))
-                
+                if(earlyReturn==T){
+                  return(NA)
+                }else{
+                  ##vector of o cytobands ##includes everything but cytoband on der o indicated, double check how your doing this (going one band before, is this right?)
+                  
+                  
+                  ##above is all to find vectors of o that are excluded
+                  if (o == 1)
+                  {
+                    temptrans <-
+                      rbind(temptrans, cbind(
+                        paste("der(", temp[[(lengthcount * 2-1)]][o], ")", sep = ''),
+                        paste(
+                          "der(",
+                          temp[[(lengthcount * 2-1)]][o],
+                          ";",
+                          temp[[(lengthcount * 2-1)]][length(temp[[(lengthcount * 2-1)]])],
+                          if (length(currentvec) > 1) {
+                            ";"
+                          },
+                          rep(temp[[(lengthcount * 2-1)]][o], length(currentvec) - 1),
+                          ")(",
+                          currentvec[1],
+                          ";",
+                          temp[[lengthcount * 2]][length(temp[[(lengthcount * 2-1)]])],
+                          if (length(currentvec) > 1) {
+                            ";"
+                          },
+                          currentvec[-1],
+                          ")",
+                          sep = '',
+                          collapse = ";"
+                        ),
+                        ""
+                      ))
+                    
+                  } else{
+                    temptrans <-
+                      rbind(temptrans, cbind(
+                        paste("der(", temp[[(lengthcount * 2-1)]][o], ")", sep = ''),
+                        paste(
+                          "der(",
+                          temp[[(lengthcount * 2-1)]][o],
+                          ";",
+                          temp[[(lengthcount * 2-1)]][o - 1],
+                          if (length(currentvec) > 1) {
+                            ";"
+                          },
+                          rep(temp[[(lengthcount * 2-1)]][o], length(currentvec) - 1),
+                          ")(",
+                          currentvec[1],
+                          ";",
+                          temp[[lengthcount * 2]][o - 1],
+                          if (length(currentvec) > 1) {
+                            ";"
+                          },
+                          currentvec[-1],
+                          ")",
+                          sep = '',
+                          collapse = ";"
+                        ),
+                        ""
+                      ))
+                    
+                  }
+                }
               }
             }
-            
             transloctable <- c(transloctable, list(temptrans))
             names(transloctable)[length(transloctable)] <-
-              transchrom
+              gsub("\\+","",transchrom)
           }
           
-          if(!grepl("^\\++t\\(",derMods[(lengthcount*2-1)])&grepl("der",Cyto_sample[coln]))
+          
+          ##for extending der(X)t(X;y) type 
+          if(!grepl("^\\++t\\(",derMods[(lengthcount*2-1)]) & grepl("der",Cyto_sample[coln]))
           {
             ##this is a factor, not a table 
             transDer<-as.matrix(transloctable[[grep(regtranschrom,names(transloctable))]][grep(paste("der\\(",sapply(Mainchr,function(x){substr(x,0,nchar(x)-1)}),"\\)",sep="",collapse="|"),transloctable[[grep(regtranschrom,names(transloctable))]][,1]),])[2]
@@ -816,18 +1181,76 @@ if(build =="GRCh38")
             ##derMods[(lengthcount*2-1)]<-transDer
           }
           
-          
+          ########
+          ####new #####
+          ## fix +t() here
+          ################
+          if(grepl("^\\++t\\(",derMods[(lengthcount*2-1)]) & !grepl("der",Cyto_sample[coln]) & plusT==F)
+         {
+            print(lengthcount)
+            transderplus<-transloctable[grep(regtranschrom,names(transloctable))]
+            dertransextract<-transderplus[[1]][grep(paste("der\\(",temp[[(lengthcount*2)-1]],"\\)",sep="",collapse="|"),transderplus[[1]][,1]),2]
+            
+           transtemp <-
+              unlist(lapply(as.list(dertransextract),function(x){strsplit(gsub("[\\(\\)]", "", regmatches(
+                x, gregexpr("\\(.*?\\)",  x)
+              )[[1]]), ";")}),recursive=F)
+            
+            transdermod<-unlist(lapply(dertransextract,function(x){y<-paste("+",x,sep="");strsplit(y, "\\)")}))
+            ##make temp storage for rest of temp
+            tempstorage<-NULL
+            tempdermods<-NULL
+            if((length(temp))>(lengthcount*2))
+            {
+              tempstorage<-temp[[((lengthcount*2)+1):length(temp)]]
+              tempdermods<-derMods[((lengthcount*2)+1):length(temp)]
+            
+              
+            }
+            
+            temp[[(lengthcount*2-1)]]<-transtemp[[1]]
+            
+            if(length(temp)==1)
+            {
+              temp<-list(unlist(temp),transtemp[[2]])
+            }else{
+              
+              temp[[lengthcount*2]]<-transtemp[[2]]
+
+            }
+            temp<-c(temp[1:(lengthcount*2)],transtemp[3:length(transtemp)])
+            
+            derMods[(lengthcount*2)-1]<-transdermod[1]
+            if(length(derMods)==1)
+            {
+              derMods<-c(derMods,transdermod[2])
+            }else{
+              derMods[lengthcount*2]<-transdermod[2]
+              
+            }
+            derMods<-c(derMods[1:(lengthcount*2)],transdermod[3:length(transdermod)])
+            
+            
+            if(!is.null(tempstorage))
+            {
+              temp<-c(temp,tempstorage)
+              derMods<-c(derMods,tempdermods)
+              
+            }
+            
+          }
           
           
         }
+          
         if (grepl("ins\\(", derMods[(lengthcount * 2-1)]) ) {
           currentvec<-vector()
-          inschrom <-str_extract(Cyto_sample[coln], paste(gsub("\\(","\\\\(",derMods[(lengthcount*2-1)]),"\\)\\(.+?\\)",sep=''))
+          inschrom <-str_extract(Cyto_sample[coln], paste(gsub("\\+","\\\\+",gsub("\\(","\\\\(",derMods[(lengthcount*2-1)])),"\\)\\(.+?\\)",sep=''))
           
           if(is.na(inschrom))
           {
             inschrom <-
-              str_extract(Cyto_sample[coln], paste(gsub("\\(","\\\\(",derMods[(lengthcount*2-1)]),"\\)",sep=''))
+              str_extract(Cyto_sample[coln], paste(gsub("\\+","\\\\+",gsub("\\(","\\\\(",derMods[(lengthcount*2-1)])),"\\)",sep=''))
           }
           reginschrom<-gsub("\\+","",gsub("\\)","\\\\)",gsub("\\(","\\\\(",inschrom)))
           ## if insertion is on a single chromosome , do this , if for some reason the call is separated but the chromosome is not
@@ -856,8 +1279,8 @@ if(build =="GRCh38")
             ##entire translocation only if nessesary
             tempins <- data.frame()
             
-            
-            currentvec <- getCytoBands(lengthcount, 1,temp,coln,derMods)
+             
+            currentvec <-getCytoBands(lengthcount, 1,temp,coln,derMods)[[1]]
             
             ##fix this later , insertion is simply stopping where it left off instead of listing other half of the chromosome
             
@@ -885,7 +1308,7 @@ if(build =="GRCh38")
               ))
             
             ##change this to be a del chromosome
-            currentvec <- getCytoBands(lengthcount, 2,temp,coln,derMods)
+            currentvec <- getCytoBands(lengthcount, 2,temp,coln,derMods)[[1]]
             
             ##tempins <-
             ##rbind(tempins, cbind(
@@ -956,10 +1379,12 @@ if(build =="GRCh38")
         }
         
         
+        
         for (i in 1:length(temp[[(lengthcount * 2-1)]]))
         {
           
-          if(!is.na(str_length(temp[[(lengthcount * 2)]][i])))
+          if(length(test) > 1 | plusT){
+            if(!is.na(str_length(temp[[(lengthcount * 2)]][i])))
           {
             chr_table <-
               Cyto_ref_table[grep(paste(paste("chr", temp[[(lengthcount * 2-1)]][i], sep =
@@ -1069,7 +1494,10 @@ if(build =="GRCh38")
                 
                 ##make sure positions is in order to be processed correctly
                 positions<-positionsorter(positions)
-                
+                if(length(unlist(strsplit(positions,"-|~")))>1)
+                {
+                  positions<-unlist(lapply(strsplit(positions,"-|~"),function(x){x[1]}))
+                }
                 ##put stuff in table
                 positions_table <-
                   matrix(chr_table_2[grep(paste(positions, collapse = "|", sep = "|"),
@@ -1171,6 +1599,10 @@ if(build =="GRCh38")
                 chr_table[grep("acen", chr_table[, 5]), ][2, 4]
               ##check order, test this
               postions<-positionsorter(positions)
+              if(length(unlist(strsplit(positions,"-|~")))>1)
+              {
+                positions<-unlist(lapply(strsplit(positions,"-|~"),function(x){x[1]}))
+              }
               
               positions_table <-
                 matrix(chr_table[grep(paste(positions, collapse = "|"), chr_table[, 4]), ], ncol =
@@ -1288,8 +1720,12 @@ if(build =="GRCh38")
             
             
             
-          }
+          } }
         }
+      
+        
+        lengthcount <- lengthcount+1  
+       
       }
     }
     
@@ -1343,7 +1779,7 @@ if(build =="GRCh38")
       ##}
       
       ##make sure coords are in numerical order 
-      coord<-coord[order(coord[,1],coord[,2]),]
+      coord<-coord[order(coord[,1],coord[,2],coord[,3]),]
       
       
       
@@ -1392,7 +1828,7 @@ if(build =="GRCh38")
       
       
       ##make sure coords are in numerical order again
-      coord<-coord[order(coord[,1],coord[,2]),]
+      coord<-coord[order(coord[,1],coord[,2],coord[,3]),]
       
       
       ##make excoord table
@@ -1423,48 +1859,99 @@ if(build =="GRCh38")
           
           if (!identical(gsub(" ","",as.character(tempChr[3])),
                          gsub(" ","",as.character(ref_table[grep(paste(tempChr[1], "$", sep = ""), ref_table), ][2]))))
-            excoord = rbind(excoord,
+          {
+              excoord = rbind(excoord,
                             cbind(tempChr[1], tempChr[3], ref_table[grep(paste(tempChr[1], "$", sep =
-                                                                                 ""), ref_table), ][2], tempChr[4]))
-          
+                                                                                ""), ref_table), ][2], tempChr[4]))
+          }
         }
         else{
           
-          
-          for (z in 1:nrow(tempChr))
+          ##make sure none are inside intervals, if it is, delete out of tempChr 
+          for(z in 1:nrow(tempChr))
           {
-            if (z == 1)
-            {
-              if( !identical(gsub(" ","",as.character(tempChr[1, 2])), "0"))
+            inbetween<-F
+            for(x in 1:(nrow(tempChr))){
+
+              if((as.numeric(tempChr[x,2])<as.numeric(tempChr[z,2]) & as.numeric(tempChr[x,3]>tempChr[z,3])))
               {
-                excoord = rbind(excoord,
-                                cbind(tempChr[z, 1], 0, tempChr[z, 2], tempChr[z, 4]))
-              }
-              
-              if (nrow(tempChr) > 1 && !identical(gsub(" ","",as.character(tempChr[z,3])),gsub(" ","",as.character(tempChr[z+1,2]))))
-              {
-                excoord = rbind(excoord,
-                                cbind(tempChr[z, 1], tempChr[z, 3], tempChr[z + 1, 2], tempChr[z, 4]))
+                inbetween<-T
               }
               
               
-              
-            } else if (z == nrow(tempChr) &
-                       !identical(gsub(" ","",as.character(tempChr[z, 3])),
-                                  gsub(" ","",as.character(ref_table[grep(as.character(paste(tempChr[z, 1], "$", sep =
-                                                                                             "")), ref_table), ][2])))) {
-              excoord = rbind(excoord,
-                              cbind(tempChr[z, 1], tempChr[z, 3], ref_table[grep(as.character(paste(tempChr[z, 1], "$", sep =
-                                                                                                      "")), ref_table), ][2], tempChr[z, 4]))
-              
-            } else if (z < nrow(tempChr) & z > 1 && !identical(gsub(" ","",as.character(tempChr[z,3])),gsub(" ","",as.character(tempChr[z+1,2])))) {
-              excoord = rbind(excoord,
-                              cbind(tempChr[z, 1], tempChr[z, 3], tempChr[z + 1, 2], tempChr[z, 4]))
             }
             
-            
-          }
+            if(inbetween==T)
+            {
+              tempChr[z,]<-c(0,0,0,0)
+            }
         }
+           
+          tempChr<-tempChr[which(tempChr[,1]!="0"),]
+            
+          
+          ##if its a vector, do top part again
+                if (is.vector(tempChr))
+                {
+                  if (!identical(gsub(" ","",as.character(tempChr[2])), "0"))
+                  {
+                    excoord = rbind(excoord, cbind(tempChr[1], 0, tempChr[2], tempChr[4]))
+                  }
+                  
+                  if (!identical(gsub(" ","",as.character(tempChr[3])),
+                                 gsub(" ","",as.character(ref_table[grep(paste(tempChr[1], "$", sep = ""), ref_table), ][2]))))
+                  {
+                    excoord = rbind(excoord,
+                                    cbind(tempChr[1], tempChr[3], ref_table[grep(paste(tempChr[1], "$", sep =
+                                                                                         ""), ref_table), ][2], tempChr[4]))
+                  }
+                }else{
+                          
+                    #else
+                    for (z in 1:nrow(tempChr))
+                    {
+                      
+                      
+                      if (z == 1)
+                      {
+                        if( !identical(gsub(" ","",as.character(tempChr[1, 2])), "0"))
+                        {
+                          excoord = rbind(excoord,
+                                          cbind(tempChr[z, 1], 0, tempChr[z, 2], tempChr[z, 4]))
+                        }
+                        
+                        if (nrow(tempChr) > 1 && !identical(gsub(" ","",as.character(tempChr[z,3])),gsub(" ","",as.character(tempChr[z+1,2]))))
+                        {
+                          excoord = rbind(excoord,
+                                          cbind(tempChr[z, 1], tempChr[z, 3], tempChr[z + 1, 2], tempChr[z, 4]))
+                        }
+                        
+                        
+                        
+                      }else if (z == nrow(tempChr) &
+                                 !identical(gsub(" ","",as.character(tempChr[z, 3])),
+                                            gsub(" ","",as.character(ref_table[grep(as.character(paste(tempChr[z, 1], "$", sep =
+                                                                                                       "")), ref_table), ][2])))) {
+                        excoord = rbind(excoord,
+                                        cbind(tempChr[z, 1], tempChr[z, 3], ref_table[grep(as.character(paste(tempChr[z, 1], "$", sep =
+                                                                                                                "")), ref_table), ][2], tempChr[z, 4]))
+                        
+                      } else if (z < nrow(tempChr) & z > 1 && !identical(gsub(" ","",as.character(tempChr[z,3])),gsub(" ","",as.character(tempChr[z+1,2])))) {
+                        
+                        ##if this interval is not inside another 
+                          excoord = rbind(excoord,
+                                        cbind(tempChr[z, 1], tempChr[z, 3], tempChr[z + 1, 2], tempChr[z, 4]))
+                        
+                        
+                      }
+            
+            
+                   }
+        
+          
+          
+              }
+          }
       }
       
     }
@@ -1623,12 +2110,12 @@ if(build =="GRCh38")
   
   
   ##try catch between chromosomes
-  colparse <- function(j, xmod, ymod, transloctable,addtot)
+  colparse <- function(j, xmod, ymod, transloctable,addtot,Cyto)
   {
-    out <- try(parser(j, xmod, ymod, transloctable,addtot))
+    out <- try(parser(j, xmod, ymod, transloctable,addtot,Cyto_sample))
     
     if (inherits(out, "try-error")) {
-      return(paste(geterrmessage(), "in", j, "field"))
+      return(gsub("\n"," ",paste(geterrmessage(), "in", j, "field")))
     }
     return(out)
   }
@@ -1683,16 +2170,16 @@ if(build =="GRCh38")
       newL<-matrix(ncol=3, nrow=0)
       j<-1
       modified<-TRUE
-      ##print(list(i,modified))
+      print(list(i,modified))
       while(j<=nrow(L) & modified){
         nxt<-mergeGL(G[i,], L[j,])
         modified<-nxt[[2]]
         nxt<-nxt[[1]]
         w<-which(nxt[,3]=="Loss")
         if(length(w)>0){newL<-rbind(newL, nxt[w,],
-                                    if(nrow(L[-j,])>=j && !modified){L[-j,][j:nrow(L[-j,]),]}
+                                    if(nrow(L) >1 && !is.vector(L[-j,]) && nrow(L[-j,])>=j && !modified){L[-j,][j:nrow(L[-j,]),]}
         )
-        }else if(nrow(nxt)>0){newL<-rbind(newL,if(nrow(L[-j,])>=j && !modified){L[-j,][j:nrow(L[-j,]),]})}else{newL<-rbind(newL,apply(L[-j,],2,as.character))}
+        }else if(nrow(nxt)>0){newL<-rbind(newL,if(nrow(L)>1 && !is.vector(L[-j,]) && nrow(L[-j,])>=j && !modified){L[-j,][j:nrow(L[-j,]),]})}else if(!is.vector(L[-j,])){newL<-rbind(newL,apply(L[-j,],2,as.character))}else{newL<-rbind(newL,sapply(L[-j,],as.character))}
         print(list(j,modified,newL))
         j<-j+1
       }
@@ -1708,15 +2195,16 @@ if(build =="GRCh38")
       modified<-TRUE
       ##print(list(i,G))
       
-      while(j<=nrow(G)& modified){
+      while(j<=nrow(G) & modified){
         nxt<-mergeGL(G[j,], origL[i,])
         modified<-nxt[[2]]
         nxt<-nxt[[1]]
         w<-which(nxt[,3]=="Gain")
         if(length(w)>0){newG<-rbind(newG, nxt[w,],
-                                    if(nrow(G[-j,])>=j ){G[-j,][j:nrow(G[-j,]),]}
+                                    if(nrow(G)>1 && !is.vector(G[-j,]) && nrow(G[-j,])>=j &&!modified ){G[-j,][j:nrow(G[-j,]),]}
         )
-        }else if(nrow(nxt)>0){newG<-rbind(newG,if(nrow(G[-j,])>=j){G[-j,][j:nrow(G[-j,]),]})}else{newG<-rbind(newG,G[-j,])}
+        }else if(nrow(nxt)>0){newG<-rbind(newG,if(nrow(G)>1 && !is.vector(G[-j,]) && nrow(G[-j,])>=j && !modified){G[-j,][j:nrow(G[-j,]),]})}else if(!is.vector(G[-j,])){newG<-rbind(newG,apply(G[-j,],2,as.character))}else{newG<-rbind(newG,sapply(G[-j,],as.character))}
+
         print(list(j,modified,newG))
         j<-j+1
       }
@@ -1746,19 +2234,24 @@ if(build =="GRCh38")
     for(i in 1:length(chrs)){
       w<-which(M[,1]==chrs[i])
       Msub<-M[w,]
-      
-      wg<-which(Msub[,4]=="Gain")
-      wl<-which(Msub[,4]=="Loss")
-      
-      if(length(wg)==0 | length(wl)==0){
-        out<-rbind(out, Msub)} else{
-          nxt<-mergeGLmat(Msub[wg,-1],Msub[wl,-1])
-          if(nrow(nxt)>0)
-          {
-            nxt<-cbind(chrs[i],nxt)
-            colnames(nxt)[1]<-"Chr"
-          }
-          out<-rbind(out, nxt)
+      if(is.vector(Msub))
+      {
+        out<-rbind(out, Msub)
+        
+      }else{
+          wg<-which(Msub[,4]=="Gain")
+          wl<-which(Msub[,4]=="Loss")
+          
+          if(length(wg)==0 | length(wl)==0){
+            out<-rbind(out, Msub)} else{
+              nxt<-mergeGLmat(Msub[wg,-1],Msub[wl,-1])
+              if(nrow(nxt)>0)
+              {
+                nxt<-cbind(chrs[i],nxt)
+                colnames(nxt)[1]<-"Chr"
+              }
+              out<-rbind(out, nxt)
+            }
         }
     }
     
@@ -1861,14 +2354,14 @@ if(build =="GRCh38")
     
     if(length(wg)>1){
       ##Mg<-M[wg,1:3]
-      for(j in 1:(nrow(Mg)-1)){
-        Mg[j:nrow(Mg),]<-mergeBelow(Mg[j:nrow(Mg),])}
+      ##for(j in 1:(nrow(Mg)-1)){
+        ##Mg[j:nrow(Mg),]<-mergeBelow(Mg[j:nrow(Mg),])}
       M[wg,1:3]<-Mg}
     
     if(length(wl)>1){
-      Ml<-M[wl,1:3]
-      for(j in 1:(nrow(Ml)-1)){
-        Ml[j:nrow(Ml),]<-mergeBelowL(Ml[j:nrow(Ml),])}
+      ##Ml<-M[wl,1:3]
+      ##for(j in 1:(nrow(Ml)-1)){
+        ##Ml[j:nrow(Ml),]<-mergeBelowL(Ml[j:nrow(Ml),])}
       M[wl,1:3]<-Ml}
     
     bads<-which(!M[,4]%in%c("Loss", "Gain"))
@@ -1883,6 +2376,223 @@ if(build =="GRCh38")
   
   
   
+  ###use machinery for deletion intervals
+  
+  mergeDeletions<-function(M,Mainchr){
+    OldM<-M
+    startDel<-grep("((t\\()|(idic\\()|(rob\\()|(trc\\()|(dic\\()|(Gain))",M[,4])[1]
+
+    
+    wdel<-union(intersect(grep("del", M[, 4]),grep("^del", M[, 4],invert=T)),intersect(grep("add", M[, 4]),grep("^add", M[, 4],invert=T)))
+    
+    if(!is.na(startDel))
+    {
+      startDel<-1:startDel  
+      wdel<-setdiff(union(intersect(grep("del", M[, 4]),grep("^del", M[, 4],invert=T)),intersect(grep("add", M[, 4]),grep("^add", M[, 4],invert=T))),startDel)
+      
+    }
+    
+    resttosee<-setdiff(grep("((t\\()|(idic\\()|(rob\\()|(trc\\()|(dic\\()|(Gain))",M[,4]),wdel)
+    rest<-(1:nrow(M))[-1*c(wdel,resttosee)]
+    
+    
+
+    M<-M[c(wdel,resttosee),]
+    if(length(resttosee)>0 & length(wdel)>0)
+    {
+      M<- bigDelMerge(M)
+    }
+    
+    startDel<-grep("((t\\()|(idic\\()|(rob\\()|(trc\\()|(dic\\()|(Gain))",M[,4])[1]
+    
+    
+    wdel<-union(intersect(grep("del", M[, 4]),grep("^del", M[, 4],invert=T)),intersect(grep("add", M[, 4]),grep("^add", M[, 4],invert=T)))
+    
+    if(!is.na(startDel))
+    {
+      startDel<-1:startDel  
+      wdel<-setdiff(union(intersect(grep("del", M[, 4]),grep("^del", M[, 4],invert=T)),intersect(grep("add", M[, 4]),grep("^add", M[, 4],invert=T))),startDel)
+      
+    }
+    wg<-setdiff(grep("((t\\()|(idic\\()|(rob\\()|(trc\\()|(dic\\()|(Gain))",M[,4]),wdel)
+    Mg<-M[wg,1:3]
+    Ml<-M[wdel,1:3]
+    
+    if(length(wg)>1){
+      ##Mg<-M[wg,1:3]
+      ##for(j in 1:(nrow(Mg)-1)){
+      ##Mg[j:nrow(Mg),]<-mergeBelow(Mg[j:nrow(Mg),])}
+      M[wg,1:3]<-Mg}
+    
+    if(length(wdel)>1){
+      ##Ml<-M[wl,1:3]
+      ##for(j in 1:(nrow(Ml)-1)){
+      ##Ml[j:nrow(Ml),]<-mergeBelowL(Ml[j:nrow(Ml),])}
+      M[wdel,1:3]<-Ml}
+    
+    ##bads<-which(!M[,4]%in%c("Loss", "Gain"))
+    
+    ##deletions that are to be removed
+
+
+    w<-which(!is.na(M[,2]))
+    if(length(rest)>0)
+    {
+      out<-rbind(M[w,],OldM[rest,])
+      w<-c(1:2)
+    }else{
+      
+      out<-M[w,]
+      
+    }
+    
+    if(length(w)==1 ){out<-t(out)}
+    
+    return(out)}
+ 
+  
+  
+  ##variant for deletions only
+  
+  
+  mergeDelmat<-function(G, L){
+    i<-1
+    ##G[,1:2]<-apply(G[,1:2],2,as.numeric)
+    ##L[,1:2]<-apply(L[,1:2],2,as.numeric)
+    origL<-L
+    while(nrow(L)>0 & i<=nrow(G)){
+      newL<-matrix(ncol=3, nrow=0)
+      j<-1
+      modified<-TRUE
+      print(list(i,modified))
+      while(j<=nrow(L) & modified){
+        nxt<-mergeDel(G[i,], L[j,])
+        modified<-nxt[[2]]
+        nxt<-nxt[[1]]
+        w<-union(intersect(grep("del", nxt[, 3]),grep("^del", nxt[, 3],invert=T)),intersect(grep("add", nxt[, 3]),grep("^add", nxt[,3],invert=T)))
+        if(length(w)>0){newL<-rbind(newL, nxt[w,],
+                                    if(nrow(L) >1 && !is.vector(L[-j,]) && nrow(L[-j,])>=j && !modified){L[-j,][j:nrow(L[-j,]),]}
+        )
+        }else if(nrow(nxt)>0){newL<-rbind(newL,if(nrow(L)>1 && !is.vector(L[-j,]) && nrow(L[-j,])>=j && !modified){L[-j,][j:nrow(L[-j,]),]})}else if(!is.vector(L[-j,])){newL<-rbind(newL,apply(L[-j,],2,as.character))}else{newL<-rbind(newL,sapply(L[-j,],as.character))}
+        print(list(j,modified,newL))
+        j<-j+1
+      }
+      L<-newL
+      i<-i+1
+    }
+    
+    
+    i<-1
+    while(nrow(G)>0 & i<=nrow(origL)){
+      newG<-matrix(ncol=3, nrow=0)
+      j<-1
+      modified<-TRUE
+      print(list(i,G))
+      
+      while(j<=nrow(G) & modified){
+        nxt<-mergeDel(G[j,], origL[i,])
+        modified<-nxt[[2]]
+        nxt<-nxt[[1]]
+        w<-setdiff(grep("((t\\()|(idic\\()|(rob\\()|(trc\\()|(dic\\()|(Gain))",nxt[,3]),union(intersect(grep("del", nxt[, 3]),grep("^del", nxt[, 3],invert=T)),intersect(grep("add", nxt[, 3]),grep("^add", nxt[,3],invert=T))))
+        if(length(w)>0){newG<-rbind(newG, nxt[w,],
+                                    if(nrow(G)>1 && !is.vector(G[-j,]) && nrow(G[-j,])>=j &&!modified ){G[-j,][j:nrow(G[-j,]),]}
+        )
+        }else if(nrow(nxt)>0){newG<-rbind(newG,if(nrow(G)>1 && !is.vector(G[-j,]) && nrow(G[-j,])>=j && !modified){G[-j,][j:nrow(G[-j,]),]})}else if(!is.vector(G[-j,])){newG<-rbind(newG,apply(G[-j,],2,as.character))}else{newG<-rbind(newG,sapply(G[-j,],as.character))}
+        
+        print(list(j,modified,newG))
+        j<-j+1
+      }
+      G<-newG
+      i<-i+1
+    }
+    
+    G[,1]<-as.numeric(as.character(G[,1]))
+    G[,2]<-as.numeric(as.character(G[,2]))
+    L[,1]<-as.numeric(as.character(L[,1]))
+    L[,2]<-as.numeric(as.character(L[,2]))
+    
+    
+    
+    out<-data.frame(Start=c(G[,1], L[,1]), End=c(G[,2],L[,2]), 
+                    Type=c(G[,3], L[,3]))
+    return(out)}
+  
+  ### Now the whole thing:
+  bigDelMerge<-function(M){
+    
+    ##ask what does this do 
+    out<-M[-(1:nrow(M)),]
+    
+    chrs<-unique(M[,1])
+    
+    for(i in 1:length(chrs)){
+      w<-which(M[,1]==chrs[i])
+      Msub<-M[w,]
+      
+      startDel<-grep("((t\\()|(idic\\()|(rob\\()|(trc\\()|(dic\\())",Msub[,4])[1]
+      
+      
+      wl<-union(intersect(grep("del", Msub[, 4]),grep("^del", Msub[, 4],invert=T)),intersect(grep("add", Msub[, 4]),grep("^add", Msub[, 4],invert=T)))
+      
+      if(!is.na(startDel))
+      {
+        startDel<-1:startDel  
+        wl<-setdiff(union(intersect(grep("del", Msub[, 4]),grep("^del", Msub[, 4],invert=T)),intersect(grep("add", Msub[, 4]),grep("^add", Msub[, 4],invert=T))),startDel)
+        
+      }
+      wg<-setdiff(grep("((t\\()|(idic\\()|(rob\\()|(trc\\()|(dic\\()|(Gain))",Msub[,4]),wl)
+      
+      if(length(wg)==0 | length(wl)==0){
+        out<-rbind(out, Msub)} else{
+          nxt<-mergeDelmat(Msub[wg,-1],Msub[wl,-1])
+          if(nrow(nxt)>0)
+          {
+            nxt<-cbind(chrs[i],nxt)
+            colnames(nxt)[1]<-"Chr"
+          }
+          out<-rbind(out, nxt)
+        }
+    }
+    
+    return(out)}
+  
+  
+  mergeDel<-function(v1,v2){
+    labs<-c(v1[3], v2[3])
+    v1<-as.vector(as.integer(as.numeric(as.character(v1[1:2]))))
+    v2<-as.vector(as.integer(as.numeric(as.character(v2[1:2]))))
+    out<-as.data.frame(matrix(nrow=0,ncol=3))
+    colnames(out)<-c("Start","End","Type")
+    out<-cbind(as.integer(as.numeric(out[,1])),as.integer(as.numeric(out[,2])),out[,3])
+    if(v1[1]>v2[1]){
+      labs<-labs[2:1]
+      tmp<-v1
+      v1<-v2
+      v2<-tmp}
+    
+    if(v1[2]>=v2[2]){
+      out<-data.frame(Start=c(v1[1],v2[2]), End=c(v2[1], v1[2]), 
+                      Type=rep(labs[1],2))} else{if(v1[2]>=v2[1]){
+                        out<-data.frame(Start=c(v1[1],v1[2]), End=c(v2[1], v2[2]), 
+                                        Type=labs)} else{out<-data.frame(Start=c(v1[1],v2[1]), End=c(v1[2], v2[2]), 
+                                                                         Type=labs)}}
+    
+    bads<-which(out[,1]>=out[,2])
+    if(length(bads)>0){out<-out[-bads,]}
+    origMat<-data.frame(Start=c(v1[1],v2[1]), End=c(v1[2], v2[2]), 
+                        Type=labs)
+    if(nrow(out)==nrow(origMat) && identical(out,origMat))
+    {
+      out=list(out,TRUE)
+    }else{
+      out=list(out,FALSE)
+    }
+    return(out)}
+  
+  
+  
+  
+  ##parseing per sample
   
   rowparse<-function(i){
     sample_table <- matrix(ncol = 4, nrow = 0)
@@ -1934,7 +2644,12 @@ if(build =="GRCh38")
       {
         ##set normal count for XY chromosomes
         ##think about what 46,X,+Y would mean
-        if (any(grepl("Y", Cyto_sample)) &
+        if(constitutional==F & grepl("c",Cyto_sample[2])){
+          
+          normX = str_count(Cyto_sample[2], "X")
+          normY = str_count(Cyto_sample[2], "Y")
+          
+        }else if (any(grepl("Y", Cyto_sample)) &
             (sum(grepl("Y", Cyto_sample), na.rm = TRUE) > sum(grepl("\\+Y", Cyto_sample), na.rm =
                                                               TRUE)))
         {
@@ -1952,6 +2667,7 @@ if(build =="GRCh38")
           #make sure reg ecpression means what you want it to
         }  else {
           xcount = str_count(Cyto_sample[2], "X")
+          xcount = xcount + str_count(Cyto_sample[2], "\\?")
           ycount = str_count(Cyto_sample[2], "Y")
           ##x,y calculation
         }
@@ -1996,11 +2712,30 @@ if(build =="GRCh38")
           matrix(byrow = TRUE,
                  nrow = 1,
                  ncol = 4) ##temporary table for storage for mutations
+        
+        ##for if deletions get completely eliminated in t() type abberations
+        deletions=F
+        
+        #########
+        ##if guess is true, try to process ? marks
+        ##think about how this can affect counting  + and \\?
+        ######new######
+        #############################
+        if(guess_q == T)
+        {
+          Cyto_sample[j] <- gsub("\\?","",Cyto_sample[j])
+        }
+        
+        ##if or, delete second option based on booleen
+        if(orOption==T){
+          Cyto_sample[j]<-gsub("or.*$","",Cyto_sample[j])
+        }
+        
         #addition and deletions of entire chromosomes can be handeled easily and separate from the rest
         if (grepl(
           "mar|^\\+*([[:digit:]]((~|-)[[:digit:]])*)*r\\(*[[:digit:]]*\\)*$|^\\+*([[:digit:]]((~|-)[[:digit:]])*)*neo[[:digit:]]*$",
           Cyto_sample[j]
-        ))
+        ) || (constitutional==F && grepl("c$",Cyto_sample[j])))
         {
           if (grepl("\\+", Cyto_sample[j]))
           {
@@ -2029,7 +2764,7 @@ if(build =="GRCh38")
             {
               tem <-
                 as.numeric((strsplit(
-                  strsplit(Cyto_sample[j], "mar|r\\(*[[:digit:]]*\\)*$|neo")[[1]][1],
+                  strsplit(Cyto_sample[j], "mar|r\\(*[[:digit:]]*\\)*$|neo|c$")[[1]][1],
                   "\\+"
                 )[[1]][2]))
             }
@@ -2089,12 +2824,16 @@ if(build =="GRCh38")
         {
           ##for all other cases call this first
           ##check for x modifications in parser
-          inc_table <- colparse(j, xmod, ymod, transloctable,addtot)
+          inc_table <- colparse(j, xmod, ymod, transloctable,addtot,Cyto_sample)
           if (is.character(inc_table))
           {
             Dump_table <- rbind(Dump_table, c(Con_data[i, ], inc_table))
           }
           else if (is.null(inc_table)) {
+            
+          }
+          else if(length(inc_table)==1 && is.na(inc_table)){
+            Dump_table <- rbind(Dump_table, c(Con_data[i,], "Error in more than one band associated with a chromosome in a translocation"))
             
           }
           else{
@@ -2106,8 +2845,19 @@ if(build =="GRCh38")
             multi <- inc_table[[6]]
             transloctable<-inc_table[[7]]
             addtot<-inc_table[[8]]
+            
+            ##for future implementation: switch to searching at ex table if temp table is empty, default is temp_table
+            pointerConditional<-temp_table
+            
             if (nrow(temp_table) > 0)
             {
+              ##if its a translocated vector, fix now
+              if(nrow(temp_table)==4 & ncol(temp_table)==1)
+              {
+                temp_table<-t(temp_table)
+                colnames(temp_table)<-c("Chr","Start","End","Type")
+              }
+              
               ##special cases (if, else if, else if ,else if, else )
               ##ider, i , ins, dic etc
               ##else, grep stuff on 4th col to detirmine addition or deletions, dont include translations add etc
@@ -2127,6 +2877,7 @@ if(build =="GRCh38")
                   apply(ex_table[, 2:3], 2, function(x) {
                     as.numeric(as.character(x))
                   })
+          
               }
               temp_table[, 2:3] <-
                 apply(temp_table[, 2:3], 2, function(x) {
@@ -2143,8 +2894,7 @@ if(build =="GRCh38")
               if (grepl("\\+", Cyto_sample[j]) ) ##&&!any(grepl("X|Y", Mainchr))
               {
                 addtot <- (1 * multi) + addtot
-              }
-              else if(multi>2){
+              }else if(multi>2){
                 addtot<-addtot+multi-2
               }
               ##temp_table[grep("+\(.\)",ex_table[,4]),4]<-"Gain"
@@ -2163,10 +2913,21 @@ if(build =="GRCh38")
                 {
                   if(length(Mainchr[-(grep("X|Y",Mainchr))])>0)
                   {
-                    clone_chrom_tracker <-
-                      clone_chrom_tracker[-1 * sapply(gsub("\\$", "", Mainchr), function(x) {if(!grepl("X|Y",x))
-                        which.max(clone_chrom_tracker == as.numeric(x))
-                      })]
+                    tempindexchromtracker<-sapply(gsub("\\$", "", Mainchr), function(x) {if(!grepl("X|Y",x))
+                      which.max(clone_chrom_tracker == as.numeric(x))
+                    })
+                    
+                    ##fix up if its a list
+                    if(is.list(tempindexchromtracker))
+                    {
+                      tempindexchromtracker<-unlist(tempindexchromtracker)
+                    }
+                    
+                    if(!is.null(tempindexchromtracker) && length(tempindexchromtracker)>0 )
+                    {
+                      clone_chrom_tracker <-
+                        clone_chrom_tracker[-1 *tempindexchromtracker ]
+                    }
                   }
                 }
                 
@@ -2176,8 +2937,7 @@ if(build =="GRCh38")
                         !grepl("X\\$|Y\\$", Mainchr)))
                 {
                   ##deltot <- deltot + (1 * multi)
-                }
-                else
+                }else
                 {
                   if(length(Mainchr)!=length(grep("X|Y", Mainchr)))
                   {
@@ -2223,7 +2983,7 @@ if(build =="GRCh38")
               ##ex_table[,4]<-paste(additionTable[[2]],ex_table[,4],sep="")
               ##temp_table<-rbind(temp_table,ex_table)
               ##}
-              if(any(grepl("(t|ins)\\(",temp_table[,4])&!grepl("^(t|ins)\\(",temp_table[,4])))
+              if(any(grepl("((t)|(ins))\\(",temp_table[,4])&!grepl("^((t)|(ins))\\(",temp_table[,4])))
               {
                 mod = TRUE
                 temp_table[intersect(intersect(
@@ -2235,16 +2995,16 @@ if(build =="GRCh38")
                   grep(
                     "(t|ins)\\(",
                     temp_table[, 4]
-                  )), grep("^(t|ins)\\(",temp_table[,4],invert=T)
+                  )), grep("^((t)|(ins))\\(",temp_table[,4],invert=T)
                 ), 4] <- "Gain"
                 if(nrow(ex_table)>0)
                 {
                   ex_table[intersect(intersect(
                     grep(paste("chr", Mainchr, sep = "",collapse="|"), ex_table[, 1]),
                     grep(
-                      "(t|ins)\\(",
+                      "((t)|(ins))\\(",
                       ex_table[, 4]
-                    )), grep("^(t|ins)\\(",ex_table[,4],invert=T)
+                    )), grep("^((t)|(ins))\\(",ex_table[,4],invert=T)
                   ), 4] <- "Loss"
                 }
                 ##temp_table[, 4] <-
@@ -2255,373 +3015,426 @@ if(build =="GRCh38")
               }
               
               
-              if (any(grepl("del", temp_table[, 4])&!grepl("^del", temp_table[, 4])&!grepl("multi[[:digit:]]*del",temp_table[,4])))
+              ##take deletion areas out of translocation adjacent things
+              if ( ((any(grepl("del", temp_table[, 4])&!grepl("^del", temp_table[, 4])&!grepl("multi[[:digit:]]*del",temp_table[,4]))) | (any(grepl("add", temp_table[, 4])&!grepl("^add", temp_table[, 4])&!grepl("multi[[:digit:]]*add",temp_table[,4])))))
               {
-                ##deals with if there is one deletion, will deal w multiple cases later
-                ##this is a factor problem
-                deleted <- temp_table[-1,][intersect(grep("del", temp_table[-1, 4]),grep("^del", temp_table[-1, 4],invert=T)), ]
-                if(length(deleted)>0 && nrow(deleted)>0)
+                if(nrow(temp_table)>length(union(((intersect(grep("del", temp_table[, 4]), intersect(grep("^del", temp_table[, 4],invert=T),grep("multi[[:digit:]]*del",temp_table[,4],invert=T))))) ,(intersect(grep("add", temp_table[, 4]), intersect(grep("^add", temp_table[, 4],invert=T),grep("multi[[:digit:]]*add",temp_table[,4],invert=T)))))) )
                 {
-                  
-                  deleted[2:3] <-
-                    apply(deleted[ 2:3], 2, function(x) {
-                      as.numeric(as.character(x))
-                    })
-                  
-                  
-                  ##chr_table<-Cyto_ref_table[grep(paste(paste("chr",temp_table[1,1],sep=""),"$",sep= ""),Cyto_ref_table),]
-                  ##if its identical to the end, truncate end
-                  ## if its idential to the beggining, truncate beginning
-                  ##else, split into lines
-                  ##maybe not a vector when changed
-                  ##fix this part
-                  if (is.vector(deleted))
+                  temp_table<-mergeDeletions(temp_table,Mainchr)
+                  deletions=T
+                  ##print(temp_table)
+                  ##if it is a vector, convert 
+                  if(is.vector(temp_table))
                   {
-                    if (identical(as.numeric(deleted[2]),
-                                  as.numeric(temp_table[1, 2])))
+                    temp_table<-as.data.frame(as.list(temp_table))
+                    temp_table[, 2:3] <-as.numeric(temp_table[,2:3])
+                    colnames(temp_table)<-c("Chr","Start","End","Type")
+                  }else if(nrow(temp_table)==4 & ncol(temp_table)==1)
+                  {
+                    ##if its a translocated vector, fix now
+                    temp_table<-t(temp_table)
+                    temp_table<-as.data.frame(as.list(temp_table))
+                    temp_table[, 2:3] <- as.numeric(temp_table[, 2:3])
+                    colnames(temp_table)<-c("Chr","Start","End","Type")
+                  }
+                  
+                  additionTable <- detectAdd(temp_table[, 4], if(nrow(ex_table)>0){ex_table[, 4]}else{NULL})
+                  
+                }
+                 
+         
+                
+              }
+              
+              
+              ##if temp table is empty, skip all this
+              if(nrow(temp_table)>0)
+              {
+                
+              }
+                    if (  (any(grepl(
+                      "((^\\++((der)|(rec))\\(.*)|(^((der)|(rec))\\(.*))",
+                      temp_table[, 4]
+                    )) & (length(temp_table[,4])>length(c(which(grepl("del",temp_table[,4])),which(grepl("add",temp_table[,4])))  )) & (length(temp_table[,4])>1 & ((length(temp_table[,4])-length(c(which(grepl("del",temp_table[,4])),which(grepl("add",temp_table[,4])))))>1 ) ))   || (any(grepl(
+                      "((^\\++((der)|(rec))\\(.*)|(^((der)|(rec))\\(.*))",
+                      temp_table[, 4]
+                    ))
+                      && deletions)
+                    )
                     {
-                      temp_table[1, 2] <- deleted[3]
-                    } else if (identical(as.numeric(deleted[3]),
-                                         as.numeric(temp_table[1, 3])))
-                    {
-                      temp_table[1, 3] <- deleted[2]
-                    } else
-                    {
-                      ##rearranging new data
-                      ##double check if this can be an else
-                      temp_table <- matrix(nrow = 0, ncol = 4)
-                      temp_table <- rbind(temp_table, deleted)
-                      temp_table[1, 3] <- deleted[2]
-                      temp_table[2, 2] <- deleted[3]
+                      mod = TRUE
+                      if(nrow(temp_table)>0)
+                      {
+                        temp_table[intersect(
+                          grep(
+                            paste(paste("chr", Mainchr, sep = ""),collapse = "|"),
+                            temp_table[, 1],
+                            invert = T
+                          ),
+                          grep(
+                            "((^\\++((der)|(rec))\\(.*)|(^((der)|(rec))\\(.*))",
+                            temp_table[, 4]
+                          )
+                        ), 4] <- "Gain"
+                      }
+                      
+                      if(nrow(ex_table)>0)
+                      {                
+                        ex_table[intersect(
+                          grep(paste(paste("chr", Mainchr, sep = ""),collapse="|"), ex_table[, 1]),
+                          grep(
+                            "((^\\++((der)|(rec))\\(.*)|(^((der)|(rec))\\(.*))",
+                            ex_table[, 4]
+                          )
+                        ), 4] <- "Loss"
+                      
+                      }
+                      
+                      if(nrow(temp_table)>0)
+                      {
+                        temp_table[, 4] <-
+                          paste(additionTable[[1]], temp_table[, 4], sep = "")
+                      }
+                      
+                      if(nrow(ex_table)>0)
+                      {
+                        ex_table[, 4] <-
+                          paste(additionTable[[2]], ex_table[, 4], sep = "")
+                      }
+                      
+                      temp_table <- rbind(temp_table, ex_table)
                       
                     }
                     
-                    
-                  } else
-                  {
-                    ##thinkg about what your doing here
-                    for(k in 1:nrow(deleted))
+                    if (any(grepl("i\\(.*", temp_table[, 4])))
                     {
-                      ##chromosome of deletion
-                      tempChr<-paste(deleted[k,1],"$",sep='')
-                      tempChrTableIndex<-intersect(grep(tempChr,temp_table[,1]),grep("del",temp_table[,4],invert=T))  
-                      if(length(tempChrTableIndex)>0)
+                      mod = TRUE
+                      if(nrow(temp_table)>0)
                       {
-                        
-                        for(l in 1:length(tempChrTableIndex))
+                        temp_table[grep("i\\(.*", temp_table[, 4]), 4] <- "Gain"
+                      }
+                      if(nrow(ex_table)>0)
+                      {
+                        ex_table[grep("i\\(.*", ex_table[, 4]), 4] <- "Loss"
+                      }
+                      if(nrow(temp_table)>0)
+                      {
+                       temp_table[, 4] <-
+                        paste(additionTable[[1]], temp_table[, 4], sep = "")
+                      }
+                      if(nrow(ex_table)>0)
+                      {
+                        ex_table[, 4] <-
+                          paste(additionTable[[2]], ex_table[, 4], sep = "")
+                      }
+                      temp_table <- rbind(temp_table, ex_table)
+                    }
+                    ##get whats included , dup, then rest on chromosome is deletion
+                    
+                    if (any(grepl("ider\\(.*", temp_table[, 4])))
+                    {
+                      mod = TRUE
+                      ##have to be able to handle these cases
+                      ##do inclusion and exclusion based on deleted case
+                      if(nrow(temp_table)>0)
+                      {
+                        temp_table[grep("ider\\(.*", temp_table[, 4]), 4] <-
+                        "Gain"
+                      }
+                      if(nrow(ex_table)>0)
+                      {
+                        ex_table[grep("ider\\(.*", ex_table[, 4]), 4] <- "Loss"
+                      }
+                      if(nrow(temp_table)>0)
+                      {
+                        temp_table[, 4] <-
+                        paste(additionTable[[1]], temp_table[, 4], sep = "")
+                      }
+                      if(nrow(ex_table)>0)
+                      {
+                        ex_table[, 4] <-
+                          paste(additionTable[[2]], ex_table[, 4], sep = "")
+                      }
+                      temp_table <- rbind(temp_table, ex_table)
+                      
+                    }
+                    
+                    if (any(grepl("idic\\(.*", temp_table[, 4])))
+                    {
+                      mod = TRUE
+                      ##need to either break it up or replace,
+                      ##think about this one too
+                      ##deleted <-
+                      ##ex_table[grep("idic\\(.*&del\\(", ex_table[, 4]), 4]
+                      if(nrow(temp_table)>0)
+                      {
+                        temp_table[grep("idic\\(.*", temp_table[, 4]), 4] <- "Loss"
+                      }
+                      if(nrow(ex_table)>0)
+                      {
+                        ex_table[grep("idic\\(.*", ex_table[, 4]), 4] <- "Gain"
+                      }
+                      if(nrow(temp_table)>0)
+                      {
+                        temp_table[, 4] <-
+                        paste(additionTable[[1]], temp_table[, 4], sep = "")
+                      }
+                      if(nrow(ex_table)>0)
+                      {
+                        ex_table[, 4] <-
+                          paste(additionTable[[2]], ex_table[, 4], sep = "")
+                      }
+                      temp_table <- rbind(temp_table, ex_table)
+                    }
+                    
+                    ##figour out why you did this 
+                    ##make sure this is reversed for long form
+                    if (any(grepl("dic\\(.*", temp_table[, 4])))
+                    {
+                      mod = TRUE
+                      if(any(grepl("long",temp_table[,4])))
+                      {
+                        if(nrow(temp_table)>0)
                         {
-                          if (identical(as.numeric(deleted[k, 2]),
-                                        as.numeric(temp_table[tempChrTableIndex[l], 2])))
-                          {
-                            temp_table[1, 2] <- deleted[k,3]
-                          } else if (identical(as.numeric(deleted[k,3]),
-                                               as.numeric(temp_table[1, 3])))
-                          {
-                            temp_table[1, 3] <- deleted[k, 2]
-                          } else
-                          {
-                            ##rearranging new data
-                            ##double check if this can be an else
-                            temp_table <- matrix(nrow = 0, ncol = 4)
-                            temp_table <- rbind(temp_table, deleted)
-                            temp_table[1, 3] <- deleted[k, 2]
-                            temp_table[2, 2] <- deleted[k, 3]
-                            
-                          }
+                          temp_table[, 4] <-
+                          paste(additionTable[[1]], temp_table[, 4], sep = "")
+                        }
+                        if(nrow(ex_table)>0)
+                        {
+                          ex_table[grep("dic\\(.*", ex_table[, 4]) ,4]<-"Loss"
+                          ex_table[, 4] <-
+                            paste(additionTable[[2]], ex_table[, 4], sep = "")
+                        }
+                        
+                      }else
+                      {
+                        if(nrow(temp_table)>0)
+                        {
+                          temp_table[grep("dic\\(.*", temp_table[, 4]), 4] <- "Loss"
+                          
+                          temp_table[, 4] <-
+                            paste(additionTable[[1]], temp_table[, 4], sep = "")
+                        }
+                        if(nrow(ex_table)>0)
+                        {
+                          ex_table[, 4] <-
+                            paste(additionTable[[2]], ex_table[, 4], sep = "")
                         }
                       }
+                      temp_table <- rbind(temp_table, ex_table)
+                    }
+                    
+                    ##make sure this is reversed for long form 
+                    if (any(grepl("trc\\(.*", temp_table[, 4])))
+                    {
+                      mod = TRUE
+                      if(any(grepl("long",temp_table[,4])))
+                      {
+                        if(nrow(ex_table)>0)
+                        {
+                          ex_table[intersect(grep("trc\\(.*", ex_table[, 4]),grep(paste("chr",Mainchr[1],"chr",Mainchr[3],sep='|'),ex_table[,1])),4]<-"Loss"
+                        }
+                        
+                      }else
+                      {
+                        if(nrow(temp_table)>0)
+                        {
+                          temp_table[intersect(grep("trc\\(.*", temp_table[, 4]),grep(paste("chr",Mainchr[1],"chr",Mainchr[3],sep='|'),temp_table[,1])),4]<-"Loss"
+                        }
+                      }
+                      
+                      if(nrow(temp_table)>0)
+                      {
+                        temp_table[, 4] <-
+                          paste(additionTable[[1]], temp_table[, 4], sep = "")
+                      }
+                      
+                      if(nrow(ex_table)>0)
+                      {
+                        ex_table[intersect(grep("trc\\(.*", ex_table[, 4]),grep("chr",Mainchr[2],ex_table[,1])), 4] <- "Loss"
+                        ex_table[, 4] <-
+                          paste(additionTable[[2]], ex_table[, 4], sep = "")
+                      }
+                      
+                      temp_table <- rbind(temp_table, ex_table)
+                    }
+                    
+                    if (any(grepl("rob\\(", temp_table[, 4])))
+                    {
+                      mod = TRUE
+                      if(nrow(ex_table)>0)
+                      {
+                        ex_table[grep("rob\\(", ex_table[, 4]), 4] <- "Loss"
+                      }
+                      
+                      if(nrow(temp_table)>0)
+                      {
+                        temp_table[, 4] <-
+                        paste(additionTable[[1]], temp_table[, 4], sep = "")
+                      }
+                      if(nrow(ex_table)>0){
+                        ex_table[, 4] <-
+                          paste(additionTable[[2]], ex_table[, 4], sep = "")
+                      }
+                      temp_table <- rbind(temp_table, ex_table)
+                      
+                    }
+                    
+                    if (any(grepl("^r\\(.*|^\\+r\\(.*", temp_table[, 4])))
+                    {
+                      mod = TRUE
+                      if(nrow(ex_table)>0)
+                      {
+                        
+                        ex_table[grep("r\\(.*", ex_table[, 4]), 4] <- "Loss"
+                      }
+                      if(nrow(temp_table)>0)
+                      {
+                        temp_table[, 4] <-
+                          paste(additionTable[[1]], temp_table[, 4], sep = "")
+                      }
+                      if(nrow(ex_table)>0)
+                      {
+                        ex_table[, 4] <-
+                          paste(additionTable[[2]], ex_table[, 4], sep = "")
+                      }
+                      temp_table <- rbind(temp_table, ex_table)
+                      
+                    }
+                    
+                    if (any(grepl("trp\\(.*", temp_table[, 4])))
+                    {
+                      mod = TRUE
+                      if(nrow(temp_table)>0)
+                      {
+                        temp_table[, 4] <-
+                          paste(additionTable[[1]], temp_table[, 4], sep = "")
+                      }
+                      
+                      if(nrow(ex_table)>0)
+                      {
+                        ex_table[, 4] <-
+                          paste(additionTable[[2]], ex_table[, 4], sep = "")
+                      }
+                      temp_table<-rbind(temp_table,temp_table[grep("trp\\(.*", temp_table[, 4]), ]) 
+                      
+                    }
+                    
+                    if (any(grepl("qdp\\(.*", temp_table[, 4])))
+                    {
+                      mod = TRUE
+                      if(nrow(temp_table)>0)
+                      {
+                        temp_table[, 4] <-
+                        paste(additionTable[[1]], temp_table[, 4], sep = "")
+                      }
+                      
+                      if(nrow(ex_table)>0){
+                        ex_table[, 4] <-
+                          paste(additionTable[[2]], ex_table[, 4], sep = "")
+                      }
+                      temp_table<-rbind(temp_table,temp_table[grep("qdp\\(.*", temp_table[, 4]), ],temp_table[grep("qdp\\(.*", temp_table[, 4]), ]) 
                     }
                     
                     
-                  }
+                    
+                    ##add code here for +gain +loss (+gain=gain, +loss ="")
+                    if (any(grepl("del", temp_table[, 4])))
+                    {
+                      mod = TRUE
+                      if(nrow(temp_table)>0)
+                      {
+                        temp_table[grep("del", temp_table[, 4]), 4] <-
+                          "Loss"
+                        temp_table[, 4] <-
+                          paste(additionTable[[1]], temp_table[, 4], sep = "")
+                      }
+                      if(nrow(ex_table) > 0)
+                      {
+                        if (is.vector(ex_table))
+                        {
+                          ex_table[, 4] <- ""
+                        } else
+                        {
+                          ex_table[, 4] <- ""
+                        }
+                        
+                        
+                        ex_table[, 4] <-
+                          paste(additionTable[[2]], ex_table[, 4], sep = "")
+                      }
+                      temp_table<-rbind(temp_table,ex_table)
+                    } 
+                    
+                    if (any(grepl("add", temp_table[, 4])))
+                    {
+                      mod = TRUE
+                      if(nrow(temp_table)>0)
+                      {
+                        temp_table[grep("add", temp_table[, 4]), 4] <-
+                          "Loss"
+                        temp_table[, 4] <-
+                          paste(additionTable[[1]], temp_table[, 4], sep = "")
+                      }
+                      if(nrow(ex_table) > 0)
+                      {
+                        if (is.vector(ex_table))
+                        {
+                          ex_table[, 4] <- ""
+                        } else
+                        {
+                          ex_table[, 4] <- ""
+                        }
+                        
+                        
+                        ex_table[, 4] <-
+                          paste(additionTable[[2]], ex_table[, 4], sep = "")
+                      }
+                      temp_table<-rbind(temp_table,ex_table)
+                    } 
+                    
+                    ##keep X and Y chromosomes here for ex table for later processing, may have to modify later for autosomes, only if modifications aren't triggered
+                    if (mod == FALSE)
+                    {
+                      
+                      if (is.vector(ex_table))
+                      {
+                        ex_table[ 4] <- ""
+                      } else
+                      {
+                        if(nrow(ex_table)>0)
+                        {
+                          ex_table[, 4] <- ""
+                        }
+                      }
+                      if(nrow(temp_table)>0)
+                      {
+                        temp_table[, 4] <-
+                        paste(additionTable[[1]], temp_table[, 4], sep = "")
+                      }
+                      if(nrow(ex_table)>0)
+                      {
+                        ex_table[, 4] <-
+                          paste(additionTable[[2]], ex_table[, 4], sep = "")
+                      }
+                      temp_table <- rbind(temp_table, ex_table)
+                    }
+                    
+                    
+                    
+                    ##handel stuff for minus as well
+                if(nrow(temp_table)>0)
+                {
+                    temp_table[grep("^-Gain|^-$", temp_table[, 4]), 4] <-
+                      "Loss"
+                    temp_table[grep("\\+Gain", temp_table[, 4]), 4] <- "Gain"
+                    temp_table[grep("\\+Loss", temp_table[, 4]), 4] <- ""
+                    temp_table[grep("\\+", temp_table[, 4]), 4] <- "Gain"
+                    ##check other permutations of this/ dont think insertions belong here
+                    temp_table[grep("dup|qdp|tan|trp|\\+$", temp_table[, 4]), 4] <-
+                      "Gain"
                 }
-              }
               
-              
-
-              if (any(grepl(
-                "^\\++(der|rec)\\(.*|^(der|rec)\\(.*",
-                temp_table[, 4]
-              )))
-              {
-                mod = TRUE
-                #temp_table[intersect(
-                #  grep(
-                #    paste("chr", Mainchr, sep = ""),
-                #    temp_table[, 1],
-                #    invert = T
-                #  ),
-                #  grep(
-                #    "^\\++(der|rec)\\(.*|^(der|rec)\\(.*",
-                #    temp_table[, 4]
-                #  )
-                #), 4] <- "Gain"
-                #ex_table[intersect(
-                #  grep(paste("chr", Mainchr, sep = ""), ex_table[, 1]),
-                #  grep(
-                #    "^\\++(der|rec)\\(.*|^(der|rec)\\(.*",
-                #    ex_table[, 4]
-                #  )
-                #), 4] <- "Loss"
-                temp_table[, 4] <-
-                  paste(additionTable[[1]], temp_table[, 4], sep = "")
-                if(nrow(ex_table)>0)
-                {
-                  ex_table[, 4] <-
-                    paste(additionTable[[2]], ex_table[, 4], sep = "")
-                }
-                temp_table <- rbind(temp_table, ex_table)
-                
-              }
-              
-              if (any(grepl("i\\(.*", temp_table[, 4])))
-              {
-                mod = TRUE
-                temp_table[grep("i\\(.*", temp_table[, 4]), 4] <- "Gain"
-                if(nrow(ex_table)>0)
-                {
-                  ex_table[grep("i\\(.*", ex_table[, 4]), 4] <- "Loss"
-                }
-                temp_table[, 4] <-
-                  paste(additionTable[[1]], temp_table[, 4], sep = "")
-                if(nrow(ex_table)>0)
-                {
-                  ex_table[, 4] <-
-                    paste(additionTable[[2]], ex_table[, 4], sep = "")
-                }
-                temp_table <- rbind(temp_table, ex_table)
-              }
-              ##get whats included , dup, then rest on chromosome is deletion
-              
-              if (any(grepl("ider\\(.*", temp_table[, 4])))
-              {
-                mod = TRUE
-                ##have to be able to handle these cases
-                ##do inclusion and exclusion based on deleted case
-                
-                temp_table[grep("ider\\(.*", temp_table[, 4]), 4] <-
-                  "Gain"
-                if(nrow(ex_table)>0)
-                {
-                  ex_table[grep("ider\\(.*", ex_table[, 4]), 4] <- "Loss"
-                }
-                temp_table[, 4] <-
-                  paste(additionTable[[1]], temp_table[, 4], sep = "")
-                if(nrow(ex_table)>0)
-                {
-                  ex_table[, 4] <-
-                    paste(additionTable[[2]], ex_table[, 4], sep = "")
-                }
-                temp_table <- rbind(temp_table, ex_table)
-                
-              }
-              
-              if (any(grepl("idic\\(.*", temp_table[, 4])))
-              {
-                mod = TRUE
-                ##need to either break it up or replace,
-                ##think about this one too
-                ##deleted <-
-                ##ex_table[grep("idic\\(.*&del\\(", ex_table[, 4]), 4]
-                
-                temp_table[grep("idic\\(.*", temp_table[, 4]), 4] <- "Loss"
-                if(nrow(ex_table)>0)
-                {
-                  ex_table[grep("idic\\(.*", ex_table[, 4]), 4] <- "Gain"
-                }
-                temp_table[, 4] <-
-                  paste(additionTable[[1]], temp_table[, 4], sep = "")
-                if(nrow(ex_table)>0)
-                {
-                  ex_table[, 4] <-
-                    paste(additionTable[[2]], ex_table[, 4], sep = "")
-                }
-                temp_table <- rbind(temp_table, ex_table)
-              }
-              
-              ##figour out why you did this 
-              ##make sure this is reversed for long form
-              if (any(grepl("dic\\(.*", temp_table[, 4])))
-              {
-                mod = TRUE
-                if(any(grepl("long",temp_table[,4])))
-                {
-                  temp_table[, 4] <-
-                    paste(additionTable[[1]], temp_table[, 4], sep = "")
-                  if(nrow(ex_table)>0)
-                  {
-                    ex_table[grep("dic\\(.*", ex_table[, 4]) ,4]<-"Loss"
-                    ex_table[, 4] <-
-                      paste(additionTable[[2]], ex_table[, 4], sep = "")
-                  }
-                  
-                }else
-                {
-                  temp_table[grep("dic\\(.*", temp_table[, 4]), 4] <- "Loss"
-                  
-                  temp_table[, 4] <-
-                    paste(additionTable[[1]], temp_table[, 4], sep = "")
-                  if(nrow(ex_table)>0)
-                  {
-                    ex_table[, 4] <-
-                      paste(additionTable[[2]], ex_table[, 4], sep = "")
-                  }
-                }
-                temp_table <- rbind(temp_table, ex_table)
-              }
-              
-              ##make sure this is reversed for long form 
-              if (any(grepl("trc\\(.*", temp_table[, 4])))
-              {
-                mod = TRUE
-                if(any(grepl("long",temp_table[,4])))
-                {
-                  ex_table[intersect(grep("trc\\(.*", ex_table[, 4]),grep(paste(Mainchr[1],Mainchr[3],sep='|'),ex_table[,1])),4]<-"Loss"
-                  
-                }else
-                {
-                  temp_table[intersect(grep("trc\\(.*", temp_table[, 4]),grep(paste(Mainchr[1],Mainchr[3],sep='|'),temp_table[,1])),4]<-"Loss"
-                }
-                
-                temp_table[, 4] <-
-                  paste(additionTable[[1]], temp_table[, 4], sep = "")
-                if(nrow(ex_table)>0)
-                {
-                  ex_table[intersect(grep("trc\\(.*", ex_table[, 4]),grep(Mainchr[2],ex_table[,1])), 4] <- "Loss"
-                  ex_table[, 4] <-
-                    paste(additionTable[[2]], ex_table[, 4], sep = "")
-                }
-                
-                temp_table <- rbind(temp_table, ex_table)
-              }
-              
-              if (any(grepl("rob\\(", temp_table[, 4])))
-              {
-                mod = TRUE
-                if(nrow(ex_table)>0)
-                {
-                  ex_table[grep("rob\\(", ex_table[, 4]), 4] <- "Loss"
-                }
-                temp_table[, 4] <-
-                  paste(additionTable[[1]], temp_table[, 4], sep = "")
-                if(nrow(ex_table)>0){
-                  ex_table[, 4] <-
-                    paste(additionTable[[2]], ex_table[, 4], sep = "")
-                }
-                temp_table <- rbind(temp_table, ex_table)
-                
-              }
-              
-              if (any(grepl("^r\\(.*|^\\+r\\(.*", temp_table[, 4])))
-              {
-                mod = TRUE
-                if(nrow(ex_table)>0)
-                {
-                  
-                  ex_table[grep("r\\(.*", ex_table[, 4]), 4] <- "Loss"
-                }
-                temp_table[, 4] <-
-                  paste(additionTable[[1]], temp_table[, 4], sep = "")
-                if(nrow(ex_table)>0)
-                {
-                  ex_table[, 4] <-
-                    paste(additionTable[[2]], ex_table[, 4], sep = "")
-                }
-                temp_table <- rbind(temp_table, ex_table)
-                
-              }
-              
-              if (any(grepl("trp\\(.*", temp_table[, 4])))
-              {
-                mod = TRUE
-                
-                temp_table[, 4] <-
-                  paste(additionTable[[1]], temp_table[, 4], sep = "")
-                if(nrow(ex_table)>0)
-                {
-                  ex_table[, 4] <-
-                    paste(additionTable[[2]], ex_table[, 4], sep = "")
-                }
-                temp_table<-rbind(temp_table,temp_table[grep("trp\\(.*", temp_table[, 4]), ]) 
-                
-              }
-              
-              if (any(grepl("qdp\\(.*", temp_table[, 4])))
-              {
-                mod = TRUE
-                temp_table[, 4] <-
-                  paste(additionTable[[1]], temp_table[, 4], sep = "")
-                if(nrow(ex_table)>0){
-                  ex_table[, 4] <-
-                    paste(additionTable[[2]], ex_table[, 4], sep = "")
-                }
-                temp_table<-rbind(temp_table,temp_table[grep("qdp\\(.*", temp_table[, 4]), ],temp_table[grep("qdp\\(.*", temp_table[, 4]), ]) 
-              }
-              
-              
-              
-              ##add code here for +gain +loss (+gain=gain, +loss ="")
-              if (any(grepl("del", temp_table[, 4])))
-              {
-                mod = TRUE
-                temp_table[grep("del", temp_table[, 4]), 4] <-
-                  "Loss"
-                temp_table[, 4] <-
-                  paste(additionTable[[1]], temp_table[, 4], sep = "")
-                if(nrow(ex_table) > 0)
-                {
-                  if (is.vector(ex_table))
-                  {
-                    ex_table[, 4] <- ""
-                  } else
-                  {
-                    ex_table[, 4] <- ""
-                  }
-                  
-                  
-                  ex_table[, 4] <-
-                    paste(additionTable[[2]], ex_table[, 4], sep = "")
-                }
-                temp_table<-rbind(temp_table,ex_table)
-              } 
-              
-              
-              ##keep X and Y chromosomes here for ex table for later processing, may have to modify later for autosomes, only if modifications aren't triggered
-              if (mod == FALSE)
-              {
-                
-                if (is.vector(ex_table))
-                {
-                  ex_table[ 4] <- ""
-                } else
-                {
-                  if(nrow(ex_table)>0)
-                  {
-                    ex_table[, 4] <- ""
-                  }
-                }
-                
-                temp_table[, 4] <-
-                  paste(additionTable[[1]], temp_table[, 4], sep = "")
-                if(nrow(ex_table)>0)
-                {
-                  ex_table[, 4] <-
-                    paste(additionTable[[2]], ex_table[, 4], sep = "")
-                }
-                temp_table <- rbind(temp_table, ex_table)
-              }
-              
-              
-              
-              ##handel stuff for minus as well
-              temp_table[grep("^-Gain|^-$", temp_table[, 4]), 4] <-
-                "Loss"
-              temp_table[grep("\\+Gain", temp_table[, 4]), 4] <- "Gain"
-              temp_table[grep("\\+Loss", temp_table[, 4]), 4] <- ""
-              temp_table[grep("\\+", temp_table[, 4]), 4] <- "Gain"
-              ##check other permutations of this/ dont think insertions belong here
-              temp_table[grep("dup|qdp|tan|trp|\\+$", temp_table[, 4]), 4] <-
-                "Gain"
             }
           }
         }
@@ -2788,11 +3601,21 @@ if(build =="GRCh38")
       val = unlist(strsplit(val, "~|-"))
       if (all(!is.na(as.numeric(val))))
       {
-        val = seq(from = val[1],
-                  to = val[2],
-                  by = 1)
+        val<-as.numeric(val)
+        
+        if(as.numeric(val[2])>=as.numeric(val[1]))
+        {
+          val = seq(from = val[1],
+                    to = val[2],
+                    by = 1)
+        }else{
+          val = seq(from = val[2],
+                    to = val[1],
+                    by = 1)
+        }
       }
       else{
+        val<-as.numeric(val)
         val = val[2]
       }
       
@@ -2801,7 +3624,49 @@ if(build =="GRCh38")
     val = as.numeric(val)
     
     ##take x and y completelu out of this 
-    val = val -xcount -ycount-xadd-yadd+xdel+ydel
+    val = val -xcount -ycount-(xadd+yadd-xdel-ydel)
+    if(normX+normY != 2)
+    {
+      if(normX+normY>2)
+      {
+        val=val+(normX+normY-2)
+      }else{
+        val=val+(2-normX+normY)
+      }
+    }
+    
+    ##original val
+    orgval = strsplit(Cyto_sample[1], "<")[[1]] ##numer of chromosomes indicated in first value
+    orgval = paste(strsplit(orgval, "[[:alpha:]]+")[[1]],
+                sep = "",
+                collapse = "")
+    if (grepl("~|-", orgval))
+    {
+      orgval = unlist(strsplit(orgval, "~|-"))
+      if (all(!is.na(as.numeric(orgval))))
+      {
+       
+          if (all(!is.na(as.numeric(orgval))))
+          {
+            orgval<-as.numeric(orgval)
+            if(as.numeric(orgval[2])>=as.numeric(orgval[1])){
+             orgval = seq(from = orgval[1],
+                           to = orgval[2],
+                           by = 1)
+            }else{
+              orgval = seq(from = orgval[2],
+                           to = orgval[1],
+                           by = 1)
+            }
+          }
+      }
+      else{
+        orgval<-as.numeric(orgval)
+        orgval = orgval[2]
+      }
+      
+    }
+    
     if (any(is.na(val)))
     {
       Dump_table <-
@@ -2809,6 +3674,15 @@ if(build =="GRCh38")
     } else
     {
       idealval = 46 + addtot - deltot- xcount - ycount -(xadd+yadd-xdel-ydel)
+      if(normX+normY != 2)
+      {
+        if(normX+normY>2)
+        {
+          idealval=idealval+(normX+normY-2)
+        }else{
+          idealval=idealval+(2-normX+normY)
+        }
+      }
       diffval = val - idealval
       val_remainder = diffval %% 22
       val_remainder_2=diffval %% 23
@@ -2920,7 +3794,8 @@ if(build =="GRCh38")
             print(c("val_div<0", Cyto_sample))
           }
           
-        } else if (grepl("^ids$", Cyto_sample[length(Cyto_sample)]))
+       
+        }else if (grepl("^ids$", Cyto_sample[length(Cyto_sample)]))
         {
           ##if unaccounted chromosom number == diff val, add them
           if (any(diffval / length(clone_chrom_tracker) > 0 &
@@ -3005,21 +3880,246 @@ if(build =="GRCh38")
               
             }
           }
-        }else{
+        }else if(guess==T & (any(diffval< (-14))| (any((diffval<31&diffval>14)))|any((diffval<53&diffval>38))|any((diffval>56 &(floor(val_divider)*22+3<diffval) & (ceiling(val_divider)*23-3>diffval) )))){
+          ##clone_chrom_tracker <- rep(1:22, 2)
+          if(length(diffval) > 1)
+          {
+            ## take the one that fits and first one that is true
+            new_diffval<-diffval[which(diffval< (-14)| (diffval<31&diffval>14)|(diffval<53&diffval>38)|(diffval>56 &(floor(val_divider)*22+3<diffval) & (ceiling(val_divider)*23-3>diffval) ))][1]
+            
+          }else{
+            new_diffval<-diffval
+          }
+          ##think about how to implement this beyond teraploidy
+          ##doesnt work
+          print(new_diffval)
+          print(new_diffval)
+          if(new_diffval < (-14))
+           {
+     
+              temp_table <-
+                data.frame(ref_table[, 1],
+                           rep(0, nrow(ref_table)),
+                           ref_table[, 2],
+                           rep("Loss", nrow(ref_table)))
+              temp_table<-temp_table[1:22,]
+              ##temp_table <-
+                ##temp_table[grep(paste("chr", clone_chrom_tracker, collapse = '|'),
+                  ##              temp_table[, 1]), ]
+              
+              temp_table[, 4] <- as.character(temp_table[, 4])
+              temp_table <- as.matrix(temp_table)
+              sample_table[, 4] <- as.character(sample_table[, 4])
+              sample_table <- rbind(sample_table, temp_table)
+              sample_table[, 4] <- as.character(sample_table[, 4])
+            
+            
+           }
+           
+           
+          if(new_diffval<31&new_diffval>14)
+          {
+            
+              temp_table <-
+                data.frame(ref_table[, 1],
+                           rep(0, nrow(ref_table)),
+                           ref_table[, 2],
+                           rep("Gain", nrow(ref_table)))
+              temp_table<-temp_table[1:22,]
+              ##temp_table <-
+                ##temp_table[grep(paste("chr", clone_chrom_tracker, collapse = '|'),
+                  ##              temp_table[, 1]), ]
+              
+              temp_table[, 4] <- as.character(temp_table[, 4])
+              temp_table <- as.matrix(temp_table)
+              sample_table[, 4] <- as.character(sample_table[, 4])
+              sample_table <- rbind(sample_table, temp_table)
+              sample_table[, 4] <- as.character(sample_table[, 4])
+            
+            
+          }
+          
+          if(new_diffval<53&new_diffval>38)
+          {
+            
+              temp_table <-
+                data.frame(ref_table[, 1],
+                           rep(0, nrow(ref_table)),
+                           ref_table[, 2],
+                           rep("Gain", nrow(ref_table)))
+              temp_table<-temp_table[1:22,]
+              ##temp_table <-
+                ##temp_table[grep(paste("chr", clone_chrom_tracker, collapse = '|'),
+                  ##              temp_table[, 1]), ]
+              
+              temp_table[, 4] <- as.character(temp_table[, 4])
+              temp_table <- as.matrix(temp_table)
+              sample_table[, 4] <- as.character(sample_table[, 4])
+              sample_table <- rbind(sample_table, temp_table)
+              sample_table[, 4] <- as.character(sample_table[, 4])
+              
+              temp_table <-
+                data.frame(ref_table[, 1],
+                           rep(0, nrow(ref_table)),
+                           ref_table[, 2],
+                           rep("Gain", nrow(ref_table)))
+              temp_table<-temp_table[1:22,]
+              ##temp_table <-
+                ##temp_table[grep(paste("chr", clone_chrom_tracker, collapse = '|'),
+                  ##              temp_table[, 1]), ]
+              
+              temp_table[, 4] <- as.character(temp_table[, 4])
+              temp_table <- as.matrix(temp_table)
+              sample_table[, 4] <- as.character(sample_table[, 4])
+              sample_table <- rbind(sample_table, temp_table)
+              sample_table[, 4] <- as.character(sample_table[, 4])
+            
+          }
+            
+          if(new_diffval>56 & floor(val_divider)*22+3<new_diffval& ceiling(val_divider)*22-3>new_diffval)
+          {
+            end<-round(val_divider)
+            for (k in 1:end)
+            {
+              temp_table <-
+                data.frame(ref_table[, 1],
+                            rep(0, nrow(ref_table)),
+                           ref_table[, 2],
+                           rep("Gain", nrow(ref_table)))
+              temp_table<-temp_table[1:22,]
+              ##temp_table <-
+                ##temp_table[grep(paste("chr", clone_chrom_tracker, collapse = '|'),
+                  ##                temp_table[, 1]), ]
+                
+              temp_table[, 4] <- as.character(temp_table[, 4])
+              temp_table <- as.matrix(temp_table)
+              sample_table[, 4] <- as.character(sample_table[, 4])
+              sample_table <- rbind(sample_table, temp_table)
+              sample_table[, 4] <- as.character(sample_table[, 4])
+            }
+              
+            
+          }
+
+          ##time to guess according to ranges if guessing is true
+          
           ##put in dump table
           Dump_table <-
             rbind(Dump_table,
                   c(
                     as.vector(Con_data[i, ]),
-                    "some chromosomes unaccounted for"
+                    "Warning in some chromosomes unaccounted for"
                   ))
           print(c("unaccounted", Cyto_sample))
-        }
+          
+        
+        }else if(val_divider>1){
+          ##if doesnt match initially, try to see if bottom few match
+          val_temp=floor(val_divider)
+          
+          if (val_temp > 0)
+          {
+            for (f in 1:(val_temp))
+            {
+              temp_table <-
+                data.frame(ref_table[, 1],
+                           rep(0, nrow(ref_table)),
+                           ref_table[, 2],
+                           rep("Gain", nrow(ref_table)))
+              temp_table <-
+                temp_table[grep("chrY|chrX|chrM", temp_table[, 1], invert = T), ]
+              
+              temp_table[, 4] <- as.character(temp_table[, 4])
+              temp_table <- as.matrix(temp_table)
+              sample_table[, 4] <- as.character(sample_table[, 4])
+              sample_table <- rbind(sample_table, temp_table)
+              sample_table[, 4] <- as.character(sample_table[, 4])
+              
+            }
+            ##if x and y need to be included in the table for polyploidys
+            if(xcount+ycount+xmod+ymod<(val_temp+2))
+            {
+              for(f in 1:(val_temp+2-(xcount+ycount+xmod+ymod)))
+              {
+                if(ycount+ymod>0)
+                {
+                  temp_table <-
+                    data.frame(ref_table[, 1],
+                               rep(0, nrow(ref_table)),
+                               ref_table[, 2],
+                               rep("Gain", nrow(ref_table)))
+                  temp_table <-
+                    temp_table <-
+                    temp_table[grep("chrY|chrX", temp_table[, 1]), ]
+                  
+                  temp_table[, 4] <- as.character(temp_table[, 4])
+                  temp_table <- as.matrix(temp_table)
+                  sample_table[, 4] <- as.character(sample_table[, 4])
+                  sample_table <- rbind(sample_table, temp_table)
+                  sample_table[, 4] <- as.character(sample_table[, 4])
+                  
+                }else{
+                  
+                  
+                  temp_table <-
+                    rbind(temp_table[grep("chrX", temp_table[, 1]), ],temp_table[grep("chrX", temp_table[, 1]), ])
+                  
+                  temp_table[, 4] <- as.character(temp_table[, 4])
+                  temp_table <- as.matrix(temp_table)
+                  sample_table[, 4] <- as.character(sample_table[, 4])
+                  sample_table <- rbind(sample_table, temp_table)
+                  sample_table[, 4] <- as.character(sample_table[, 4])
+                  
+                }
+              }
+            
+              print(c("val_div>0", Cyto_sample))
+              ##add this to uncertain 
+              
+              ##put in dump table
+              Dump_table <-
+                rbind(Dump_table,
+                      c(
+                        as.vector(Con_data[i, ]),
+                        "Warning in some chromosomes unaccounted for"
+                      ))
+              print(c("unaccounted", Cyto_sample))
+            
+            }
+
+          
+          
+
       }
+    }else{
+      print(c("val_div>0", Cyto_sample))
+      ##add this to uncertain 
+      
+      ##put in dump table
+      Dump_table <-
+        rbind(Dump_table,
+              c(
+                as.vector(Con_data[i, ]),
+                "Warning in some chromosomes unaccounted for"
+              ))
+      print(c("unaccounted", Cyto_sample))
+      
+    
     }
     
     ##something is wrong here 
-    sample_table <- sample_table[rowSums(!is.na(sample_table)) > 0, ]
+    if(any(is.na(sample_table[,2]))|any(is.na(sample_table[,3]))){
+      sample_table<-sample_table[-union(which(is.na(sample_table[,2])) ,which(is.na(sample_table[,3]))),]
+      ##Dump_table<-rbind(Dump_table,c(as.vector(Con_data[i, ]),
+                                        ## "Error in NA found"))
+     }    
+        
+    if(!is.vector(sample_table))
+    {
+      sample_table <- sample_table[rowSums(!is.na(sample_table)) > 0, ]
+    }
+
+    
     sample_table<-as.data.frame(sample_table,row.names = FALSE)
     if (is.vector(sample_table))
     {
@@ -3072,14 +4172,17 @@ if(build =="GRCh38")
     }
     
     return(list(sorted_sample_table,Dump_table,transloctable))
+      
+    }
   }
+ }
   ##try catch for each sample
   samparse <- function(i)
   {
     out <- try(rowparse(i))
     
     if (inherits(out, "try-error")) {
-      return(paste(geterrmessage(), "in", i, "sample"))
+      return(gsub("\n"," ",paste(geterrmessage(), "in", i, "sample")))
     }
     return(out)
   }
@@ -3112,9 +4215,13 @@ if(build =="GRCh38")
       mut_gone_index<-grep("-[[:alpha:]]+\\(",Cyto_sample)
       if(length(mut_gone_index)>0)
       {
-        mut_list<-sapply(Cyto_sample[mut_gone_index],function(x){gsub("\\)","\\\\)",gsub("\\(","\\\\(",substr(x,2,nchar(x))))})
+        mut_list<-sapply(Cyto_sample[mut_gone_index],function(x){gsub("\\)","\\\\)",gsub("\\(","\\\\(",gsub("\\?","\\\\?",substr(x,2,nchar(x)))))})
         index_cancel<-sapply(mut_list,function(x){grep(x,Cyto_sample)[1]})
-        Cyto_sample<-Cyto_sample[-1*c(mut_gone_index,index_cancel)]
+        index_cancel<-index_cancel[intersect(which(!is.na(index_cancel)),which(index_cancel>0))]
+        if(is.numeric(mut_gone_index) && is.numeric(index_cancel)&& length(index_cancel)>0)
+        {
+          Cyto_sample<-Cyto_sample[-1*c(mut_gone_index,index_cancel)]
+        }
       }
     }
     
@@ -3172,10 +4279,10 @@ if(build =="GRCh38")
     }else{
       if(grepl("[[:digit:]]",Cyto_sample[1]))
       {
-        Dump_table<-rbind(Dump_table,c(Con_data[i, ], "karyotype number not specified"))
+        Dump_table<-rbind(Dump_table,c(Con_data[i, ], "Warning in karyotype number not specified"))
         
       }else{
-        Dump_table<-rbind(Dump_table,c(Con_data[i, ], "karyotype is incorrect"))
+        Dump_table<-rbind(Dump_table,c(Con_data[i, ], "Warning in karyotype is incorrect"))
       }
     }
   }
@@ -3209,7 +4316,7 @@ if(build =="GRCh38")
     x[-length(x)]
   })
   
-  IDs <- unlist(lapply(IDs, function(x) {
+  IDs <- unlist(lapply(IDs, function(x){
     paste(x, collapse = "_")
   }))
   IDs <- unique(IDs)
@@ -3220,7 +4327,7 @@ if(build =="GRCh38")
     w <- grep(gsub("\\+","\\\\+",gsub("\\*","\\\\*",gsub("\\!","\\\\!",paste("^", IDs[i], "_", sep = "")))), out[, 1])
     ##if (length(w) > 1) {
     nxt <- unlist(lapply(strsplit(as.character(out[w, 2]), split = "\\["),
-                         function(x) {
+                         function(x){
                            x[2]
                          }))
     
@@ -3296,11 +4403,55 @@ if(build =="GRCh38")
     colnames(Final_Final_table) <-
       c("Sample ID", "Chr", "Start", "End", "Type", "Percent Present")
   }
+  colnames(Dump_table) <- c("Sample ID","Karyotype","Error Message")
   
   result<-list(Final_Final_table,Dump_table)
   names(result)<-list("Result","Error_log")
   
 return(result)
 }
+
+
+
+##file_list_CytoConverter<-function(in_data_vector,result_name,dir_name_file=NULL,dir_name_results=NULL,build="GRCh38",constitutional=T,guess=F,guess_q=F){
+ 
+##  if(is.null(dir_name_results))
+##  {
+##    dir_name<-getwd()
+##  }
+##  if(is.null(dir_name_file))
+##  {
+##    dir_name<-getwd()
+##  }
+  
+##for(i in 1:length(in_data_vector))
+  ##{
+    ##sapply(as.data.frame(read.delim(input$file$datapath,header=FALSE,sep="\t")),as.character)
+    ##in_data_z<-as.matrix(sapply(as.data.frame(read.delim(file = paste(dir_name_file,"/",in_data_vector[1],sep=""),sep='\t',header=T)),as.character))
+    ##results<-CytoConverter(in_data=in_data_z)
+    ##write.table(file=paste(dir_name_results,"/",result_name,"_",in_data_vector[i],"_results",".txt",sep=""),x=results[[1]],sep='\t',row.names = F,quote=F)
+    ##write.table(file=paste(dir_name_results,"/",result_name,"_",in_data_vector[i],"_error",".txt",sep=""),x=results[[2]],sep='\t',row.names = F,quote = F)
+    
+  ##}
+  
+  
+##}
+
+
+
+##
+##file_list_CytoConverter(result_name = "cyto",in_data_vector = list.files("C:/Users/Janet/Downloads/CytoConverter/")[c(-1,-length(list.files("C:/Users/Janet/Downloads/CytoConverter/")))],dir_name_file = "C:/Users/Janet/Downloads/CytoConverter",dir_name_results ="C:/Users/Janet/Downloads/CytoConverter/Results" )
+
+##files <- list.files(path = "C:/Users/Janet/Downloads/CytoConverter/Results/", pattern="*error*",full.names = T)
+
+##tbl <- sapply(files, read.delim, simplify=FALSE) %>% 
+##  bind_rows(.id = "id")
+##tb<-tbl[grep("Error",tbl$X),]
+##library(readr)
+##library(dplyr)
+##read.table()
+##tbl <- sapply(files, read.delim, simplify=FALSE) %>% 
+##  bind_rows(.id = "id")
+##tb<-tbl[grep("Error",tbl$X),]
 
 
