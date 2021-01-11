@@ -571,7 +571,23 @@ if(build =="GRCh38")
   parser <- function(coln, xmod, ymod, transloctable,addtot,Cyto)
   {
     Cyto_sample<-Cyto
+    
+    ##for or statements, take first statement
     Cyto_sample[coln]<-gsub("or.*$","",Cyto_sample[coln])
+    
+    
+    ##if we are guessing ? marks
+    if(guess_q == T & any(grepl("\\?",Cyto_sample[coln])))
+    {
+      Cyto_sample[coln] <- gsub("\\?","",Cyto_sample[coln])
+    }
+    
+    ##if we are counting constitutional, substitute c
+    if(constitutional==T)
+    {
+      Cyto_sample[coln]<-gsub("c$","",Cyto_sample[coln])
+    }
+    
     ##derivative chromosomes with translocations are a loss (on native chromosome) gain (on new chromosome)
     ##figure out what add bool is and consaolidate that
     ##string splits by ;, takes into account multiple chromosomes  odd values are chromosomes even are the positions, for derivaties, first one needs to be treated differently
@@ -594,6 +610,7 @@ if(build =="GRCh38")
     ##MiscChr<-matrix()
     ##remeber what this is supposed to do
     derMods <- strsplit(derMods, "\\)")[[1]]
+    derModsBackup<-strsplit(derMods, "\\)")[[1]]
     
     ##skip second +t if first one is triggered
     plusT<-F
@@ -651,10 +668,16 @@ if(build =="GRCh38")
       {
         derMods <-
           strsplit(Cyto_sample[coln], "(der|rec)\\([[:digit:]XY]+(;[[:digit:]XY])*\\)")[[1]][2]
+        
         derMods <- strsplit(derMods, "\\)")[[1]]
         temp <- tail(temp, length(temp) - 1)
+      }else if((grepl("der|rec",Cyto_sample[coln]) && !is.na(derMods) && length(derMods)>1 && grepl("^r\\(",derMods[2]) )){
+        derMods <-tail(derMods, length(derMods) - 1)
+        temp <- tail(temp, length(temp) - 1)
+         
       }
     }
+    
     
     
     ##if temp length is greater than 2 (derivative chromosome, then, dermods 1 is master indicator, not including ders above)
@@ -667,21 +690,41 @@ if(build =="GRCh38")
     ##{
     ##adds +etc on if it starts with something with +something
     ##this part is being messed up
-    multi = 1 ##check if there is a X3 etc value , if there is pick that up, store, add to addtot, make it process through twice later
-    if (grepl("\\)X|\\)x", Cyto_sample[coln]))
-    {
-      multi = unlist(strsplit(Cyto_sample[coln], ")X|)x"))[2]
-      if (grepl("-|~", multi))
-      {
-        multi <- unlist(strsplit(multi, "~|-"))[1]
-        
-      }
-      ##multi=gsub("[^0-9]","",multi)
-      
-      multi = as.numeric(multi)
-      addBool <- paste(addBool, "multi", multi, sep = "")
-    }
+    ##handle differently if we are not counting constitutional
     
+    multi = 1 ##check if there is a X3 etc value , if there is pick that up, store, add to addtot, make it process through twice later
+    if(constitutional==F)
+    {
+      temp_cyto<-gsub("(c$)|(c\\?$)","",Cyto_sample[coln])
+      if (grepl("\\)X|\\)x", temp_cyto))
+      {
+        multi = unlist(strsplit(temp_cyto, ")X|)x"))[2]
+        if (grepl("-|~", multi))
+        {
+          multi <- unlist(strsplit(multi, "~|-"))[1]
+          
+        }
+        ##multi=gsub("[^0-9]","",multi)
+        
+        multi = as.numeric(multi)
+        addBool <- paste(addBool, "multi", multi, sep = "")
+      }
+      
+    }else{
+      if (grepl("\\)X|\\)x", Cyto_sample[coln]))
+      {
+        multi = unlist(strsplit(Cyto_sample[coln], ")X|)x"))[2]
+        if (grepl("-|~", multi))
+        {
+          multi <- unlist(strsplit(multi, "~|-"))[1]
+          
+        }
+        ##multi=gsub("[^0-9]","",multi)
+        
+        multi = as.numeric(multi)
+        addBool <- paste(addBool, "multi", multi, sep = "")
+      }
+    }
     ##########################################################################################################
     ######################################X chromosomes Y chromosomes #######################################
     #############################################################################################################
@@ -697,10 +740,15 @@ if(build =="GRCh38")
     
  
 
-    ##make sure you count + properly for ? marks
-    if(any(grepl("\\?|\\~",Cyto_sample[coln])&grepl("\\+",Cyto_sample[coln])) & (guess_q==F | grepl("\\?\\)",Cyto_sample[coln])))
+    ##make sure you count + properly for ? marks or constitutional
+    if((any(grepl("\\?|\\~",Cyto_sample[coln])) & any(grepl("\\+",Cyto_sample[coln])) )  |(constitutional==F & multi > 1 & grepl("(c$)|(c\\?$)",Cyto_sample[coln]) ))
     {
+      if(constitutional==F & multi > 2 & !grepl("\\+",Cyto_sample[coln]) & grepl("(c$)|(c\\?$)",Cyto_sample[coln] )){
+      addtot<-addtot+(1*(multi-2))
+        
+      }else{
       addtot<-addtot+(1*multi)
+      }
     }
     
     #########
@@ -710,10 +758,7 @@ if(build =="GRCh38")
     #############################
     ##not processing things like t(9;22)(p?;q10)
     
-    if(guess_q == T & any(grepl("\\?",temp)))
-    {
-      temp <- gsub("\\?","",temp)
-    }
+
     
     if(length(temp)==1){
       
@@ -735,7 +780,7 @@ if(build =="GRCh38")
     }
     
     
-    if ((length(test) > 1 | any(grepl("p|q",temp))| grepl("(9;22)|(22;9)",paste(unlist(temp),collapse=';',sep=";")) |(!is.null(regtranschrom) && any(grepl(regtranschrom, names(transloctable))) ) )  & (!any(grepl("\\?|\\~", temp))  ))
+    if ((length(test) > 1 | any(grepl("p|q",temp))| grepl("(9;22)|(22;9)",paste(unlist(temp),collapse=';',sep=";")) |(!is.null(regtranschrom) && any(grepl(regtranschrom, names(transloctable))) ) )  & (!any(grepl("\\?|\\~", temp))  ) & !(guess_q==F & grepl("\\?",Cyto_sample[coln])) )
     {
       ##goes by steps of 2, odd indexes indicate chromosomes, even indicate positions
       ##length_temp<-(if((length(temp) / 2)==0.5){1}else{length(temp)/2})
@@ -744,6 +789,8 @@ if(build =="GRCh38")
       {
         if(lengthcount > (if(!is.integer((length(temp) / 2))){ceiling(length(temp)/2)}else{length(temp)/2})) break
         if(lengthcount> 60) {print("while loop not terminating");break}  
+        
+        
         Allchr <-
           c(Allchr, as.vector(paste(temp[[(lengthcount * 2-1)]], "$", sep = "")))
         
@@ -751,6 +798,7 @@ if(build =="GRCh38")
         if ((((lengthcount * 2)-1)) == length(temp) || if(length(temp) > (lengthcount*2-1)){
           all(grepl("^[[:digit:]]+$", temp[[lengthcount * 2]]))}else{FALSE})
         {
+          
           #######
           ########
           ########
@@ -1813,10 +1861,25 @@ if(build =="GRCh38")
           {
             if(as.numeric(transloc[1,2:3]) %overlaps% as.numeric(transloc[2,2:3]))
             {  
+              
+              ##if nothing , handle
+              if(as.numeric(transloc[1,3])==as.numeric(transloc[2,2]))
+              {
+                temptransloc<-c(tempChr[1,1],as.numeric(transloc[1,2]),as.numeric(transloc[2,3]),tempChr[1,4])
+                tempChr<-tempChr[-1*grep("t\\(",tempChr[,4]),]
+                
+                
+                tempChr<-rbind(tempChr,temptransloc)
+                coord<-rbind(temptransloc,coord[-1*intersect(grep("t\\(",coord[,4]),grep(paste("chr",curChr,sep=""),coord[,1])),])
+                
+              }else{
               temptransloc<-c(tempChr[1,1],mergeIntOverlap(as.numeric(transloc[1,2:3]),as.numeric(transloc[2,2:3])),tempChr[1,4])
               tempChr<-tempChr[-1*grep("t\\(",tempChr[,4]),]
+              
+              
               tempChr<-rbind(tempChr,temptransloc)
               coord<-rbind(temptransloc,coord[-1*intersect(grep("t\\(",coord[,4]),grep(paste("chr",curChr,sep=""),coord[,1])),])
+              }
             }
           }
         }
@@ -1848,9 +1911,13 @@ if(build =="GRCh38")
         coord[, 1]), ]
         tempChr = apply(tempChr, 2, as.character)
         
-        
-        
-        if (is.vector(tempChr))
+        if(length(tempChr)==0)
+        {
+          ###go back to here
+          
+          excoord = rbind(excoord,cbind(paste("chr",gsub("\\$","",curChr),sep=""),0,ref_table[grep(paste("chr",curChr, sep =""), ref_table), ][2],derModsBackup[1]))
+          
+        }else if (is.vector(tempChr))
         {
           if (!identical(gsub(" ","",as.character(tempChr[2])), "0"))
           {
@@ -1982,6 +2049,9 @@ if(build =="GRCh38")
     ##probably have to rework this because of inversions and insersions
     if (length(excoord) > 0 && !is.vector(excoord)&& ncol(excoord)>1)
     {
+      
+      
+      
       ##excoord<-excoord[grep(paste(Mainchr,collapse="|"),excoord[,1]),]
       excoord[, 2:3] <-
         apply(excoord[, 2:3], 2, function(x) {
@@ -2045,7 +2115,7 @@ if(build =="GRCh38")
     
     ##do multi (X2) processing right now
     ##for over X2 times, its a gain 
-    if (nrow(coord) > 0 && any(grepl("multi", coord[, 4])))
+    if ((nrow(coord) > 0 && any(grepl("multi", coord[, 4])) ) && (constitutional==T| (constitutional ==F & !grepl("(c$)|(c\\?$)",coord[,4]) )))
     {
       
       n <- multi - 1
@@ -2644,7 +2714,7 @@ if(build =="GRCh38")
       {
         ##set normal count for XY chromosomes
         ##think about what 46,X,+Y would mean
-        if(constitutional==F & grepl("c",Cyto_sample[2])){
+        if(constitutional==F & grepl("(c$)|(c\\?$)",Cyto_sample[2])){
           
           normX = str_count(Cyto_sample[2], "X")
           normY = str_count(Cyto_sample[2], "Y")
@@ -2735,7 +2805,7 @@ if(build =="GRCh38")
         if (grepl(
           "mar|^\\+*([[:digit:]]((~|-)[[:digit:]])*)*r\\(*[[:digit:]]*\\)*$|^\\+*([[:digit:]]((~|-)[[:digit:]])*)*neo[[:digit:]]*$",
           Cyto_sample[j]
-        ) || (constitutional==F && grepl("c$",Cyto_sample[j])))
+        ) || (constitutional==F && grepl("(c$)|(c\\?$)",Cyto_sample[j])))
         {
           if (grepl("\\+", Cyto_sample[j]))
           {
@@ -2760,14 +2830,26 @@ if(build =="GRCh38")
                   paste(unlist(strsplit(Cyto_sample[j], "~|-"))[1], "neo", sep = "")
               
             }
+            
             if (grepl("\\+[[:digit:]]", Cyto_sample[j]))
             {
-              tem <-
-                as.numeric((strsplit(
-                  strsplit(Cyto_sample[j], "mar|r\\(*[[:digit:]]*\\)*$|neo|c$")[[1]][1],
-                  "\\+"
-                )[[1]][2]))
+              if(constitutional==F & grepl("\\+[[:digit:]]+c\\?*$", Cyto_sample[j]))
+              {
+                ##just one addition
+                tem<-1 
+              }else{
+                if(!grepl("\\+[[:digit:]]+c\\?*$", Cyto_sample[j]))
+                  {
+                  tem <-
+                    as.numeric((strsplit(
+                      strsplit(Cyto_sample[j], "mar|r\\(*[[:digit:]]*\\)*$|neo|c$|c\\?$")[[1]][1],
+                      "\\+"
+                    )[[1]][2]))
+                }
+              }
             }
+            
+            
             addtot <- addtot + tem
           }
         }else if (grepl("^\\+[[:digit:]]+c*$", Cyto_sample[j]) |
@@ -2846,6 +2928,7 @@ if(build =="GRCh38")
             transloctable<-inc_table[[7]]
             addtot<-inc_table[[8]]
             
+            print(multi)
             ##for future implementation: switch to searching at ex table if temp table is empty, default is temp_table
             pointerConditional<-temp_table
             
