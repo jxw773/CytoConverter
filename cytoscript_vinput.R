@@ -1,4 +1,4 @@
-setwd("G:/My Drive/BRB work/cyto_project/Cytogenetic software/R/")
+##setwd("G:/My Drive/BRB work/cyto_project/Cytogenetic software/R/")
 if(require("stringr")){
   print("stringr is loaded correctly")
 } else {
@@ -59,6 +59,11 @@ if(require("dplyr")){
 #' @param in_data
 #' @param constitutional
 #' @param build
+#' @param constitutional
+#' @param guess
+#' @param guess_q
+#' @param forMtn
+#' @param orOption
 #' @keyword
 #' @export
 #' @examples 
@@ -823,7 +828,7 @@ if(build =="GRCh38")
         }
          
           
-          if(any(grepl("^r\\(",derMods[lengthcount*2-1])) ){
+          if(any(grepl("^r\\(",derMods[lengthcount*2-1])) & forMtn==F){
            
              rindex<-lengthcount*2-1
              
@@ -4314,11 +4319,16 @@ if(build =="GRCh38")
       
       
       tottable<-samparse(i)
-      if(is.character(tottable))
+      if(is.character(tottable) & length(tottable)==1)
       {
         Dump_table <- rbind(Dump_table, c(Con_data[i, ], tottable))
         transloctable<-data.frame()
-      }else{
+      }else if(!is.list(tottable))
+      {
+        Dump_table <-  tottable
+        transloctable<-data.frame()
+      }
+      else{
         
         sorted_sample_table<-tottable[[1]]
         Dump_table<-tottable[[2]]
