@@ -101,7 +101,7 @@ if(build =="GRCh38")
       read.delim("Builds/cytoBand_GRCh38.txt", header = FALSE)
     ), as.character) 
 }else{
-  return("build incorrectly specified")
+  return("Error : build incorrectly specified")
 }
   
   
@@ -3758,7 +3758,7 @@ if(build =="GRCh38")
     if (any(is.na(val)))
     {
       Dump_table <-
-        rbind(Dump_table, c(as.vector(Con_data[i, ]), "unclear chrom number"))
+        rbind(Dump_table, c(as.vector(Con_data[i, ]), "Error in unclear chrom number"))
     } else
     {
       idealval = 46 + addtot - deltot- xcount - ycount -(xadd+yadd-xdel-ydel)
