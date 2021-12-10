@@ -1,6 +1,8 @@
 ## function for getting cytobands for translocations and insertions
 ## (taking compliment of stuff not included in discription)
 
+mod_utils <- modules::use('modules/utils.R')
+
 getCytoBands <-
   function(Cyto_ref_table,
            Cyto_sample,
@@ -8,7 +10,8 @@ getCytoBands <-
            o,
            temp,
            coln,
-           derMods) {
+           derMods,
+           forMtn) {
     ##must take into account acen and qter pter and only one listing (will have to relte to two), reuse later code for this
     chr_table <-
       Cyto_ref_table[grep(paste(paste("chr", temp[[(lengthcount * 2 - 1)]][o], sep =
@@ -25,7 +28,8 @@ getCytoBands <-
             grepl("t\\(", Cyto_sample[coln])))
     {
       isiso = TRUE
-      arm <- gsub("[[:digit:]]", "", temp[[(grep("ider", derMods)) + 1]])
+      arm <-
+        gsub("[[:digit:]]", "", temp[[(grep("ider", derMods)) + 1]])
       if (arm == "q")
       {
         unused = "p"
@@ -36,13 +40,11 @@ getCytoBands <-
       }
     }
     
-    
     currentvec <- vector()
     
-    
-    if (any(grepl("::", temp[[lengthcount * 2]][i]) |
-            grepl("~>", temp[[lengthcount * 2]][i]) |
-            grepl("->", temp[[lengthcount * 2]][i]))) {
+    if (any(grepl("::", temp[[lengthcount * 2]][o]) |
+            grepl("~>", temp[[lengthcount * 2]][o]) |
+            grepl("->", temp[[lengthcount * 2]][o]))) {
       #parse data according to ::, in front of p and q are chromosomes, if qter or pter, do stuff, afterward is position, make table of things included, then make list of stuff excluded
       ##ask tom about this one
       ##find p or q, take stuff before take stuff after, before is chromosomes after is positions, this will return 2 objects, must take into account
@@ -50,14 +52,12 @@ getCytoBands <-
       ##ask tom about this one
       ##only splits first one
       longform_table <-
-        strsplit(strsplit(temp[[lengthcount * 2]][i], "::")[[1]], "(~>)|(->)")
+        strsplit(strsplit(temp[[lengthcount * 2]][o], "::")[[1]], "(~>)|(->)")
       ##take away any front loaded :
       longform_table <-
         lapply(longform_table, function(x) {
           gsub(':', '', x)
         })
-      
-      
       
       in_table = data.frame()
       
@@ -118,7 +118,8 @@ getCytoBands <-
           chr_table_2[grep("acen", chr_table_2[, 5]),][2, 4]
         
         ##make sure positions is in order to be processed correctly
-        positions <- positionsorter(positions)
+        print(mod_utils)
+        positions <- mod_utils$positionSorter(positions)
         
         ##put stuff in table
         positions_table <-
@@ -150,7 +151,8 @@ getCytoBands <-
         chr_table[grep("acen", chr_table[, 5]),][1, 4]
       positions[grep("q10", positions)] <-
         chr_table[grep("acen", chr_table[, 5]),][2, 4]
-      positions <- positionsorter(positions)
+      print(mod_utils)
+      positions <- mod_utils$positionSorter(positions)
       
       
       
@@ -162,7 +164,8 @@ getCytoBands <-
       ##############################################################################################################
       
       if (forMtn == T &
-          grepl("t\\(", derMods[lengthcount]) & length(positions) > 1)
+          grepl("t\\(", derMods[lengthcount]) &
+          length(positions) > 1)
       {
         earlyReturn = T
         
@@ -264,3 +267,5 @@ getCytoBands <-
     
     return(list(currentvec, earlyReturn))
   }
+
+
