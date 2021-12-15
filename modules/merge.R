@@ -160,7 +160,7 @@ mergeTable <- function(M, keep_extras = F) {
       gain <- length(h_[[as.character(start_val)]][['Gain']])
       loss <- length(h_[[as.character(start_val)]][['Loss']])
       ploss <- length(h_[[as.character(start_val)]][['+Loss']])
-      if (gain == ploss & gain == loss) {
+      if (gain == (ploss + loss)) {
         ###delete section
         hash::delete(start_val, h_)
       } else{
@@ -194,13 +194,13 @@ mergeTable <- function(M, keep_extras = F) {
       }
       
       ##do this again at the end after everything is cleared
-      gain <- length(h_[[as.character(start_val)]][['Gain']])
-      loss <- length(h_[[as.character(start_val)]][['Loss']])
-      ploss <- length(h_[[as.character(start_val)]][['+Loss']])
-      if (gain == ploss & gain == loss) {
+      #gain <- length(h_[[as.character(start_val)]][['Gain']])
+      #loss <- length(h_[[as.character(start_val)]][['Loss']])
+      #ploss <- length(h_[[as.character(start_val)]][['+Loss']])
+      #if (gain == ploss & gain == loss) {
         ###delete section
-        hash::delete(start_val, h_)
-      }
+      #  hash::delete(start_val, h_)
+      #}
       
       
     }
@@ -392,8 +392,11 @@ mergeDel <- function(v1, v2) {
   v2 <- as.vector(as.integer(as.numeric(as.character(v2[1:2]))))
   out <- as.data.frame(matrix(nrow = 0, ncol = 3))
   colnames(out) <- c("Start", "End", "Type")
-  out <-
-    cbind(as.integer(as.numeric(out[, 1])), as.integer(as.numeric(out[, 2])), out[, 3])
+  out <- cbind(
+    as.integer(as.numeric(out[, 1])),
+    as.integer(as.numeric(out[, 2])),
+    out[, 3]
+  )
   if (v1[1] > v2[1]) {
     labs <- labs[2:1]
     tmp <- v1
@@ -414,12 +417,11 @@ mergeDel <- function(v1, v2) {
         End = c(v2[1], v2[2]),
         Type = labs
       )
-    } else{
+    } else {
       out <- data.frame(
         Start = c(v1[1], v2[1]),
         End = c(v1[2], v2[2]),
-        Type =
-          labs
+        Type = labs
       )
     }
   }
@@ -428,181 +430,217 @@ mergeDel <- function(v1, v2) {
   if (length(bads) > 0) {
     out <- out[-bads, ]
   }
+
   origMat <- data.frame(
     Start = c(v1[1], v2[1]),
     End = c(v1[2], v2[2]),
     Type = labs
   )
-  if (nrow(out) == nrow(origMat) && identical(out, origMat))
-  {
+
+  if (nrow(out) == nrow(origMat) && identical(out, origMat)) {
     out = list(out, TRUE)
-  } else{
+  } else {
     out = list(out, FALSE)
   }
+
   return(out)
 }
 
+
 mergeDelmat <- function(G, L) {
-  i <- 1
-  ##G[,1:2]<-apply(G[,1:2],2,as.numeric)
-  ##L[,1:2]<-apply(L[,1:2],2,as.numeric)
-  origL <- L
-  while (nrow(L) > 0 & i <= nrow(G)) {
-    newL <- matrix(ncol = 3, nrow = 0)
-    j <- 1
-    modified <- TRUE
-    print(list(i, modified))
-    while (j <= nrow(L) & modified) {
-      nxt <- mergeDel(G[i, ], L[j, ])
-      modified <- nxt[[2]]
-      nxt <- nxt[[1]]
-      w <-
-        union(intersect(grep("del", nxt[, 3]), grep("^del", nxt[, 3], invert = T)), intersect(grep("add", nxt[, 3]), grep("^add", nxt[, 3], invert =
-                                                                                                                            T)))
-      if (length(w) > 0) {
-        newL <- rbind(newL, nxt[w, ],
-                      if (nrow(L) > 1 &&
-                          !is.vector(L[-j, ]) &&
-                          nrow(L[-j, ]) >= j && !modified) {
+
+    i <- 1
+    ##G[,1:2]<-apply(G[,1:2],2,as.numeric)
+    ##L[,1:2]<-apply(L[,1:2],2,as.numeric)
+    origL <- L
+
+    while (nrow(L) > 0 & i <= nrow(G)) {
+        newL <- matrix(ncol = 3, nrow = 0)
+        j <- 1
+        modified <- TRUE
+        #print(list(i, modified))
+        while (j <= nrow(L) & modified) {
+            nxt <- mergeDel(G[i, ], L[j, ])
+            modified <- nxt[[2]]
+            nxt <- nxt[[1]]
+            w <- union(
+                intersect(grep("del", nxt[, 3]), grep("^del", nxt[, 3], invert = T)),
+                intersect(grep("add", nxt[, 3]), grep("^add", nxt[, 3], invert = T))
+            )
+
+            if (length(w) > 0) {
+                newL <- rbind(
+                    newL,
+                    nxt[w, ],
+                    if (nrow(L) > 1 && !is.vector(L[-j, ]) && nrow(L[-j, ]) >= j && !modified) {
                         L[-j, ][j:nrow(L[-j, ]), ]
-                      })
-      } else if (nrow(nxt) > 0) {
-        newL <-
-          rbind(newL, if (nrow(L) > 1 &&
-                          !is.vector(L[-j, ]) &&
-                          nrow(L[-j, ]) >= j &&
-                          !modified) {
-            L[-j, ][j:nrow(L[-j, ]), ]
-          })
-      } else if (!is.vector(L[-j, ])) {
-        newL <-
-          rbind(newL, apply(L[-j, ], 2, as.character))
-      } else{
-        newL <- rbind(newL, sapply(L[-j, ], as.character))
-      }
-      print(list(j, modified, newL))
-      j <- j + 1
+                    }
+                )
+
+            } else if (nrow(nxt) > 0) {
+                newL <- rbind(
+                    newL,
+                    if (nrow(L) > 1 && !is.vector(L[-j, ]) && nrow(L[-j, ]) >= j && !modified) {
+                        L[-j, ][j:nrow(L[-j, ]), ]
+                    }
+                )
+
+            } else if (!is.vector(L[-j, ])) {
+                newL <- rbind(newL, apply(L[-j, ], 2, as.character))
+
+            } else {
+                newL <- rbind(newL, sapply(L[-j, ], as.character))
+
+            }
+            #print(list(j, modified, newL))
+            j <- j + 1
+        }
+        L <- newL
+        i <- i + 1
     }
-    L <- newL
-    i <- i + 1
-  }
   
-  
-  i <- 1
-  while (nrow(G) > 0 & i <= nrow(origL)) {
-    newG <- matrix(ncol = 3, nrow = 0)
-    j <- 1
-    modified <- TRUE
-    print(list(i, G))
+    i <- 1
+    while (nrow(G) > 0 & i <= nrow(origL)) {
+        newG <- matrix(ncol = 3, nrow = 0)
+        j <- 1
+        modified <- TRUE
+        #print(list(i, G))
     
-    while (j <= nrow(G) & modified) {
-      nxt <- mergeDel(G[j, ], origL[i, ])
-      modified <- nxt[[2]]
-      nxt <- nxt[[1]]
-      w <-
-        setdiff(
-          grep(
-            "((t\\()|(idic\\()|(rob\\()|(trc\\()|(dic\\()|(Gain))",
-            nxt[, 3]
-          ),
-          union(intersect(
-            grep("del", nxt[, 3]), grep("^del", nxt[, 3], invert = T)
-          ), intersect(
-            grep("add", nxt[, 3]), grep("^add", nxt[, 3], invert = T)
-          ))
-        )
-      if (length(w) > 0) {
-        newG <- rbind(newG, nxt[w, ],
-                      if (nrow(G) > 1 &&
-                          !is.vector(G[-j, ]) &&
-                          nrow(G[-j, ]) >= j && !modified) {
+        while (j <= nrow(G) & modified) {
+            nxt <- mergeDel(G[j, ], origL[i, ])
+            modified <- nxt[[2]]
+            nxt <- nxt[[1]]
+            w <- setdiff(
+                grep(
+                    "((t\\()|(idic\\()|(rob\\()|(trc\\()|(dic\\()|(Gain))",
+                    nxt[, 3]
+                ),
+                union(
+                    intersect(
+                        grep("del", nxt[, 3]), grep("^del", nxt[, 3], invert = T)
+                    ),
+                    intersect(
+                        grep("add", nxt[, 3]), grep("^add", nxt[, 3], invert = T)
+                    )
+                )
+            )
+
+            if (length(w) > 0) {
+                newG <- rbind(
+                    newG,
+                    nxt[w, ],
+                    if (nrow(G) > 1 && !is.vector(G[-j, ]) && nrow(G[-j, ]) >= j && !modified) {
                         G[-j, ][j:nrow(G[-j, ]), ]
-                      })
-      } else if (nrow(nxt) > 0) {
-        newG <-
-          rbind(newG, if (nrow(G) > 1 &&
-                          !is.vector(G[-j, ]) &&
-                          nrow(G[-j, ]) >= j &&
-                          !modified) {
-            G[-j, ][j:nrow(G[-j, ]), ]
-          })
-      } else if (!is.vector(G[-j, ])) {
-        newG <-
-          rbind(newG, apply(G[-j, ], 2, as.character))
-      } else{
-        newG <- rbind(newG, sapply(G[-j, ], as.character))
-      }
+                    }
+                )
+
+            } else if (nrow(nxt) > 0) {
+                newG <- rbind(
+                    newG,
+                    if (nrow(G) > 1 && !is.vector(G[-j, ]) && nrow(G[-j, ]) >= j && !modified) {
+                        G[-j, ][j:nrow(G[-j, ]), ]
+                    }
+                )
+
+            } else if (!is.vector(G[-j, ])) {
+                newG <- rbind(
+                    newG,
+                    apply(G[-j, ], 2, as.character)
+                )
+
+            } else {
+                newG <- rbind(
+                    newG,
+                    sapply(G[-j, ], as.character)
+                )
+
+            }
       
-      print(list(j, modified, newG))
-      j <- j + 1
-    }
-    G <- newG
-    i <- i + 1
-  }
+            # print(list(j, modified, newG))
+            j <- j + 1
+
+        } # while
+        G <- newG
+        i <- i + 1
+
+    } # while
   
-  G[, 1] <- as.numeric(as.character(G[, 1]))
-  G[, 2] <- as.numeric(as.character(G[, 2]))
-  L[, 1] <- as.numeric(as.character(L[, 1]))
-  L[, 2] <- as.numeric(as.character(L[, 2]))
+    G[, 1] <- as.numeric(as.character(G[, 1]))
+    G[, 2] <- as.numeric(as.character(G[, 2]))
+    L[, 1] <- as.numeric(as.character(L[, 1]))
+    L[, 2] <- as.numeric(as.character(L[, 2]))
   
-  
-  
-  out <- data.frame(
-    Start = c(G[, 1], L[, 1]),
-    End = c(G[, 2], L[, 2]),
-    Type = c(G[, 3], L[, 3])
-  )
-  return(out)
+    out <- data.frame(
+        Start = c(G[, 1], L[, 1]),
+        End = c(G[, 2], L[, 2]),
+        Type = c(G[, 3], L[, 3])
+    )
+
+    return(out)
 }
 
 bigDelMerge <- function(M) {
-  ##ask what does this do
-  out <- M[-(1:nrow(M)), ]
+    ##ask what does this do
+    out <- M[-(1:nrow(M)), ]
   
-  chrs <- unique(M[, 1])
+    chrs <- unique(M[, 1])
   
-  for (i in 1:length(chrs)) {
-    w <- which(M[, 1] == chrs[i])
-    Msub <- M[w, ]
+    for (i in 1:length(chrs)) {
+        w <- which(M[, 1] == chrs[i])
+        Msub <- M[w, ]
     
-    startDel <-
-      grep("((t\\()|(idic\\()|(rob\\()|(trc\\()|(dic\\())",
-           Msub[, 4])[1]
+        startDel <- grep(
+            "((t\\()|(idic\\()|(rob\\()|(trc\\()|(dic\\())",
+            Msub[, 4]
+        )[1]
+        
+        wl <- union(
+            intersect(
+                grep("del", Msub[, 4]),
+                grep("^del", Msub[, 4], invert = T)
+            ),
+            intersect(
+                grep("add", Msub[, 4]),
+                grep("^add", Msub[, 4], invert = T)
+            )
+        )
     
-    
-    wl <-
-      union(intersect(grep("del", Msub[, 4]), grep("^del", Msub[, 4], invert =
-                                                     T)), intersect(grep("add", Msub[, 4]), grep("^add", Msub[, 4], invert =
-                                                                                                   T)))
-    
-    if (!is.na(startDel))
-    {
-      startDel <- 1:startDel
-      wl <-
-        setdiff(union(intersect(
-          grep("del", Msub[, 4]), grep("^del", Msub[, 4], invert = T)
-        ), intersect(
-          grep("add", Msub[, 4]), grep("^add", Msub[, 4], invert = T)
-        )), startDel)
-      
+    if (!is.na(startDel)) {
+        startDel <- 1:startDel
+        wl <- setdiff(
+            union(
+                intersect(
+                    grep("del", Msub[, 4]),
+                    grep("^del", Msub[, 4], invert = T)
+                ),
+                intersect(
+                    grep("add", Msub[, 4]),
+                    grep("^add", Msub[, 4], invert = T)
+                )
+            ),
+            startDel
+        )
     }
-    wg <-
-      setdiff(grep(
-        "((t\\()|(idic\\()|(rob\\()|(trc\\()|(dic\\()|(Gain))",
-        Msub[, 4]
-      ),
-      wl)
+
+    wg <- setdiff(
+        grep(
+            "((t\\()|(idic\\()|(rob\\()|(trc\\()|(dic\\()|(Gain))",
+            Msub[, 4]
+        ),
+        wl
+    )
     
     if (length(wg) == 0 | length(wl) == 0) {
-      out <- rbind(out, Msub)
-    } else{
-      nxt <- mergeDelmat(Msub[wg, -1], Msub[wl, -1])
-      if (nrow(nxt) > 0)
-      {
-        nxt <- cbind(chrs[i], nxt)
-        colnames(nxt)[1] <- "Chr"
-      }
-      out <- rbind(out, nxt)
+        out <- rbind(out, Msub)
+
+    } else {
+        nxt <- mergeDelmat(Msub[wg, -1], Msub[wl, -1])
+        if (nrow(nxt) > 0) {
+            nxt <- cbind(chrs[i], nxt)
+            colnames(nxt)[1] <- "Chr"
+        }
+        out <- rbind(out, nxt)
+
     }
   }
   

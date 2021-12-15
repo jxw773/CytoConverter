@@ -118,7 +118,6 @@ getCytoBands <-
           chr_table_2[grep("acen", chr_table_2[, 5]),][2, 4]
         
         ##make sure positions is in order to be processed correctly
-        print(mod_utils)
         positions <- mod_utils$positionSorter(positions)
         
         ##put stuff in table
@@ -151,7 +150,6 @@ getCytoBands <-
         chr_table[grep("acen", chr_table[, 5]),][1, 4]
       positions[grep("q10", positions)] <-
         chr_table[grep("acen", chr_table[, 5]),][2, 4]
-      print(mod_utils)
       positions <- mod_utils$positionSorter(positions)
       
       
