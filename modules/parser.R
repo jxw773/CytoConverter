@@ -1564,7 +1564,8 @@ parser <- function(Cyto_ref_table, ref_table, coln,
         if ((is.data.frame(transloc) |
              is.matrix(transloc)) && nrow(transloc) > 1)
         {
-          if (as.numeric(transloc[1, 2:3]) %overlaps% as.numeric(transloc[2, 2:3]))
+          if (DescTools::Overlap(as.numeric(transloc[1, 2:3]), as.numeric(transloc[2, 2:3])))
+          #if (as.numeric(transloc[1, 2:3]) %overlaps% as.numeric(transloc[2, 2:3]))
           {
             ##if nothing , handle
             if (as.numeric(transloc[1, 3]) == as.numeric(transloc[2, 2]))

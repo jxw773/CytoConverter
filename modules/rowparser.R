@@ -506,8 +506,8 @@ rowparse <- function(
 
                             } else {
                                 if (length(Mainchr) != length(grep("X|Y", Mainchr))) {
-                                    deltot <- deltot
-                                        + (length(grep("X|Y", Mainchr, invert = T)) - 1) * multi
+                                    deltot <- deltot + 
+                                        (length(grep("X|Y", Mainchr, invert = T)) - 1) * multi
 
                                 }
                         
@@ -1261,7 +1261,7 @@ rowparse <- function(
         }
     
         val <- as.numeric(val)
-    
+        # print(paste("val 1: ", val))
         # prelim ploidy gueeses for xideal and yideal from val
         # take x and y completely out of this
         val <- val - xcount - ycount - (xadd + yadd - xdel - ydel)
@@ -1275,7 +1275,9 @@ rowparse <- function(
             }
 
         }
-    
+        # print(paste("val 2: ", val))
+        
+        
         # original val
         orgval <- strsplit(Cyto_sample[1], "<")[[1]] # number of chromosomes indicated in first value
         orgval <- paste(strsplit(orgval, "[[:alpha:]]+")[[1]], sep = "", collapse = "")
@@ -1310,8 +1312,13 @@ rowparse <- function(
             )
 
         } else {
-            idealval <- 46 + addtot - deltot - xcount - ycount
-                - (xadd + yadd - xdel - ydel)
+            idealval = 46 + addtot - deltot - xcount - ycount -
+                (xadd + yadd - xdel - ydel)
+            #idealval = 46 + addtot - deltot - xcount - ycount - (xadd + yadd - xdel -
+            #                                                       ydel)            
+            # print(paste(addtot, deltot, xcount, ycount, xadd, yadd, xdel, ydel))
+            # print(paste(normX, normY))
+            # print(paste("idealval 0: ", idealval))
             if (normX + normY != 2) {
                 if (normX + normY > 2) {
                     idealval = idealval + (normX + normY - 2)
@@ -1322,7 +1329,8 @@ rowparse <- function(
                 }
 
             }
-      
+            # print(paste("idealval 1: ", idealval))
+            
             diffval <- val - idealval
             val_remainder <- diffval %% 22
             val_remainder_2 <- diffval %% 23
@@ -1345,7 +1353,7 @@ rowparse <- function(
 
                 }
         
-                #print(c(val, idealval, val_remainder, val_divider))
+                # print(c(val, idealval, val_remainder, val_divider))
         
         
                 if (val_remainder == 0) {
@@ -1470,7 +1478,7 @@ rowparse <- function(
                                 )
                             )
                         ][1]
-            
+
                     } else {
                         new_diffval <- diffval
 
@@ -1487,17 +1495,17 @@ rowparse <- function(
                             rep("Loss", nrow(ref_table))
                         )
                         temp_table <- temp_table[1:22, ]
-            
+
                         temp_table[, 4] <- as.character(temp_table[, 4])
                         temp_table <- as.matrix(temp_table)
                         sample_table[, 4] <- as.character(sample_table[, 4])
                         sample_table <- rbind(sample_table, temp_table)
                         sample_table[, 4] <- as.character(sample_table[, 4])
                         ploidy <- 1
-            
+
                     }
-          
-          
+
+
                     if (new_diffval < 31 & new_diffval > 14) {
                         temp_table <- data.frame(
                             ref_table[, 1],
@@ -1506,16 +1514,16 @@ rowparse <- function(
                             rep("Gain", nrow(ref_table))
                         )
                         temp_table <- temp_table[1:22, ]
-            
+
                         temp_table[, 4] <- as.character(temp_table[, 4])
                         temp_table <- as.matrix(temp_table)
                         sample_table[, 4] <- as.character(sample_table[, 4])
                         sample_table <- rbind(sample_table, temp_table)
                         sample_table[, 4] <- as.character(sample_table[, 4])
                         ploidy <- 3
-            
+
                     }
-          
+
                     if (new_diffval < 53 & new_diffval > 38) {
                         temp_table <- data.frame(
                             ref_table[, 1],
@@ -1524,13 +1532,13 @@ rowparse <- function(
                             rep("Gain", nrow(ref_table))
                         )
                         temp_table <- temp_table[1:22, ]
-            
+
                         temp_table[, 4] <- as.character(temp_table[, 4])
                         temp_table <- as.matrix(temp_table)
                         sample_table[, 4] <- as.character(sample_table[, 4])
                         sample_table <- rbind(sample_table, temp_table)
                         sample_table[, 4] <- as.character(sample_table[, 4])
-            
+
                         temp_table <- data.frame(
                             ref_table[, 1],
                             rep(0, nrow(ref_table)),
@@ -1538,7 +1546,7 @@ rowparse <- function(
                             rep("Gain", nrow(ref_table))
                         )
                         temp_table <- temp_table[1:22, ]
-            
+
                         temp_table[, 4] <- as.character(temp_table[, 4])
                         temp_table <- as.matrix(temp_table)
                         sample_table[, 4] <- as.character(sample_table[, 4])
@@ -1547,7 +1555,7 @@ rowparse <- function(
                         ploidy <- 4
 
                     }
-          
+
                     if (
                         new_diffval > 56
                         & floor(val_divider) * 22 + 3 < new_diffval
@@ -1563,19 +1571,19 @@ rowparse <- function(
                                 rep("Gain", nrow(ref_table))
                             )
                             temp_table <- temp_table[1:22, ]
-              
+
                             temp_table[, 4] <- as.character(temp_table[, 4])
                             temp_table <- as.matrix(temp_table)
                             sample_table[, 4] <- as.character(sample_table[, 4])
                             sample_table <- rbind(sample_table, temp_table)
                             sample_table[, 4] <- as.character(sample_table[, 4])
                         }
-            
+
                     }
-          
-          
+
+
                     # time to guess according to ranges if guessing is true
-          
+
                     # put in dump table
                     Dump_table <- rbind(
                         Dump_table,
@@ -1586,8 +1594,8 @@ rowparse <- function(
                     )
 
                     # print(c("unaccounted", Cyto_sample))
-          
-          
+
+
                 } else if (val_divider > 1) {
                     # if doesnt match initially, try to see if bottom few match
                     val_temp <- floor(val_divider)
@@ -1809,370 +1817,261 @@ rowparse <- function(
                     if (constitutionalcount > 2) {
                         ynew <- 0
             
-            if (yconstitutional > 0) {
-              for (f in 1:yconstitutional - 1)
-              {
-                temp_table <-
-                  data.frame(ref_table[, 1],
-                             rep(0, nrow(ref_table)),
-                             ref_table[, 2],
-                             rep("Loss", nrow(ref_table)))
-                ##temp_table <-
-                temp_table <-
-                  temp_table[grep("chrY", temp_table[, 1]),]
+                        if (yconstitutional > 0) {
+                            for (f in 1:yconstitutional - 1) {
+                                temp_table <- data.frame(
+                                    ref_table[, 1],
+                                    rep(0, nrow(ref_table)),
+                                    ref_table[, 2],
+                                    rep("Loss", nrow(ref_table))
+                                )
+                                temp_table <- temp_table[grep("chrY", temp_table[, 1]),]
                 
-                temp_table[, 4] <-
-                  as.character(temp_table[, 4])
-                temp_table <- as.matrix(temp_table)
-                colnames(temp_table) <- colnames(sample_table)
+                                temp_table[, 4] <- as.character(temp_table[, 4])
+                                temp_table <- as.matrix(temp_table)
+                                colnames(temp_table) <- colnames(sample_table)
                 
-                sample_table[, 4] <-
-                  as.character(sample_table[, 4])
-                sample_table <-
-                  rbind(sample_table, temp_table)
-                sample_table[, 4] <-
-                  as.character(sample_table[, 4])
-              }
-            }
-            
-            if (xconstitutional > 0) {
-              for (f in 1:(xconstitutional - xcount))
-              {
-                temp_table <-
-                  data.frame(ref_table[, 1],
-                             rep(0, nrow(ref_table)),
-                             ref_table[, 2],
-                             rep("Loss", nrow(ref_table)))
-                temp_table <-
-                  temp_table[grep("chrX", temp_table[, 1]),]
-                
-                temp_table[, 4] <-
-                  as.character(temp_table[, 4])
-                temp_table <- as.matrix(temp_table)
-                colnames(temp_table) <- colnames(sample_table)
-                
-                sample_table[, 4] <-
-                  as.character(sample_table[, 4])
-                sample_table <-
-                  rbind(sample_table, temp_table)
-                sample_table[, 4] <-
-                  as.character(sample_table[, 4])
-                
-              }
-            }
-          }
-          
-        }
-        ##if polyploidy, loss ploidy-2
-        ##for loop for each constitutional value
-      }
-      
-      
-      
-      sexDev_from_norm <- count_after_mods - 2
-      
-      if (sexDev_from_norm > 0) {
-        ##add gain of sex chrom for loop
-        ##copy paste old code
-        ynew = 0
-        for (f in 1:sexDev_from_norm)
-        {
-          ##include if y and x discordanceb
-          if ((ycount + ymod) > (ynew + normY))
-          {
-            temp_table <-
-              data.frame(ref_table[, 1],
-                         rep(0, nrow(ref_table)),
-                         ref_table[, 2],
-                         rep("Gain", nrow(ref_table)))
-            ##temp_table <-
-            temp_table <-
-              temp_table[grep("chrY", temp_table[, 1]),]
-            
-            temp_table[, 4] <- as.character(temp_table[, 4])
-            temp_table <- as.matrix(temp_table)
-            colnames(temp_table) <- colnames(sample_table)
-            
-            sample_table[, 4] <-
-              as.character(sample_table[, 4])
-            sample_table <- rbind(sample_table, temp_table)
-            sample_table[, 4] <-
-              as.character(sample_table[, 4])
-            ynew = ynew + 1
-          } else{
-            temp_table <-
-              data.frame(ref_table[, 1],
-                         rep(0, nrow(ref_table)),
-                         ref_table[, 2],
-                         rep("Gain", nrow(ref_table)))
-            temp_table <-
-              temp_table[grep("chrX", temp_table[, 1]),]
-            
-            temp_table[, 4] <- as.character(temp_table[, 4])
-            temp_table <- as.matrix(temp_table)
-            colnames(temp_table) <- colnames(sample_table)
-            
-            sample_table[, 4] <-
-              as.character(sample_table[, 4])
-            sample_table <- rbind(sample_table, temp_table)
-            sample_table[, 4] <-
-              as.character(sample_table[, 4])
-            
-          }
-        }
-        
-      } else if (sexDev_from_norm < 0) {
-        ynew = 0
-        for (f in 1:(-1 * sexDev_from_norm))
-        {
-          if ((ycount + ymod) < (ynew + normY))
-          {
-            temp_table <-
-              data.frame(ref_table[, 1],
-                         rep(0, nrow(ref_table)),
-                         ref_table[, 2],
-                         rep("Loss", nrow(ref_table)))
-            ##temp_table <-
-            temp_table <-
-              temp_table[grep("chrY", temp_table[, 1]),]
-            
-            temp_table[, 4] <- as.character(temp_table[, 4])
-            temp_table <- as.matrix(temp_table)
-            colnames(temp_table) <- colnames(sample_table)
-            
-            sample_table[, 4] <-
-              as.character(sample_table[, 4])
-            sample_table <- rbind(sample_table, temp_table)
-            sample_table[, 4] <-
-              as.character(sample_table[, 4])
-            ynew = ynew + 1
-            
-          } else{
-            temp_table <-
-              data.frame(ref_table[, 1],
-                         rep(0, nrow(ref_table)),
-                         ref_table[, 2],
-                         rep("Loss", nrow(ref_table)))
-            temp_table <-
-              temp_table[grep("chrX", temp_table[, 1]),]
-            
-            temp_table[, 4] <- as.character(temp_table[, 4])
-            temp_table <- as.matrix(temp_table)
-            colnames(temp_table) <- colnames(sample_table)
-            
-            sample_table[, 4] <-
-              as.character(sample_table[, 4])
-            sample_table <- rbind(sample_table, temp_table)
-            sample_table[, 4] <-
-              as.character(sample_table[, 4])
-            
-          }
-        }
-        
-      } else{
-        ##if sexDev == 0, make sure to take into account -y and XX canceling out
-        if ((ydel) >= 1)
-        {
-          for (f in 1:ydel) {
-            temp_table <-
-              data.frame(ref_table[, 1],
-                         rep(0, nrow(ref_table)),
-                         ref_table[, 2],
-                         rep("Loss", nrow(ref_table)))
-            ##temp_table <-
-            temp_table <-
-              temp_table[grep("chrY", temp_table[, 1]),]
-            
-            temp_table[, 4] <- as.character(temp_table[, 4])
-            temp_table <- as.matrix(temp_table)
-            colnames(temp_table) <- colnames(sample_table)
-            
-            sample_table[, 4] <-
-              as.character(sample_table[, 4])
-            sample_table <- rbind(sample_table, temp_table)
-            sample_table[, 4] <-
-              as.character(sample_table[, 4])
-          }
-          
-          if (xcount + xmod > 1) {
-            temp_table <-
-              data.frame(ref_table[, 1],
-                         rep(0, nrow(ref_table)),
-                         ref_table[, 2],
-                         rep("Gain", nrow(ref_table)))
-            ##temp_table <-
-            temp_table <-
-              temp_table[grep("chrX", temp_table[, 1]),]
-            
-            temp_table[, 4] <- as.character(temp_table[, 4])
-            temp_table <- as.matrix(temp_table)
-            colnames(temp_table) <- colnames(sample_table)
-            
-            sample_table[, 4] <-
-              as.character(sample_table[, 4])
-            sample_table <- rbind(sample_table, temp_table)
-            sample_table[, 4] <-
-              as.character(sample_table[, 4])
-            
-          }
-        }
-        
-      }
-    }
-    
-    ###count_after_mods -2 gives gains/losses
-    ##make this more complicated to handle cases like 46,xxxc,-x (- x is printed)
-    
-    
-    
-    
-    
-    
-    ##&& ((constitutionalcount==0) ||((constitutionalcount*(ploidy-2) + constitutionalcount) > (count_before_extras)))
-    
-    #print(
-    #  c(
-    #    "count_before_extras",
-    #    count_before_extras,
-    #    "ploidy_count",
-    #    ploidy_count,
-    #    "count_after_mods",
-    #    count_after_mods ,
-    #    "constitutionalcount",
-    #    constitutionalcount,
-    #    "idealtotal",
-    #    idealTotal,
-    #    "sexDev_from_norm",
-    #    sexDev_from_norm,
-    #    "difference",
-    #    difference,
-    #    "normx",
-    #    normX,
-    #    "normY",
-    #    normY,
-    #    "ycount",
-    #    ycount,
-    #    "ymod",
-    #    ymod
-    #  )
-    #)
-    
-    
-    ##conditional if not the same after sex counts
-    ##print(c("val_div>0", Cyto_sample))
-    ##add this to uncertain
-    
-    ##put in dump table
-    ##Dump_table <-
-    ##   rbind(Dump_table,
-    ##        c(
-    ##           as.vector(Con_data[i, ]),
-    ##          "Warning in some chromosomes unaccounted for"
-    ##        ))
-    ## print(c("unaccounted", Cyto_sample))
-    
-    
-    ##something is wrong here
-    if (any(is.na(sample_table[, 2])) |
-        any(is.na(sample_table[, 3]))) {
-      sample_table <-
-        sample_table[-union(which(is.na(sample_table[, 2])) , which(is.na(sample_table[, 3]))), ]
-      ##Dump_table<-rbind(Dump_table,c(as.vector(Con_data[i, ]),
-      ## "Error in NA found"))
-    }
-    
-    if (!is.vector(sample_table))
-    {
-      sample_table <- sample_table[rowSums(!is.na(sample_table)) > 0,]
-    }
-    
-    
-    
-    
-    
-    
-    sample_table <-
-      as.data.frame(sample_table, row.names = FALSE)
-    if (is.vector(sample_table))
-    {
-      sample_table[1] <- as.character(sample_table[1])
-      sample_table[2] <-
-        as.integer(as.numeric(as.character(sample_table[2])))
-      sample_table[3] <-
-        as.integer(as.numeric(as.character(sample_table[3])))
-      sample_table[4] <- as.character(sample_table[4])
-      sample_table <- t(sample_table)
-      sorted_sample_table <- sample_table
-    } else if (ncol(sample_table) == 1) {
-      sample_table <- t(sample_table)
-      sample_table[, 1] <- as.character(sample_table[, 1])
-      sample_table[, 2] <-
-        as.integer(as.numeric(as.character(sample_table[, 2])))
-      sample_table[, 3] <-
-        as.integer(as.numeric(as.character(sample_table[, 3])))
-      sample_table[, 4] <- as.character(sample_table[, 4])
-      sorted_sample_table <- sample_table
-    } else if (nrow(sample_table) > 1) {
-      sample_table[, 1] <- as.character(sample_table[, 1])
-      sample_table[, 2] <-
-        as.integer(as.numeric(as.character(sample_table[, 2])))
-      sample_table[, 3] <-
-        as.integer(as.numeric(as.character(sample_table[, 3])))
-      sample_table[, 4] <- as.character(sample_table[, 4])
-      ## eliminate duplicates and gain/loss with same coordinates
-      sorted_sample_table <- mod_merge$mergeTable(sample_table)
-    }
-    
-    ##sorted_sample_table<-sample_table
-    
-    ##correct format for sample table
-    ##something is  wrong here
-    if (is.vector(sorted_sample_table))
-    {
-      sorted_sample_table[1] <- as.character(sorted_sample_table[1])
-      sorted_sample_table[2] <-
-        as.integer(as.character(sorted_sample_table[2]))
-      sorted_sample_table[3] <-
-        as.integer(as.character(sorted_sample_table[3]))
-      sorted_sample_table[4] <-
-        as.character(sorted_sample_table[4])
-      sorted_sample_table <- t(sorted_sample_table)
-    } else if (ncol(sorted_sample_table) == 1) {
-      sorted_sample_table <- t(sorted_sample_table)
-      sorted_sample_table <- as.data.frame(sorted_sample_table)
-      sorted_sample_table[, 1] <-
-        as.character(sorted_sample_table[, 1])
-      sorted_sample_table[, 2] <-
-        as.integer(as.character(sorted_sample_table[, 2]))
-      sorted_sample_table[, 3] <-
-        as.integer(as.character(sorted_sample_table[, 3]))
-      sorted_sample_table[, 4] <-
-        as.character(sorted_sample_table[, 4])
-    } else if (nrow(sorted_sample_table) > 1) {
-      sorted_sample_table <- as.data.frame(sorted_sample_table)
-      sorted_sample_table[, 1] <-
-        as.character(sorted_sample_table[, 1])
-      sorted_sample_table[, 2] <-
-        as.integer(as.character(sorted_sample_table[, 2]))
-      sorted_sample_table[, 3] <-
-        as.integer(as.character(sorted_sample_table[, 3]))
-      sorted_sample_table[, 4] <-
-        as.character(sorted_sample_table[, 4])
-    }
-    
-    return(list(sorted_sample_table, Dump_table, transloctable))
-    
-  }
-}
+                                sample_table[, 4] <- as.character(sample_table[, 4])
+                                sample_table <- rbind(sample_table, temp_table)
+                                sample_table[, 4] <- as.character(sample_table[, 4])
+                            }
 
-##try catch for each sample
-#samparse <- function(Cyto_ref_table, ref_table, Cyto_sample, Con_data, i, guess, guess_q, orOption, constitutional, transloctable, Dump_table, sexstimate, forMtn)
-#{
-#  out <- try(rowparse(Cyto_ref_table, ref_table, Cyto_sample, Con_data, i, guess, guess_q, orOption, constitutional, transloctable, Dump_table, sexstimate, forMtn))
-  
-#  if (inherits(out, "try-error")) {
-#    return(gsub("\n", " ", paste(geterrmessage(), "in", i, "sample")))
-#  }
-#  return(out)
-#}
+                        }
+            
+                        if (xconstitutional > 0) {
+                            for (f in 1:(xconstitutional - xcount)) {
+                                temp_table <- data.frame(
+                                    ref_table[, 1],
+                                    rep(0, nrow(ref_table)),
+                                    ref_table[, 2],
+                                    rep("Loss", nrow(ref_table))
+                                )
+                                temp_table <- temp_table[grep("chrX", temp_table[, 1]),]
+                
+                                temp_table[, 4] <- as.character(temp_table[, 4])
+                                temp_table <- as.matrix(temp_table)
+                                colnames(temp_table) <- colnames(sample_table)
+                
+                                sample_table[, 4] <- as.character(sample_table[, 4])
+                                sample_table <- rbind(sample_table, temp_table)
+                                sample_table[, 4] <- as.character(sample_table[, 4])
+                            }
+
+                        }
+
+                    }
+          
+                }
+
+                # if polyploidy, loss ploidy-2
+                # for loop for each constitutional value
+            }
+      
+            sexDev_from_norm <- count_after_mods - 2
+      
+            if (sexDev_from_norm > 0) {
+                # Add gain of sex chrom for loop
+                # Copy paste old code
+
+                ynew = 0
+                for (f in 1:sexDev_from_norm) {
+                    # Include if y and x discordance
+                    if ((ycount + ymod) > (ynew + normY)) {
+                        temp_table <- data.frame(
+                            ref_table[, 1],
+                            rep(0, nrow(ref_table)),
+                            ref_table[, 2],
+                            rep("Gain", nrow(ref_table))
+                        )
+                        temp_table <- temp_table[grep("chrY", temp_table[, 1]), ]
+            
+                        temp_table[, 4] <- as.character(temp_table[, 4])
+                        temp_table <- as.matrix(temp_table)
+                        colnames(temp_table) <- colnames(sample_table)
+            
+                        sample_table[, 4] <- as.character(sample_table[, 4])
+                        sample_table <- rbind(sample_table, temp_table)
+                        sample_table[, 4] <- as.character(sample_table[, 4])
+                        ynew = ynew + 1
+
+                    } else {
+                        temp_table <- data.frame(
+                            ref_table[, 1],
+                            rep(0, nrow(ref_table)),
+                            ref_table[, 2],
+                            rep("Gain", nrow(ref_table))
+                        )
+                        temp_table <- temp_table[grep("chrX", temp_table[, 1]), ]
+            
+                        temp_table[, 4] <- as.character(temp_table[, 4])
+                        temp_table <- as.matrix(temp_table)
+                        colnames(temp_table) <- colnames(sample_table)
+            
+                        sample_table[, 4] <- as.character(sample_table[, 4])
+                        sample_table <- rbind(sample_table, temp_table)
+                        sample_table[, 4] <- as.character(sample_table[, 4])
+            
+                    }
+                }
+        
+            } else if (sexDev_from_norm < 0) {
+                ynew = 0
+                for (f in 1:(-1 * sexDev_from_norm)) {
+                    if ((ycount + ymod) < (ynew + normY)) {
+                        temp_table <- data.frame(
+                            ref_table[, 1],
+                            rep(0, nrow(ref_table)),
+                            ref_table[, 2],
+                            rep("Loss", nrow(ref_table))
+                        )
+                        temp_table <- temp_table[grep("chrY", temp_table[, 1]), ]
+            
+                        temp_table[, 4] <- as.character(temp_table[, 4])
+                        temp_table <- as.matrix(temp_table)
+                        colnames(temp_table) <- colnames(sample_table)
+            
+                        sample_table[, 4] <- as.character(sample_table[, 4])
+                        sample_table <- rbind(sample_table, temp_table)
+                        sample_table[, 4] <- as.character(sample_table[, 4])
+                        ynew = ynew + 1
+            
+                    } else {
+                        temp_table <- data.frame(
+                            ref_table[, 1],
+                            rep(0, nrow(ref_table)),
+                            ref_table[, 2],
+                            rep("Loss", nrow(ref_table))
+                        )
+                        temp_table <- temp_table[grep("chrX", temp_table[, 1]), ]
+            
+                        temp_table[, 4] <- as.character(temp_table[, 4])
+                        temp_table <- as.matrix(temp_table)
+                        colnames(temp_table) <- colnames(sample_table)
+            
+                        sample_table[, 4] <- as.character(sample_table[, 4])
+                        sample_table <- rbind(sample_table, temp_table)
+                        sample_table[, 4] <- as.character(sample_table[, 4])
+            
+                    }
+                }
+        
+            } else {
+                # If sexDev == 0, make sure to take into account -y and XX canceling out
+                if ((ydel) >= 1) {
+                    for (f in 1:ydel) {
+                        temp_table <- data.frame(
+                            ref_table[, 1],
+                            rep(0, nrow(ref_table)),
+                            ref_table[, 2],
+                            rep("Loss", nrow(ref_table))
+                        )
+                        temp_table <- temp_table[grep("chrY", temp_table[, 1]),]
+            
+                        temp_table[, 4] <- as.character(temp_table[, 4])
+                        temp_table <- as.matrix(temp_table)
+                        colnames(temp_table) <- colnames(sample_table)
+            
+                        sample_table[, 4] <- as.character(sample_table[, 4])
+                        sample_table <- rbind(sample_table, temp_table)
+                        sample_table[, 4] <- as.character(sample_table[, 4])
+                    }
+          
+                    if (xcount + xmod > 1) {
+                        temp_table <- data.frame(
+                            ref_table[, 1],
+                            rep(0, nrow(ref_table)),
+                            ref_table[, 2],
+                            rep("Gain", nrow(ref_table))
+                        )
+                        temp_table <- temp_table[grep("chrX", temp_table[, 1]),]
+            
+                        temp_table[, 4] <- as.character(temp_table[, 4])
+                        temp_table <- as.matrix(temp_table)
+                        colnames(temp_table) <- colnames(sample_table)
+            
+                        sample_table[, 4] <- as.character(sample_table[, 4])
+                        sample_table <- rbind(sample_table, temp_table)
+                        sample_table[, 4] <- as.character(sample_table[, 4])
+            
+                    }
+
+                }
+        
+            }
+
+        }
+    
+        # Something is wrong here
+        if (
+            any(is.na(sample_table[, 2]))
+            | any(is.na(sample_table[, 3]))
+        ) {
+            sample_table <- sample_table[
+                -union(which(is.na(sample_table[, 2])),
+                which(is.na(sample_table[, 3]))),
+            ]
+        }
+    
+        if (!is.vector(sample_table)) {
+            sample_table <- sample_table[rowSums(!is.na(sample_table)) > 0, ]
+        }
+    
+        sample_table <- as.data.frame(sample_table, row.names = FALSE)
+        if (is.vector(sample_table)) {
+            sample_table[1] <- as.character(sample_table[1])
+            sample_table[2] <- as.integer(as.numeric(as.character(sample_table[2])))
+            sample_table[3] <- as.integer(as.numeric(as.character(sample_table[3])))
+            sample_table[4] <- as.character(sample_table[4])
+            sample_table <- t(sample_table)
+            sorted_sample_table <- sample_table
+
+        } else if (ncol(sample_table) == 1) {
+            sample_table <- t(sample_table)
+            sample_table[, 1] <- as.character(sample_table[, 1])
+            sample_table[, 2] <- as.integer(as.numeric(as.character(sample_table[, 2])))
+            sample_table[, 3] <- as.integer(as.numeric(as.character(sample_table[, 3])))
+            sample_table[, 4] <- as.character(sample_table[, 4])
+            sorted_sample_table <- sample_table
+
+        } else if (nrow(sample_table) > 1) {
+            sample_table[, 1] <- as.character(sample_table[, 1])
+            sample_table[, 2] <- as.integer(as.numeric(as.character(sample_table[, 2])))
+            sample_table[, 3] <- as.integer(as.numeric(as.character(sample_table[, 3])))
+            sample_table[, 4] <- as.character(sample_table[, 4])
+            # Eliminate duplicates and gain/loss with same coordinates
+            sorted_sample_table <- mod_merge$mergeTable(sample_table)
+
+        }
+    
+        # Correct format for sample table
+        # Something is  wrong here
+        if (is.vector(sorted_sample_table)) {
+            sorted_sample_table[1] <- as.character(sorted_sample_table[1])
+            sorted_sample_table[2] <- as.integer(as.character(sorted_sample_table[2]))
+            sorted_sample_table[3] <- as.integer(as.character(sorted_sample_table[3]))
+            sorted_sample_table[4] <- as.character(sorted_sample_table[4])
+            sorted_sample_table <- t(sorted_sample_table)
+
+        } else if (ncol(sorted_sample_table) == 1) {
+            sorted_sample_table <- t(sorted_sample_table)
+            sorted_sample_table <- as.data.frame(sorted_sample_table)
+            sorted_sample_table[, 1] <- as.character(sorted_sample_table[, 1])
+            sorted_sample_table[, 2] <- as.integer(as.character(sorted_sample_table[, 2]))
+            sorted_sample_table[, 3] <- as.integer(as.character(sorted_sample_table[, 3]))
+            sorted_sample_table[, 4] <- as.character(sorted_sample_table[, 4])
+
+        } else if (nrow(sorted_sample_table) > 1) {
+            sorted_sample_table <- as.data.frame(sorted_sample_table)
+            sorted_sample_table[, 1] <- as.character(sorted_sample_table[, 1])
+            sorted_sample_table[, 2] <- as.integer(as.character(sorted_sample_table[, 2]))
+            sorted_sample_table[, 3] <- as.integer(as.character(sorted_sample_table[, 3]))
+            sorted_sample_table[, 4] <- as.character(sorted_sample_table[, 4])
+
+        }
+    
+        return(list(sorted_sample_table, Dump_table, transloctable))
+    
+    }
+
+}
 

@@ -366,17 +366,20 @@ if(build =="GRCh38")
     
     currentvec <- vector()
     
-    
-    if (any(grepl("::", temp[[lengthcount * 2]][i]) |
-            grepl("~>", temp[[lengthcount * 2]][i]) | grepl("->", temp[[lengthcount * 2]][i])  )) {
+    # JP: if (any(grepl("::", temp[[lengthcount * 2]][i]) |
+    # JP:         grepl("~>", temp[[lengthcount * 2]][i]) | grepl("->", temp[[lengthcount * 2]][i])  )) {
+    if (any(grepl("::", temp[[lengthcount * 2]][o]) |
+            grepl("~>", temp[[lengthcount * 2]][o]) | grepl("->", temp[[lengthcount * 2]][o])  )) {
       #parse data according to ::, in front of p and q are chromosomes, if qter or pter, do stuff, afterward is position, make table of things included, then make list of stuff excluded
       ##ask tom about this one
       ##find p or q, take stuff before take stuff after, before is chromosomes after is positions, this will return 2 objects, must take into account
       ##parse data according to ::, in front of p and q are chromosomes, if qter or pter, do stuff, afterward is position, make table of things included, then make list of stuff excluded
       ##ask tom about this one
       ##only splits first one
+      # JP: longform_table <-
+      # JP:   strsplit(strsplit(temp[[lengthcount * 2]][i], "::")[[1]], "(~>)|(->)")
       longform_table <-
-        strsplit(strsplit(temp[[lengthcount * 2]][i], "::")[[1]], "(~>)|(->)")
+        strsplit(strsplit(temp[[lengthcount * 2]][o], "::")[[1]], "(~>)|(->)")
       ##take away any front loaded : 
       longform_table <-lapply(longform_table,function(x){gsub(':','',x)})
       
@@ -1996,7 +1999,7 @@ if(build =="GRCh38")
           transloc<-tempChr[grep("t\\(",tempChr[,4]),]
           if((is.data.frame(transloc) | is.matrix(transloc))&&nrow(transloc) > 1)
           {
-            if(as.numeric(transloc[1,2:3]) %overlaps% as.numeric(transloc[2,2:3]))
+            if(DescTools::Overlap(as.numeric(transloc[1,2:3]), as.numeric(transloc[2,2:3])))
             {  
               
               ##if nothing , handle
