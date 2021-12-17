@@ -343,19 +343,25 @@ rowparse <- function(
                 # for all other cases call this first
                 # check for x modifications in parser
 
-                inc_table <- mod_parser$colparse(
-                    Cyto_ref_table,
-                    ref_table,
-                    j,
-                    xmod,
-                    ymod,
-                    transloctable,
-                    addtot,
-                    Cyto_sample,
-                    guess_q,
-                    constitutional,
-                    forMtn
-                )
+                inc_table <- tryCatch({
+                    mod_parser$parser(
+                        Cyto_ref_table,
+                        ref_table,
+                        j,
+                        xmod,
+                        ymod,
+                        transloctable,
+                        addtot,
+                        Cyto_sample,
+                        guess_q,
+                        constitutional,
+                        forMtn
+                    )
+                }, error = function(e) {
+                    return(gsub("\n", " ", paste(e, "in", j, "field")))
+                }, finally = {
+                    # print(paste("  Parsed field: ", Cyto_sample[j]))
+                })
 
                 if (is.character(inc_table)) {
                     Dump_table <- rbind(Dump_table, c(Con_data[i,], inc_table))

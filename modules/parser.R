@@ -136,8 +136,8 @@ parser <- function(Cyto_ref_table, ref_table, coln,
       
     } else if (grepl(
       "der\\([[:digit:]]+;[[:digit:]]+\\)t\\(|dic\\([[:digit:]]+;[[:digit:]]+\\)t\\(",
-      Cyto_sample
-    )[coln])
+      Cyto_sample[coln]
+    ))
     {
       ##handle der(11;13)t( and dic(11;13)t( esq cases here
       
@@ -1896,18 +1896,5 @@ parser <- function(Cyto_ref_table, ref_table, coln,
          addtot)
   return(listCoord)
   
-}
-
-
-colparse <- function(Cyto_ref_table, ref_table, j, xmod, ymod, transloctable, addtot, Cyto, guess_q, constitutional, forMtn) {
-  ##try catch between chromosomes
-  
-  out <-
-    try(parser(Cyto_ref_table, ref_table, j, xmod, ymod, transloctable, addtot, Cyto, guess_q, constitutional, forMtn))
-  
-  if (inherits(out, "try-error")) {
-    return(gsub("\n", " ", paste(geterrmessage(), "in", j, "field")))
-  }
-  return(out)
 }
 

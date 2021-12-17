@@ -480,7 +480,6 @@ CytoConverter <- function(
             )
             && grepl("[[:digit:]]", Cyto_sample[1])
         ) {
-
             tottable <- tryCatch({
                 mod_rowparser$rowparse(
                     cyto_ref_table,
