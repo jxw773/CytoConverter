@@ -28,10 +28,10 @@ CytoConverter <- function(
         allow_Shorthand = F
 ) {
     
-    # Load reference file
+    # Load the cyto reference table, cyto_ref_table
 
     if (build == "GRCh38") {
-        Cyto_ref_table <- sapply(
+        cyto_ref_table <- sapply(
             as.data.frame(read.delim(
                 "Builds/cytoBand_GRCh38.txt", header = FALSE
             )),
@@ -39,7 +39,7 @@ CytoConverter <- function(
         )
       
     } else if (build == "hg19") {
-        Cyto_ref_table <- sapply(
+        cyto_ref_table <- sapply(
             as.data.frame(read.delim(
                 "Builds/cytoBand_hg19.txt", header = FALSE
             )),
@@ -47,7 +47,7 @@ CytoConverter <- function(
         )
       
     } else if (build == "hg18") {
-        Cyto_ref_table <- sapply(
+        cyto_ref_table <- sapply(
             as.data.frame(read.delim(
                 "Builds/cytoBand_hg18.txt", header = FALSE
             )),
@@ -55,7 +55,7 @@ CytoConverter <- function(
         )
       
     } else if (build == "hg17") {
-        Cyto_ref_table <- sapply(
+        cyto_ref_table <- sapply(
             as.data.frame(read.delim(
                 "Builds/cytoBand_hg17.txt", header = FALSE
             )),
@@ -63,7 +63,7 @@ CytoConverter <- function(
         )
       
     } else if (is.null(build)) {
-        Cyto_ref_table <- sapply(
+        cyto_ref_table <- sapply(
             as.data.frame(read.delim(
                 "Builds/cytoBand_GRCh38.txt", header = FALSE
             )),
@@ -74,16 +74,16 @@ CytoConverter <- function(
         return("Error : build incorrectly specified")
 
     }
-    
-    # reference object for end of the string
+   
+    # ref_table stores the end coordinate for each chromosome
 
     ref_table <- as.data.frame(
-        Cyto_ref_table[
+        cyto_ref_table[
             sapply(
-                unique(Cyto_ref_table[, 1]),
+                unique(cyto_ref_table[, 1]),
                 function(x) {
-                    grep(x, Cyto_ref_table[, 1])[
-                        length(grep(paste(x, "$", sep = ""), Cyto_ref_table[, 1]))
+                    grep(x, cyto_ref_table[, 1])[
+                        length(grep(paste(x, "$", sep = ""), cyto_ref_table[, 1]))
                     ]
                 }
             ), 
@@ -105,8 +105,8 @@ CytoConverter <- function(
     Dump_table <- matrix(ncol = 3, nrow = 0)
 
     # Double check that this does not delete later data potentially
-    fish_table <- in_data[grep("ish.*$", in_data[, 2]),]
-    if (is.vector(fish_table) & length(fish_table) > 0) {
+    fish_table <- in_data[grep("ish.*$", in_data[, 2]), ]
+    if (is.vector(fish_table) && length(fish_table) > 0) {
         Dump_table <- rbind(Dump_table, c(fish_table, "Warning in fish reading"))
         # Now take out ish readings
         in_data[, 2] <- gsub("ish.*$", "", as.character(in_data[, 2]))
@@ -123,7 +123,6 @@ CytoConverter <- function(
     in_data[, 2] <- chartr("x", "X", in_data[, 2])
     in_data[, 2] <- chartr("y", "Y", in_data[, 2])
     
-
     Con_data = matrix(nrow = 0, ncol = 2)
 
     # Split cell lines
@@ -161,18 +160,21 @@ CytoConverter <- function(
                         )
                     }
                 )
+
                 index_match <- sapply(
                     mut_list,
                     function(x) {
                         grep(x, data_split)[1]
                     }
                 )
+
                 index_match <- index_match[
                     intersect(
                         which(!is.na(index_match)),
                         which(index_match > 0)
                     )
                 ]
+
                 if (
                     is.numeric(mut_index)
                     && is.numeric(index_match)
@@ -184,7 +186,9 @@ CytoConverter <- function(
                     data_split[mut_index] <- paste(
                         additional_to_add , data_split[index_match], sep = ""
                     )
+
                 }
+
             }
         
             in_data[i, 2] <- gsub(
@@ -202,10 +206,12 @@ CytoConverter <- function(
             c2 <- strsplit(in_data[i, 2], split = "/")[[1]]
             c1 <- paste(in_data[i, 1], 1:length(c2), sep = "_")
             Con_data <- rbind(Con_data, cbind(c1, c2))
+
         } else {
             Con_data <- rbind(
                 Con_data, cbind(paste(in_data[i, 1], "_1"), in_data[i, 2])
             )
+
         }
       
         # Make idems here
@@ -220,9 +226,11 @@ CytoConverter <- function(
                     # Make sure temp data has more than 1 row
                     if (grepl("idem|sl", temp_data[j, 2])) {
                         prev <- unlist(strsplit(temp_data[1, 2], "\\["))[1]
+
                     } else {
                         # Implement this so it can handel two sl1 in sucession and sdl1 sdl2
                         prev <- unlist(strsplit(temp_data[j - 1, 2], "\\["))[1]
+
                     }
                     prev <- unlist(strsplit(prev, ","))
                     prev <- prev[2:length(prev)]
@@ -266,6 +274,7 @@ CytoConverter <- function(
                             )
                 
                         }
+
                     }
 
                     if (!is.null(autochromprev)) {
@@ -280,6 +289,7 @@ CytoConverter <- function(
                             cur <- c(cur[1:2], rep(autochromprev, clonecount))
 
                         }
+
                     }
 
                     cur <- cur[grep("idem|sl|sdl", cur, invert = T)]
@@ -301,9 +311,9 @@ CytoConverter <- function(
             }
 
         } # Make idems here
-
-    } # for (i in 1:nrow(in_data)) { # Split cell lines
     
+    } # for (i in 1:nrow(in_data)) { # Split cell lines
+
     rownames(Con_data) <- 1:nrow(Con_data)
     
     Con_data[, 2] <- gsub(" ", "", Con_data[, 2])
@@ -473,7 +483,7 @@ CytoConverter <- function(
 
             tottable <- tryCatch({
                 mod_rowparser$rowparse(
-                    Cyto_ref_table,
+                    cyto_ref_table,
                     ref_table,
                     Cyto_sample,
                     Con_data,
@@ -498,7 +508,7 @@ CytoConverter <- function(
                 transloctable <- data.frame()
 
             } else if (!is.list(tottable)) {
-                Dump_table <-  tottable
+                Dump_table <- tottable
                 transloctable <- data.frame()
 
             } else {
