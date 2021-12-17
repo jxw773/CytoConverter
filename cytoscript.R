@@ -347,48 +347,48 @@ CytoConverter <- function(
     transloctable <- data.frame()
     
     for (i in 1:nrow(Con_data)) {
-        Cyto_sample <- unlist(strsplit(as.character(Con_data[i, 2]), split = ",|\\["))
+        cyto_sample <- unlist(strsplit(as.character(Con_data[i, 2]), split = ",|\\["))
 
         # If X or Y in first col, move it
-        if (grepl("X|Y", Cyto_sample[1])) {
-            Cyto_sample[1] <- gsub(
+        if (grepl("X|Y", cyto_sample[1])) {
+            cyto_sample[1] <- gsub(
                 substr(
-                    Cyto_sample[1],
-                    regexec("X|Y", Cyto_sample[1])[[1]][1],
-                    nchar(Cyto_sample[1])
+                    cyto_sample[1],
+                    regexec("X|Y", cyto_sample[1])[[1]][1],
+                    nchar(cyto_sample[1])
                 ),
                 paste(
                     ",",
                     substr(
-                        Cyto_sample[1],
-                        regexec("X|Y", Cyto_sample[1])[[1]][1],
-                        nchar(Cyto_sample[1])
+                        cyto_sample[1],
+                        regexec("X|Y", cyto_sample[1])[[1]][1],
+                        nchar(cyto_sample[1])
                     ),
                     sep = ""
                 ),
-                Cyto_sample[1]
+                cyto_sample[1]
             )
-            Cyto_sample <- unlist(
-                strsplit(as.character(Cyto_sample), split = ",|\\[")
+            cyto_sample <- unlist(
+                strsplit(as.character(cyto_sample), split = ",|\\[")
             )
 
         }
 
         # Take away extra accidental commas
-        if (length(which(str_length(Cyto_sample) == 0)) > 0) {
-            Cyto_sample <- Cyto_sample[-1 * which(str_length(Cyto_sample) == 0)]
+        if (length(which(str_length(cyto_sample) == 0)) > 0) {
+            cyto_sample <- cyto_sample[-1 * which(str_length(cyto_sample) == 0)]
         }
       
         # If idem or sl, cancel out any - details, add in any shorthands between code
-        if (any(grepl("ids|idem|sl|sd", Cyto_sample)) || allow_Shorthand) {
+        if (any(grepl("ids|idem|sl|sd", cyto_sample)) || allow_Shorthand) {
             # index of anything in a clonal evolution step with no )(
             # think about what to do if assymmetric (2 defined, one mystery, one defined, 2 mystery)
             # takes first occurance if more than 2 of the same category -- f
             # fix it to skip
-            mut_index <- grep("\\(.*\\)(?!\\()", Cyto_sample, perl = T)
+            mut_index <- grep("\\(.*\\)(?!\\()", cyto_sample, perl = T)
             if (length(mut_index) > 0) {
                 mut_list <- sapply(
-                    Cyto_sample[mut_index],
+                    cyto_sample[mut_index],
                     function(x) {
                         gsub("\\)", "\\\\)",
                             gsub("\\(", "\\\\(",
@@ -405,7 +405,7 @@ CytoConverter <- function(
                 index_match <- sapply(
                     mut_list,
                     function(x) {
-                        grep(x, Cyto_sample)[1]
+                        grep(x, cyto_sample)[1]
                     }
                 )
 
@@ -424,8 +424,8 @@ CytoConverter <- function(
                         regexpr("\\+", names(index_match))
                     )
 
-                    Cyto_sample[mut_index] <- paste(
-                        additional_to_add , Cyto_sample[index_match], sep = ""
+                    cyto_sample[mut_index] <- paste(
+                        additional_to_add , cyto_sample[index_match], sep = ""
                     )
 
                 }
@@ -433,10 +433,10 @@ CytoConverter <- function(
             }
 
             # Index of anything thats - in a clonal evolution step
-            mut_gone_index <- grep("-[[:alpha:]]+\\(", Cyto_sample)
+            mut_gone_index <- grep("-[[:alpha:]]+\\(", cyto_sample)
             if (length(mut_gone_index) > 0) {
                 mut_list <- sapply(
-                    Cyto_sample[mut_gone_index],
+                    cyto_sample[mut_gone_index],
                     function(x) {
                         gsub("\\)", "\\\\)",
                             gsub("\\(", "\\\\(",
@@ -451,7 +451,7 @@ CytoConverter <- function(
                 index_cancel <- sapply(
                     mut_list,
                     function(x) {
-                        grep(x, Cyto_sample)[1]
+                        grep(x, cyto_sample)[1]
                     }
                 )
 
@@ -464,29 +464,29 @@ CytoConverter <- function(
                     && is.numeric(index_cancel)
                     && length(index_cancel) > 0
                 ) {
-                    Cyto_sample <- Cyto_sample[-1 * c(mut_gone_index, index_cancel)]
+                    cyto_sample <- cyto_sample[-1 * c(mut_gone_index, index_cancel)]
 
                 }
 
             }
 
-        } # if (any(grepl("ids|idem|sl|sd", Cyto_sample)) || allow_Shorthand) {
+        } # if (any(grepl("ids|idem|sl|sd", cyto_sample)) || allow_Shorthand) {
       
         # Check to make sure the input is roughly a karyotype before processing
         if (
             grepl(
                 "[[:digit:]]+((~|-)[[:digit:]]+)*(<[[:digit:]]+n>)*,",
-                paste(Cyto_sample, collapse = ',', sep = '')
+                paste(cyto_sample, collapse = ',', sep = '')
             )
-            && grepl("[[:digit:]]", Cyto_sample[1])
+            && grepl("[[:digit:]]", cyto_sample[1])
         ) {
+            # print(Con_data[i, ])
             tottable <- tryCatch({
                 mod_rowparser$rowparse(
                     cyto_ref_table,
                     ref_table,
-                    Cyto_sample,
-                    Con_data,
-                    i,
+                    cyto_sample,
+                    Con_data[i, ],
                     guess,
                     guess_q,
                     orOption,
@@ -559,7 +559,7 @@ CytoConverter <- function(
             }
 
         } else {
-            if (grepl("[[:digit:]]", Cyto_sample[1])) {
+            if (grepl("[[:digit:]]", cyto_sample[1])) {
                 Dump_table <- rbind(
                     Dump_table,
                     c(Con_data[i,], "Warning in karyotype number not specified")

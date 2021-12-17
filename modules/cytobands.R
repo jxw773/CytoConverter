@@ -3,41 +3,56 @@
 
 mod_utils <- modules::use('modules/utils.R')
 
-getCytoBands <-
-  function(Cyto_ref_table,
-           Cyto_sample,
-           lengthcount,
-           o,
-           temp,
-           coln,
-           derMods,
-           forMtn) {
-    ##must take into account acen and qter pter and only one listing (will have to relte to two), reuse later code for this
-    chr_table <-
-      Cyto_ref_table[grep(paste(paste("chr", temp[[(lengthcount * 2 - 1)]][o], sep =
-                                        ""), "$", sep = ""), Cyto_ref_table),]
+getCytoBands <- function(
+        Cyto_ref_table,
+        Cyto_sample,
+        lengthcount,
+        o,
+        temp,
+        coln,
+        derMods,
+        forMtn
+) {
+    # Must take into account acen and qter pter and only one listing
+    # (will have to relte to two), reuse later code for this
+
+    chr_table <- Cyto_ref_table[
+        grep(
+            paste(
+                paste("chr", temp[[(lengthcount * 2 - 1)]][o], sep = ""),
+                "$",
+                sep = ""
+            ),
+            Cyto_ref_table
+        ),
+    ]
     
-    ##for isoderivative chromosomes, end point is potentially different, make boolean now
+    # For isoderivative chromosomes, end point is potentially different,
+    # make boolean now
     
     isiso = FALSE
     
-    ##quit if karyotype returns false
+    # Quit if karyotype returns false
     earlyReturn = F
     
-    if (any(grepl("ider", Cyto_sample[coln]) &
-            grepl("t\\(", Cyto_sample[coln])))
-    {
-      isiso = TRUE
-      arm <-
-        gsub("[[:digit:]]", "", temp[[(grep("ider", derMods)) + 1]])
-      if (arm == "q")
-      {
-        unused = "p"
-      }
-      if (arm == "p")
-      {
-        unused = "q"
-      }
+    if (
+        any(
+            grepl("ider", Cyto_sample[coln])
+            && grepl("t\\(", Cyto_sample[coln])
+        )
+    ) {
+
+        isiso = TRUE
+        arm <- gsub("[[:digit:]]", "", temp[[(grep("ider", derMods)) + 1]])
+        if (arm == "q") {
+            unused = "p"
+
+        }
+        if (arm == "p") {
+            unused = "q"
+
+        }
+
     }
     
     currentvec <- vector()
@@ -45,8 +60,6 @@ getCytoBands <-
     if (any(grepl("::", temp[[lengthcount * 2]][o]) |
             grepl("~>", temp[[lengthcount * 2]][o]) |
             grepl("->", temp[[lengthcount * 2]][o]))) {
-      #parse data according to ::, in front of p and q are chromosomes, if qter or pter, do stuff, afterward is position, make table of things included, then make list of stuff excluded
-      ##ask tom about this one
       ##find p or q, take stuff before take stuff after, before is chromosomes after is positions, this will return 2 objects, must take into account
       ##parse data according to ::, in front of p and q are chromosomes, if qter or pter, do stuff, afterward is position, make table of things included, then make list of stuff excluded
       ##ask tom about this one

@@ -12,7 +12,6 @@ rowparse <- function(
         ref_table,
         Cyto_sample,
         Con_data,
-        i,
         guess,
         guess_q,
         orOption,
@@ -70,7 +69,7 @@ rowparse <- function(
         length(Cyto_sample) > 0
         & grepl(
             "[^[:alpha:]*][[:digit:]+],|[^[:alpha:]*][[:digit:]+$]",
-            Con_data[i, 2]
+            Con_data[2]
         )
     ) {
 
@@ -86,7 +85,7 @@ rowparse <- function(
         if (
             grepl(
                 "[^[:alpha:]*][[:digit:]+],|[^[:alpha:]*][[:digit:]+$]",
-                Con_data[i, 2]
+                Con_data[2]
             )
         ) {
             # set normal count for XY chromosomes
@@ -269,7 +268,7 @@ rowparse <- function(
                         Dump_table <- rbind(
                             Dump_table,
                             c(
-                                Con_data[i, ],
+                                Con_data,
                                 "Error in markers and other ambiguous objects not accounted for"
                             )
                         )
@@ -364,7 +363,7 @@ rowparse <- function(
                 })
 
                 if (is.character(inc_table)) {
-                    Dump_table <- rbind(Dump_table, c(Con_data[i,], inc_table))
+                    Dump_table <- rbind(Dump_table, c(Con_data, inc_table))
 
                 } else if (is.null(inc_table)) {
                   
@@ -372,7 +371,7 @@ rowparse <- function(
                     Dump_table <- rbind(
                         Dump_table,
                         c(
-                            Con_data[i, ],
+                            Con_data,
                             "Error in more than one band associated with a chromosome in a translocation"
                         )
                     )
@@ -1314,7 +1313,7 @@ rowparse <- function(
         if (any(is.na(val))) {
             Dump_table <- rbind(
                 Dump_table,
-                c(as.vector(Con_data[i,]), "Error in unclear chrom number")
+                c(as.vector(Con_data), "Error in unclear chrom number")
             )
 
         } else {
@@ -1594,7 +1593,7 @@ rowparse <- function(
                     Dump_table <- rbind(
                         Dump_table,
                         c(
-                            as.vector(Con_data[i,]),
+                            as.vector(Con_data),
                             "Warning in some chromosomes unaccounted for"
                         )
                     )
@@ -1634,7 +1633,7 @@ rowparse <- function(
                     Dump_table <- rbind(
                         Dump_table,
                         c(
-                            as.vector(Con_data[i,]),
+                            as.vector(Con_data),
                             "Warning in some chromosomes unaccounted for"
                         )
                     )
