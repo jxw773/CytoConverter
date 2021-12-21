@@ -402,78 +402,75 @@ colparse <- function(
             ) {
                 break
             }
-      if (lengthcount > 60) {
-        print("while loop not terminating")
-        break
-      }
+
+            if (lengthcount > 60) {
+                print("while loop not terminating")
+                break
+            }
       
+            Allchr <- c(
+                Allchr, as.vector(paste(temp[[(lengthcount * 2 - 1)]], "$", sep = ""))
+            )
       
-      Allchr <-
-        c(Allchr, as.vector(paste(temp[[(lengthcount * 2 - 1)]], "$", sep = "")))
-      
-      ##handle those t(__;__) and ins (__;__) here with no follow up
-      if ((((lengthcount * 2) - 1)) == length(temp) ||
-          if (length(temp) > (lengthcount * 2 - 1)) {
-            all(grepl("^[[:digit:]]+$", temp[[lengthcount * 2]]))
-          } else{
-            FALSE
-          })
-      {
-        #######
-        ########
-        ########
-        ##think about inproving it instead of else then, if if
-        ######
-        #####
-        #####
-        #########################
-        if (any(grepl("[pq]", temp[[(lengthcount * 2 - 1)]])))
-        {
-          if (any(grepl("p", temp[[(lengthcount * 2 - 1)]])))
-          {
-            arm = "p10"
-          }
-          if (any(grepl("q", temp[[(lengthcount * 2 - 1)]])))
-          {
-            arm = "q10"
-          }
-          temp <-
-            c(if ((lengthcount * 2 - 1) != 1) {
-              temp[1:(lengthcount * 2 - 1)]
-            } else{
-              temp[(lengthcount * 2 - 1)]
-            }, arm, if (length(temp) >= 2) {
-              temp[[(lengthcount * 2):length(temp)]]
-            })
-          temp[[(lengthcount * 2 - 1)]] <-
-            gsub("p|q", "", temp[[(lengthcount * 2 - 1)]])
-          
-        }
+            # handle those t(__;__) and ins (__;__) here with no follow up
+            if (
+                ((lengthcount * 2) - 1) == length(temp)
+                || if (length(temp) > (lengthcount * 2 - 1)) {
+                    all(grepl("^[[:digit:]]+$", temp[[lengthcount * 2]]))
+                } else {
+                    FALSE
+                }
+            ) {
+                if (
+                    any(grepl("[pq]", temp[[lengthcount * 2 - 1]]))
+                ) {
+                    if (
+                        any(grepl("p", temp[[lengthcount * 2 - 1]]))
+                    ) {
+                        arm = "p10"
+                    }
+
+                    if (any(grepl("q", temp[[lengthcount * 2 - 1]]))) {
+                        arm = "q10"
+                    }
+                    temp <- c(
+                        if ((lengthcount * 2 - 1) != 1) {
+                            temp[1:(lengthcount * 2 - 1)]
+                        } else {
+                            temp[lengthcount * 2 - 1]
+                        },
+                        arm,
+                        if (length(temp) >= 2) {
+                            temp[[(lengthcount * 2):length(temp)]]
+                        }
+                    )
+                    temp[[lengthcount * 2 - 1]] <- gsub("p|q", "", temp[[lengthcount * 2 - 1]])
+                }
         
-        
-        if (any(grepl("^r\\(", derMods[lengthcount * 2 - 1])) &
-            forMtn == F) {
-          rindex <- lengthcount * 2 - 1
+                if (
+                    any(grepl("^r\\(", derMods[lengthcount * 2 - 1]))
+                    & forMtn == F
+                ) {
+                    rindex <- lengthcount * 2 - 1
           
+                    rChr <- paste("chr", temp[[rindex]], "$", sep = "")
+                    tempRingPosition <- NULL
+                    tempRing <- NULL
           
-          rChr <- paste("chr", temp[[rindex]], "$", sep = "")
-          tempRingPosition <- NULL
-          tempRing <- NULL
-          
-          for (c in 1:length(rChr))
-          {
-            tempRingTable <- matrix(nrow = 0, ncol = 5)
-            chr <-
-              Cyto_ref_table[grep(rChr[c], Cyto_ref_table[, 1]), ]
-            tempRingTable <-
-              rbind(tempRingTable, rbind(chr[1, ], chr[nrow(chr), ]))
-            tempRingTable[, 4]
+                    for (c in 1:length(rChr)) {
+                        tempRingTable <- matrix(nrow = 0, ncol = 5)
+                        chr <- Cyto_ref_table[grep(rChr[c], Cyto_ref_table[, 1]), ]
+                        tempRingTable <- rbind(tempRingTable, rbind(chr[1, ], chr[nrow(chr), ]))
+
+                        # JP ??
+                        tempRingTable[, 4]
             
-            tempRingPosition <-
-              c(tempRingPosition,
-                paste(tempRingTable[, 4], collapse = ""))
+                        tempRingPosition <- c(
+                            tempRingPosition,
+                            paste(tempRingTable[, 4], collapse = "")
+                        )
             
-          }
+                    }
           
           tempRing <-
             list(unlist(temp[[rindex]]), tempRingPosition)
