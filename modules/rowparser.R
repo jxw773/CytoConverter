@@ -5,21 +5,21 @@
 
 mod_utils <- modules::use('modules/utils.R')
 mod_merge <- modules::use('modules/merge.R')
-mod_parser <- modules::use('modules/parser.R')
+mod_colparser <- modules::use('modules/colparser.R')
 
 rowparse <- function(
-        Cyto_ref_table,
+        cyto_ref_table,
         ref_table,
         Cyto_sample,
         Con_data,
-        guess,
-        guess_q,
-        orOption,
-        constitutional,
         transloctable,
         Dump_table,
-        sexstimate,
-        forMtn
+        constitutional,
+        guess,
+        guess_q,
+        forMtn,
+        orOption,
+        sexstimate
 ) {
 
     sample_table <- matrix(ncol = 4, nrow = 0)
@@ -343,8 +343,8 @@ rowparse <- function(
                 # check for x modifications in parser
 
                 inc_table <- tryCatch({
-                    mod_parser$parser(
-                        Cyto_ref_table,
+                    mod_colparser$colparse(
+                        cyto_ref_table,
                         ref_table,
                         j,
                         xmod,

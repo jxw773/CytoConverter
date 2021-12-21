@@ -6,350 +6,402 @@
 mod_utils <- modules::use('modules/utils.R')
 mod_cytobands <- modules::use('modules/cytobands.R')
 
-
-
-
-
-parser <- function(Cyto_ref_table, ref_table, coln,
-                   xmod,
-                   ymod,
-                   transloctable,
-                   addtot,
-                   Cyto,
-                   guess_q,
-                   constitutional,
-                   forMtn)
-{
-  Cyto_sample <- Cyto
+colparse <- function(
+        Cyto_ref_table,
+        ref_table,
+        coln,
+        xmod,
+        ymod,
+        transloctable,
+        addtot,
+        Cyto,
+        guess_q,
+        constitutional,
+        forMtn
+) {
+    Cyto_sample <- Cyto
   
-  ##for or statements, take first statement
-  Cyto_sample[coln] <- gsub("or.*$", "", Cyto_sample[coln])
-  
-  
-  ##if we are guessing ? marks
-  if (guess_q == T & any(grepl("\\?", Cyto_sample[coln])))
-  {
-    Cyto_sample[coln] <- gsub("\\?", "", Cyto_sample[coln])
-  }
-  
-  ##if we are counting constitutional, substitute c
-  if (constitutional == T)
-  {
-    Cyto_sample[coln] <- gsub("c$", "", Cyto_sample[coln])
-  }
-  
-  
-  ##derivative chromosomes with translocations are a loss (on native chromosome) gain (on new chromosome)
-  ##figure out what add bool is and consaolidate that
-  ##string splits by ;, takes into account multiple chromosomes  odd values are chromosomes even are the positions, for derivaties, first one needs to be treated differently
-  test <-
-    strsplit(gsub("[\\(\\)]", "", regmatches(
-      Cyto_sample[coln], gregexpr("\\(.*?\\)",  Cyto_sample[coln])
-    )[[1]]), ";")
-  temp <-
-    strsplit(gsub("[\\(\\)]", "", regmatches(
-      Cyto_sample[coln], gregexpr("\\(.*?\\)",  Cyto_sample[coln])
-    )[[1]]), ";")
-  ##loop to go through everything and extract table if its in short form
-  coord <- data.frame()
-  excoord <- data.frame()
-  derMods <- Cyto_sample[coln]
-  addBool <- ""
-  ##right now this is doing both der stuff and adition stuff, want it just to do + stuff make dermods do other stuff
-  Mainchr <- vector()
-  Allchr <- vector()
-  ##MiscChr<-matrix()
-  ##remeber what this is supposed to do
-  derMods <- strsplit(derMods, "\\)")[[1]]
-  derModsBackup <- strsplit(derMods, "\\)")[[1]]
-  
-  ##skip second +t if first one is triggered
-  plusT <- F
-  
-  ##regins
-  regtranschrom = NULL
-  
-  if (length(temp) > 0)
-  {
-    ##chooses main chr for exclusion
-    Mainchr <- temp[[1]]
-    Mainchr <- paste(Mainchr, "$", sep = "")
-    Mainchr <- gsub("p|q", "", Mainchr)
+    # for or statements, take first statement
+    Cyto_sample[coln] <- gsub("or.*$", "", Cyto_sample[coln])
     
-    
-  }
-  
-  ##this things not working properly
-  
-  if (length(derMods) > 0)
-  {
-    ##do this later on, + = +1 addtot, others = -
-    ## addtot<-addtot+multi
-    ##if(grepl("\\+.*\\(.*",derMods[1]))
-    ##{
-    ##  addtot<-addtot+1
-    ##}
-    ##consider gsub
-  }
-  ##addBool<- paste("+",addBool,sep="")
-  ##}
-  ##make sure this matches up with the next thing
-  ##if (grepl("der\\(|rec\\(", Cyto_sample[coln])&&!grepl("ider\\(.*", Cyto_sample[coln]))
-  ##{
-  
-  ##remeber what this is supposed to do
-  ##derMods<-paste(")(",derMods,sep="")
-  ##}
-  
-  ## if it straight up describes derivative makeup afterwads
-  if (grepl("der\\([0-9;]+\\)\\(|rec\\([0-9;]+\\)\\(", Cyto_sample[coln]) &
-      !grepl("ider", Cyto_sample[coln]))
-  {
-    addBool <- paste(addBool, "LongDer", sep = "")
-  } else if (grepl("der|rec|dic", Cyto_sample[coln]) &
-             !grepl("ider|idic", Cyto_sample[coln]))
-  {
-    if (grepl("der|rec", Cyto_sample[coln]))
-    {
-      addBool <- paste(addBool, derMods[1], sep = "")
+    # if we are guessing ? marks
+    if (guess_q == T & any(grepl("\\?", Cyto_sample[coln]))) {
+        Cyto_sample[coln] <- gsub("\\?", "", Cyto_sample[coln])
     }
-    ##something is going wrong where when i changed this
-    ##only want more than one
-    if (grepl(
-      "der\\([[:alnum:]]+(;[[:alnum:]])*\\)[[:alpha:]]+|rec\\([[:alnum:]]+(;[[:alnum:]])*\\)[[:alpha:]]+",
-      Cyto_sample[coln]
-    ))
-    {
-      derMods <-
-        strsplit(Cyto_sample[coln],
-                 "(der|rec)\\([[:digit:]XY]+(;[[:digit:]XY])*\\)")[[1]][2]
-      
-      derMods <- strsplit(derMods, "\\)")[[1]]
-      temp <- utils::tail(temp, length(temp) - 1)
-    } else if ((
-      grepl("der|rec", Cyto_sample[coln]) &&
-      !is.na(derMods) &&
-      length(derMods) > 1 && grepl("^r\\(", derMods[2])
-    )) {
-      derMods <- utils::tail(derMods, length(derMods) - 1)
-      temp <- utils::tail(temp, length(temp) - 1)
-      
-    } else if (grepl(
-      "der\\([[:digit:]]+;[[:digit:]]+\\)t\\(|dic\\([[:digit:]]+;[[:digit:]]+\\)t\\(",
-      Cyto_sample[coln]
-    ))
-    {
-      ##handle der(11;13)t( and dic(11;13)t( esq cases here
-      
-      ##remember to search t(11;13 if its referring to previous call of translocation
-      ##figure out how to do this
-      
-      ##this will only work with two translocations and the translocation must immediantly follow
-      ##the der or dic
-      
-      if (grepl(
-        "der\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)\\(|dic\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)\\(",
-        Cyto_sample[coln]
-      )) {
-        ##translocation is fully described
-        if (grepl("der\\(", Cyto_sample[coln])) {
-          ##replace der with dic
-          derMods[1] <- gsub("der", "dic", derMods[1])
-          ##delete der so its treated like a pure dic
-          addBool[1] <- gsub("der", "dic", addBool[1])
+  
+    # if we are counting constitutional, substitute c
+    if (constitutional == T) {
+        Cyto_sample[coln] <- gsub("c$", "", Cyto_sample[coln])
+    }
+  
+  
+    # Derivative chromosomes with translocations are a loss (on native chromosome)
+    #   gain (on new chromosome)
+    # figure out what add bool is and consaolidate that
+    # string splits by ;, takes into account multiple chromosomes odd values are chromosomes even
+    #   are the positions, for derivaties, first one needs to be treated differently
+
+
+    ## JP: test and temp are the same, why have both?
+    test <- strsplit(
+        gsub(
+            "[\\(\\)]",
+            "",
+            regmatches(
+                Cyto_sample[coln],
+                gregexpr("\\(.*?\\)",  Cyto_sample[coln])
+            )[[1]]
+        ),
+        ";"
+    )
+    temp <- strsplit(
+        gsub(
+            "[\\(\\)]",
+            "",
+            regmatches(
+                Cyto_sample[coln],
+                gregexpr("\\(.*?\\)",  Cyto_sample[coln])
+            )[[1]]
+        ),
+        ";"
+    )
+
+    # loop to go through everything and extract table if its in short form
+    coord <- data.frame()
+    excoord <- data.frame()
+    derMods <- Cyto_sample[coln]
+    addBool <- ""
+
+    # right now this is doing both der stuff and adition stuff, want it just to do + stuff make
+    #   dermods do other stuff
+    Mainchr <- vector()
+    Allchr <- vector()
+    
+    # remeber what this is supposed to do
+    derMods <- strsplit(derMods, "\\)")[[1]]
+    derModsBackup <- strsplit(derMods, "\\)")[[1]]
+  
+    # skip second +t if first one is triggered
+    plusT <- F
+  
+    # regins
+    regtranschrom = NULL
+  
+    if (length(temp) > 0) {
+        # chooses main chr for exclusion
+        Mainchr <- temp[[1]]
+        Mainchr <- paste(Mainchr, "$", sep = "")
+        Mainchr <- gsub("p|q", "", Mainchr)
+    }
+  
+    # If it straight up describes derivative makeup afterwads
+    if (
+        grepl(
+            "der\\([0-9;]+\\)\\(|rec\\([0-9;]+\\)\\(",
+            Cyto_sample[coln]
+        )
+        & !grepl("ider", Cyto_sample[coln])
+    ) {
+        addBool <- paste(addBool, "LongDer", sep = "")
+
+    } else if (
+        grepl("der|rec|dic", Cyto_sample[coln])
+        & !grepl("ider|idic", Cyto_sample[coln])
+
+    ) {
+        if (grepl("der|rec", Cyto_sample[coln])) {
+            addBool <- paste(addBool, derMods[1], sep = "")
+
         }
+
+        # Something is going wrong where when i changed this
+        #   only want more than one
+        if (
+            grepl(
+                "der\\([[:alnum:]]+(;[[:alnum:]])*\\)[[:alpha:]]+|rec\\([[:alnum:]]+(;[[:alnum:]])*\\)[[:alpha:]]+",
+                Cyto_sample[coln]
+            )
+        ) {
+            derMods <- strsplit(
+                Cyto_sample[coln],
+                "(der|rec)\\([[:digit:]XY]+(;[[:digit:]XY])*\\)"
+            )[[1]][2]
+      
+            derMods <- strsplit(derMods, "\\)")[[1]]
+            temp <- utils::tail(temp, length(temp) - 1)
+
+        } else if (
+            grepl("der|rec", Cyto_sample[coln])
+            && !is.na(derMods)
+            && length(derMods) > 1
+            && grepl("^r\\(", derMods[2])
+        ) {
+            derMods <- utils::tail(derMods, length(derMods) - 1)
+            temp <- utils::tail(temp, length(temp) - 1)
+      
+        } else if (
+            grepl(
+                "der\\([[:digit:]]+;[[:digit:]]+\\)t\\(|dic\\([[:digit:]]+;[[:digit:]]+\\)t\\(",
+                Cyto_sample[coln]
+            )
+        ) {
+            # handle der(11;13)t( and dic(11;13)t( esq cases here
+      
+            # remember to search t(11;13 if its referring to previous call of translocation
+            # figure out how to do this
+      
+            # this will only work with two translocations and the translocation must immediantly
+            #   follow the der or dic
+      
+            if (
+                grepl(
+                    "der\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)\\(|dic\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)\\(",
+                    Cyto_sample[coln]
+                )
+            ) {
+                # translocation is fully described
+                if (grepl("der\\(", Cyto_sample[coln])) {
+                    # replace der with dic
+                    derMods[1] <- gsub("der", "dic", derMods[1])
+                    # delete der so its treated like a pure dic
+                    addBool[1] <- gsub("der", "dic", addBool[1])
+
+                }
         
-        ##delete translocation from both temp and derMods
-        derMods <- derMods[-2]
-        temp <- temp[-2]
-      } else if (grepl(
-        "der\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)|dic\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)",
-        Cyto_sample[coln]
-      )) {
-        ##if the translocation needs lookup
+                # delete translocation from both temp and derMods
+                derMods <- derMods[-2]
+                temp <- temp[-2]
+
+            } else if (
+                grepl(
+                    "der\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)|dic\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)",
+                    Cyto_sample[coln]
+                )
+            ) {
+                # if the translocation needs lookup
         
-        ##see if translocation is found
-        ##else this thing crashes
-        if (length(transloctable) > 0 &&
-            grepl(derMods[2],
-                  names(transloctable),
-                  perl = F,
-                  fixed = T))
-        {
-          ##last chunk of translocation indicating position
-          addOnTrans <-
-            names(transloctable)[grep(derMods[2],
-                                      names(transloctable),
-                                      perl = F,
-                                      fixed = T)]
-          addOnTrans <- strsplit(addOnTrans, "\\)")[[1]][2]
-          addOnTransTemp <-
-            strsplit(gsub("\\(|\\)", "", addOnTrans), ";")
-          ##if the string is longer than just the translocation
-          if (length(derMods) > 2) {
-            derMods <- c(derMods[1:2], addOnTrans, derMods[3:length(derMods)])
-            temp <-
-              c(temp[1:2], addOnTransTemp, temp[3:length(temp)])
-          } else{
-            ##just the der and the translocation
-            derMods <- c(derMods[1:2], addOnTrans)
-            temp <- c(temp[1:2], addOnTransTemp)
-          }
+                # see if translocation is found
+                # else this thing crashes
+                if (
+                    length(transloctable) > 0
+                    && grepl(
+                        derMods[2],
+                        names(transloctable),
+                        perl = F,
+                        fixed = T
+                    )
+                ) {
+                    # last chunk of translocation indicating position
+                    addOnTrans <- names(transloctable)[
+                        grep(
+                            derMods[2],
+                            names(transloctable),
+                            perl = F,
+                            fixed = T
+                        )
+                    ]
+                    addOnTrans <- strsplit(addOnTrans, "\\)")[[1]][2]
+                    addOnTransTemp <- strsplit(gsub("\\(|\\)", "", addOnTrans), ";")
+
+                    # if the string is longer than just the translocation
+                    if (length(derMods) > 2) {
+                        derMods <- c(derMods[1:2], addOnTrans, derMods[3:length(derMods)])
+                        temp <- c(temp[1:2], addOnTransTemp, temp[3:length(temp)])
+
+                    } else {
+                        # just the der and the translocation
+                        derMods <- c(derMods[1:2], addOnTrans)
+                        temp <- c(temp[1:2], addOnTransTemp)
+
+                    }
           
-          if (grepl("der\\(", Cyto_sample[coln])) {
-            ##replace der with dic
-            derMods[1] <- gsub("der", "dic", derMods[1])
-            ##delete der so its treated like a pure dic
-            addBool[1] <- gsub("der", "dic", addBool[1])
+                    if (grepl("der\\(", Cyto_sample[coln])) {
+                        # replace der with dic
+                        derMods[1] <- gsub("der", "dic", derMods[1])
+                        # delete der so its treated like a pure dic
+                        addBool[1] <- gsub("der", "dic", addBool[1])
             
-          }
+                    }
           
-          ##delete translocation from both temp and derMods
-          derMods <- derMods[-2]
-          temp <- temp[-2]
-        } else{
-          print("translocation undefined")
-          return(NULL)
+                    # delete translocation from both temp and derMods
+                    derMods <- derMods[-2]
+                    temp <- temp[-2]
+
+                } else {
+                    print("translocation undefined")
+                    return(NULL)
+                }
+            }
         }
-      }
     }
-  }
   
   
   
-  ##if temp length is greater than 2 (derivative chromosome, then, dermods 1 is master indicator, not including ders above)
-  if (length(temp) > 2 &
-      (!(grepl("der|rec", Cyto_sample[coln]))) ||
-      grepl("ider", Cyto_sample[coln]))
-  {
-    addBool <- paste(addBool, derMods[1], sep = '')
-  }
+    # if temp length is greater than 2 (derivative chromosome, then, dermods 1 is master indicator,
+    # not including ders above)
+    if (
+        length(temp) > 2
+        & !(grepl("der|rec", Cyto_sample[coln]))
+        || grepl("ider", Cyto_sample[coln])
+    ) {
+        addBool <- paste(addBool, derMods[1], sep = '')
+
+    }
   
-  ##if(grepl("\\+.*\\(.*",derMods[1]))
-  ##{
-  ##adds +etc on if it starts with something with +something
-  ##this part is being messed up
-  ##handle differently if we are not counting constitutional
+    # if(grepl("\\+.*\\(.*",derMods[1]))
+    # {
+    # adds +etc on if it starts with something with +something
+    # this part is being messed up
+    # handle differently if we are not counting constitutional
   
-  multi = 1 ##check if there is a X3 etc value , if there is pick that up, store, add to addtot, make it process through twice later
-  if (constitutional == F)
-  {
-    temp_cyto <- gsub("(c$)|(c\\?$)", "", Cyto_sample[coln])
-    if (grepl("\\)X|\\)x", temp_cyto))
-    {
-      multi = unlist(strsplit(temp_cyto, ")X|)x"))[2]
-      if (grepl("-|~", multi))
-      {
-        multi <- unlist(strsplit(multi, "~|-"))[1]
+    # check if there is a X3 etc value, if there is pick that up, store, add to addtot,
+    # make it process through twice later
+    multi = 1
+    if (constitutional == F) {
+        temp_cyto <- gsub("(c$)|(c\\?$)", "", Cyto_sample[coln])
+        if (grepl("\\)X|\\)x", temp_cyto)) {
+            multi = unlist(strsplit(temp_cyto, ")X|)x"))[2]
+            if (grepl("-|~", multi)) {
+                multi <- unlist(strsplit(multi, "~|-"))[1]
         
-      }
-      ##multi=gsub("[^0-9]","",multi)
+            }
+            # multi=gsub("[^0-9]","",multi)
       
-      multi = as.numeric(multi)
-      addBool <- paste(addBool, "multi", multi, sep = "")
-    }
+            multi = as.numeric(multi)
+            addBool <- paste(addBool, "multi", multi, sep = "")
+        }
     
-  } else{
-    if (grepl("\\)X|\\)x", Cyto_sample[coln]))
-    {
-      multi = unlist(strsplit(Cyto_sample[coln], ")X|)x"))[2]
-      if (grepl("-|~", multi))
-      {
-        multi <- unlist(strsplit(multi, "~|-"))[1]
+    } else {
+        if (grepl("\\)X|\\)x", Cyto_sample[coln])) {
+            multi = unlist(strsplit(Cyto_sample[coln], ")X|)x"))[2]
+            if (grepl("-|~", multi)) {
+                multi <- unlist(strsplit(multi, "~|-"))[1]
         
-      }
-      ##multi=gsub("[^0-9]","",multi)
+            }
+            # multi=gsub("[^0-9]","",multi)
       
-      multi = as.numeric(multi)
-      addBool <- paste(addBool, "multi", multi, sep = "")
+            multi = as.numeric(multi)
+            addBool <- paste(addBool, "multi", multi, sep = "")
+        }
     }
-  }
-  ##########################################################################################################
-  ######################################X chromosomes Y chromosomes #######################################
-  #############################################################################################################
-  ##increment X in presence of x modifications here
-  if (any(grepl("X", Mainchr)))
-  {
-    xmod <- xmod + length(grep("X", Mainchr))
-  }
-  if (any(grepl("Y", Mainchr)))
-  {
-    ymod <- ymod + length(grep("Y", Mainchr))
-  }
+
+    # increment X in presence of x modifications here
+    if (any(grepl("X", Mainchr))) {
+        xmod <- xmod + length(grep("X", Mainchr))
+    }
+
+    if (any(grepl("Y", Mainchr))) {
+        ymod <- ymod + length(grep("Y", Mainchr))
+    }
   
-  
-  
-  
-  ##make sure you count + properly for ? marks or constitutional
-  if ((any(grepl("\\?|\\~", Cyto_sample[coln])) &
-       any(grepl("\\+", Cyto_sample[coln])))  |
-      (constitutional == F &
-       multi > 1 & grepl("(c$)|(c\\?$)", Cyto_sample[coln])))
-  {
-    if (constitutional == F &
-        multi > 2 &
-        !grepl("\\+", Cyto_sample[coln]) &
-        grepl("(c$)|(c\\?$)", Cyto_sample[coln])) {
-      addtot <- addtot + (1 * (multi - 2))
+    # make sure you count + properly for ? marks or constitutional
+    if (
+        (
+            any(grepl("\\?|\\~", Cyto_sample[coln]))
+            & any(grepl("\\+", Cyto_sample[coln]))
+        )
+        | (
+            constitutional == F
+            & multi > 1
+            & grepl("(c$)|(c\\?$)", Cyto_sample[coln])
+        )
+    ) {
+        if (
+            constitutional == F
+            & multi > 2
+            & !grepl("\\+", Cyto_sample[coln])
+            &  grepl("(c$)|(c\\?$)", Cyto_sample[coln])
+        ) {
+            addtot <- addtot + (1 * (multi - 2))
       
-    } else{
-      addtot <- addtot + (1 * multi)
+        } else {
+            addtot <- addtot + (1 * multi)
+
+        }
     }
-  }
   
-  #########
-  ##if guess is true, try to process ? marks
-  ##think about how this can affect counting  + and \\?
-  ######new######
-  #############################
-  ##not processing things like t(9;22)(p?;q10)
+    # if guess is true, try to process ? marks
+    # think about how this can affect counting  + and \\?
+
+    # not processing things like t(9;22)(p?;q10)
   
-  
-  
-  if (length(temp) == 1) {
-    if (grepl("(t|ins)\\(", derMods[1]))
-    {
-      transchrom <-
-        stringr::str_extract(Cyto_sample[coln], paste(gsub(
-          "\\?", "\\\\?", gsub("\\+", "\\\\+", gsub("\\(", "\\\\(", derMods[1]))
-        ), "\\)\\(.+?\\)", sep = ''))
-      ##if this is not labled
-      if (is.na(transchrom))
-      {
-        transchrom <-
-          stringr::str_extract(Cyto_sample[coln], paste(gsub(
-            "\\?", "\\\\?", gsub("\\+", "\\\\+", gsub("\\(", "\\\\(", derMods[1]))
-          ), "\\)", sep = ''))
-      }
+    if (length(temp) == 1) {
+        if (grepl("(t|ins)\\(", derMods[1])) {
+            transchrom <- stringr::str_extract(
+                Cyto_sample[coln],
+                paste(
+                    gsub("\\?", "\\\\?",
+                        gsub("\\+", "\\\\+",
+                            gsub("\\(", "\\\\(", derMods[1])
+                        )
+                    ),
+                    "\\)\\(.+?\\)",
+                    sep = ''
+                )
+            )
+
+            # if this is not labled
+            if (is.na(transchrom)) {
+                transchrom <- stringr::str_extract(
+                    Cyto_sample[coln],
+                    paste(
+                        gsub("\\?", "\\\\?",
+                            gsub("\\+", "\\\\+",
+                                gsub("\\(", "\\\\(", derMods[1])
+                            )
+                        ),
+                        "\\)",
+                        sep = ''
+                    )
+                )
+            }
       
-      regtranschrom <-
-        gsub("\\+", "", gsub("\\)", "\\\\)", gsub("\\(", "\\\\(", transchrom)))
+            regtranschrom <- gsub("\\+", "",
+                gsub("\\)", "\\\\)",
+                    gsub("\\(", "\\\\(", transchrom)
+                )
+            )
+        }
     }
-  }
   
   
-  if ((length(test) > 1 |
-       any(grepl("p|q", temp)) |
-       grepl("(9;22)|(22;9)", paste(
-         unlist(temp), collapse = ';', sep = ";"
-       )) |
-       (!is.null(regtranschrom) &&
-        any(grepl(
-          regtranschrom, names(transloctable)
-        ))))  &
-      (!any(grepl("\\?|\\~", temp))) &
-      !(guess_q == F & grepl("\\?", Cyto_sample[coln])))
-  {
-    ##goes by steps of 2, odd indexes indicate chromosomes, even indicate positions
-    ##length_temp<-(if((length(temp) / 2)==0.5){1}else{length(temp)/2})
-    lengthcount = 1
-    repeat {
-      if (lengthcount > (if (!is.integer((length(temp) / 2))) {
-        ceiling(length(temp) / 2)
-      } else{
-        length(temp) / 2
-      }))
-        break
+    if (
+        (
+            length(test) > 1
+            | any(grepl("p|q", temp))
+            | grepl(
+                "(9;22)|(22;9)",
+                paste(unlist(temp), collapse = ';', sep = ";")
+            )
+            | (
+                !is.null(regtranschrom)
+                && any(
+                    grepl(regtranschrom, names(transloctable))
+                )
+            )
+        )
+        & !any(grepl("\\?|\\~", temp))
+        & !(
+            guess_q == F
+            & grepl("\\?", Cyto_sample[coln])
+        )
+    ) {
+
+        # goes by steps of 2, odd indexes indicate chromosomes, even indicate positions
+        # length_temp<-(if((length(temp) / 2)==0.5){1}else{length(temp)/2})
+        lengthcount = 1
+        repeat {
+            if (
+                lengthcount > (
+                    if (!is.integer((length(temp) / 2))) {
+                        ceiling(length(temp) / 2)
+                    } else {
+                        length(temp) / 2
+                    }
+                )
+            ) {
+                break
+            }
       if (lengthcount > 60) {
         print("while loop not terminating")
         break

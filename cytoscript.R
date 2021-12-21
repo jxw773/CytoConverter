@@ -16,6 +16,8 @@
 #' @param sexstimate
 #' @param allow_Shorthand
 
+mod_rowparser <- modules::use('modules/rowparser.R')
+
 CytoConverter <- function(
         in_data,
         build = "GRCh38",
@@ -32,7 +34,7 @@ CytoConverter <- function(
 
     if (build == "GRCh38") {
         cyto_ref_table <- sapply(
-            as.data.frame(read.delim(
+            as.data.frame(utils::read.delim(
                 "Builds/cytoBand_GRCh38.txt", header = FALSE
             )),
             as.character
@@ -40,7 +42,7 @@ CytoConverter <- function(
       
     } else if (build == "hg19") {
         cyto_ref_table <- sapply(
-            as.data.frame(read.delim(
+            as.data.frame(utils::read.delim(
                 "Builds/cytoBand_hg19.txt", header = FALSE
             )),
             as.character
@@ -48,7 +50,7 @@ CytoConverter <- function(
       
     } else if (build == "hg18") {
         cyto_ref_table <- sapply(
-            as.data.frame(read.delim(
+            as.data.frame(utils::read.delim(
                 "Builds/cytoBand_hg18.txt", header = FALSE
             )),
             as.character
@@ -56,7 +58,7 @@ CytoConverter <- function(
       
     } else if (build == "hg17") {
         cyto_ref_table <- sapply(
-            as.data.frame(read.delim(
+            as.data.frame(utils::read.delim(
                 "Builds/cytoBand_hg17.txt", header = FALSE
             )),
             as.character
@@ -64,7 +66,7 @@ CytoConverter <- function(
       
     } else if (is.null(build)) {
         cyto_ref_table <- sapply(
-            as.data.frame(read.delim(
+            as.data.frame(utils::read.delim(
                 "Builds/cytoBand_GRCh38.txt", header = FALSE
             )),
             as.character
@@ -122,7 +124,8 @@ CytoConverter <- function(
     in_data[, 2] <- tolower(in_data[, 2])
     in_data[, 2] <- chartr("x", "X", in_data[, 2])
     in_data[, 2] <- chartr("y", "Y", in_data[, 2])
-    
+   
+    # Clone and cell line data
     Con_data = matrix(nrow = 0, ncol = 2)
 
     # Split cell lines
@@ -375,8 +378,8 @@ CytoConverter <- function(
         }
 
         # Take away extra accidental commas
-        if (length(which(str_length(cyto_sample) == 0)) > 0) {
-            cyto_sample <- cyto_sample[-1 * which(str_length(cyto_sample) == 0)]
+        if (length(which(stringr::str_length(cyto_sample) == 0)) > 0) {
+            cyto_sample <- cyto_sample[-1 * which(stringr::str_length(cyto_sample) == 0)]
         }
       
         # If idem or sl, cancel out any - details, add in any shorthands between code
@@ -487,14 +490,14 @@ CytoConverter <- function(
                     ref_table,
                     cyto_sample,
                     Con_data[i, ],
-                    guess,
-                    guess_q,
-                    orOption,
-                    constitutional,
                     transloctable,
                     Dump_table,
-                    sexstimate,
-                    forMtn
+                    constitutional,
+                    guess,
+                    guess_q,
+                    forMtn,
+                    orOption,
+                    sexstimate
                 )
             }, error = function(e) {
                 return(gsub("\n", " ", paste(e, "in", i, "sample")))
@@ -695,7 +698,7 @@ CytoConverter <- function(
 
     }
 
-    Final_Final_table <- na.omit(Final_Final_table)
+    Final_Final_table <- stats::na.omit(Final_Final_table)
     
     if (is.vector(Final_Final_table)) {
         Final_Final_table <- t(Final_Final_table)
