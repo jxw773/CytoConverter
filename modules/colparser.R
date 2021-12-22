@@ -472,299 +472,319 @@ colparse <- function(
             
                     }
           
-          tempRing <-
-            list(unlist(temp[[rindex]]), tempRingPosition)
-          derModsRing <-
-            c(paste("r(", paste(
-              unlist(temp),
-              sep = "",
-              collapse = ";"
-            ), sep = ""),
-            paste("(", paste(tempRingPosition, collapse = ";"), sep = ""))
-          tempstorage <- NULL
-          tempdermods <- NULL
+                    tempRing <- list(unlist(temp[[rindex]]), tempRingPosition)
+                    derModsRing <- c(
+                        paste(
+                            "r(",
+                            paste(unlist(temp), sep = "", collapse = ";"),
+                            sep = ""
+                        ),
+                        paste(
+                            "(",
+                            paste(tempRingPosition, collapse = ";"), sep = ""
+                        )
+                    )
+                    tempstorage <- NULL
+                    tempdermods <- NULL
           
-          if ((length(temp)) > (lengthcount * 2))
-          {
-            tempstorage <- temp[((lengthcount * 2)):length(temp)]
-            tempdermods <-
-              derMods[((lengthcount * 2)):length(temp)]
-            
-            
-          }
+                    if (length(temp) > (lengthcount * 2)) {
+                        tempstorage <- temp[(lengthcount * 2):length(temp)]
+                        tempdermods <- derMods[(lengthcount * 2):length(temp)]
+                    }
           
-          temp[[(lengthcount * 2 - 1)]] <- tempRing[[1]]
+                    temp[[lengthcount * 2 - 1]] <- tempRing[[1]]
           
-          if (length(temp) == 1)
-          {
-            temp <- list(unlist(temp), tempRing[[2]])
-          } else{
-            temp[[lengthcount * 2]] <- tempRing[[2]]
-            
-          }
-          temp <- temp[1:(lengthcount * 2)]
+                    if (length(temp) == 1) {
+                        temp <- list(unlist(temp), tempRing[[2]])
+                    } else {
+                        temp[[lengthcount * 2]] <- tempRing[[2]]
+                    }
+
+                    temp <- temp[1:(lengthcount * 2)]
+                    derMods[(lengthcount * 2) - 1] <- derModsRing[1]
           
-          derMods[(lengthcount * 2) - 1] <- derModsRing[1]
+                    if (length(derMods) == 1) {
+                        derMods <- c(derMods, derModsRing[2])
+                    } else {
+                        derMods[lengthcount * 2] <- derModsRing[2]
+                    }
           
-          if (length(derMods) == 1)
-          {
-            derMods <- c(derMods, derModsRing[2])
-          } else{
-            derMods[lengthcount * 2] <- derModsRing[2]
-            
-          }
+                    derMods <- derMods[1:(lengthcount * 2)]
           
-          derMods <- derMods[1:(lengthcount * 2)]
-          
-          if (!is.null(tempstorage))
-          {
-            temp <- c(temp, tempstorage)
-            derMods <- c(derMods, tempdermods)
-            
-          }
-          
-          
-          
-        }
+                    if (!is.null(tempstorage)) {
+                        temp <- c(temp, tempstorage)
+                        derMods <- c(derMods, tempdermods)
+                    }
+
+                }
         
         
-        if (grepl("(t|ins)\\(", derMods[(lengthcount * 2 - 1)]))
-        {
-          ##consider adding t(num;num) option
+                if (grepl("(t|ins)\\(", derMods[lengthcount * 2 - 1])) {
+                    # Consider adding t(num;num) option
           
-          transchrom <-
-            stringr::str_extract(Cyto_sample[coln], gsub(
-              "\\?",
-              "\\\\?",
-              paste(gsub(
-                "\\+", "\\\\+", gsub("\\(", "\\\\(", derMods[(lengthcount * 2 - 1)])
-              ), "\\)\\(.+?\\)", sep = '')
-            ))
-          ##if this is not labled
-          if (is.na(transchrom))
-          {
-            transchrom <-
-              stringr::str_extract(Cyto_sample[coln], gsub("\\?", "\\\\?", paste(
-                gsub("\\+", "\\\\+", gsub("\\(", "\\\\(", derMods[(lengthcount * 2 - 1)])), "\\)", sep =
-                  ''
-              )))
-          }
+                    transchrom <- stringr::str_extract(
+                        Cyto_sample[coln],
+                        gsub("\\?", "\\\\?",
+                            paste(
+                                gsub("\\+", "\\\\+",
+                                     gsub("\\(", "\\\\(", derMods[lengthcount * 2 - 1])
+                                ),
+                                "\\)\\(.+?\\)",
+                                sep = ''
+                            )
+                        )
+                    )
+
+                    # If this is not labled
+                    if (is.na(transchrom)) {
+                        transchrom <- stringr::str_extract(
+                            Cyto_sample[coln],
+                            gsub("\\?", "\\\\?",
+                                paste(
+                                    gsub("\\+", "\\\\+",
+                                        gsub("\\(", "\\\\(", derMods[lengthcount * 2 - 1])
+                                    ),
+                                    "\\)",
+                                    sep = ''
+                                )
+                            )
+                        )
+                    }
           
-          regtranschrom <-
-            gsub("\\+", "", gsub("\\)", "\\\\)", gsub("\\(", "\\\\(", transchrom)))
-          temptrans <- data.frame()
+                    regtranschrom <- gsub("\\+", "",
+                        gsub("\\)", "\\\\)",
+                            gsub("\\(", "\\\\(", transchrom)
+                        )
+                    )
+
+                    temptrans <- data.frame()
           
-          
-          
-          ##make stuff now
-          if (!any(grepl(regtranschrom, names(transloctable))) &
-              ((lengthcount * 2) > length(temp) ||
-               all(!grepl("p|q", temp[[(lengthcount * 2)]]))) &
-              all(grepl("9|22", transchrom)))
-          {
-            temptrans <-
-              rbind(temptrans, cbind(
-                paste("der(", "9", ")", sep = ''),
-                paste(
-                  "der(",
-                  "9",
-                  ";",
-                  "22",
-                  ")(",
-                  "q34.1p24.3",
-                  ";",
-                  "q13.33q11",
-                  ")",
-                  sep = '',
-                  collapse = ";"
-                )
-                
-              ))
+                    # Make stuff now
+                    if (
+                        !any(grepl(regtranschrom, names(transloctable)))
+                        & (
+                            (lengthcount * 2) > length(temp)
+                            || all(!grepl("p|q", temp[[lengthcount * 2]]))
+                        )
+                        & all(grepl("9|22", transchrom))
+                    ) {
+                        temptrans <- rbind(
+                            temptrans,
+                            cbind(
+                                paste("der(", "9", ")", sep = ''),
+                                paste(
+                                    "der(", "9", ";", "22", ")(", "q34.1p24.3", ";", "q13.33q11", ")",
+                                    sep = '',
+                                    collapse = ";"
+                                )
+                            )
+                        )
+
+                        temptrans <- rbind(
+                            temptrans,
+                            cbind(
+                                paste("der(", "22", ")", sep = ''),
+                                paste(
+                                    "der(", "9", ";", "22", ")(", "q34.3q34.1", ";", "q11.2p13", ")",
+                                    sep = '',
+                                    collapse = ";"
+                                )
+                            )
+                        )
             
-            temptrans <-
-              rbind(temptrans, cbind(
-                paste("der(", "22", ")", sep = ''),
-                paste(
-                  "der(",
-                  "9",
-                  ";",
-                  "22",
-                  ")(",
-                  "q34.3q34.1",
-                  ";",
-                  "q11.2p13",
-                  ")",
-                  sep = '',
-                  collapse = ";"
-                )
-                
-              ))
-            
-            
-            transloctable <- c(transloctable, list(temptrans))
-            names(transloctable)[length(transloctable)] <-
-              gsub("\\+", "", transchrom)
-          }
+                        transloctable <- c(transloctable, list(temptrans))
+                        names(transloctable)[length(transloctable)] <-
+                            gsub("\\+", "", transchrom)
+                    }
           
+                    if (
+                        grepl("^\\++t\\(", derMods[lengthcount * 2 - 1])
+                        & !grepl("der", Cyto_sample[coln])
+                    ) {
+                        plusT = T
+            
+                        transderplus <- transloctable[grep(regtranschrom, names(transloctable))]
+                        dertransextract <- transderplus[[1]][
+                            grep(
+                                paste(
+                                    "der\\(",
+                                    temp[[(lengthcount * 2) - 1]],
+                                    "\\)",
+                                    sep = "",
+                                    collapse = "|"
+                                ),
+                                transderplus[[1]][, 1]
+                            ),
+                            2
+                        ]
+            
+                        transtemp <- unlist(
+                            lapply(
+                                as.list(dertransextract),
+                                function(x) {
+                                    strsplit(
+                                        gsub("[\\(\\)]", "",
+                                            regmatches(
+                                                x,
+                                                gregexpr("\\(.*?\\)",  x)
+                                            )[[1]]
+                                        ),
+                                        ";"
+                                    )
+                                }
+                            ),
+                            recursive = F
+                        )
+            
+                        transdermod <- unlist(
+                            lapply(
+                                dertransextract,
+                                function(x) {
+                                    y <- paste("+", x, sep = "")
+                                    strsplit(y, "\\)")
+                                }
+                            )
+                        )
+
+                        # Make temp storage for rest of temp
+                        tempstorage <- NULL
+                        tempdermods <- NULL
+                        if (length(temp) > (lengthcount * 2)) {
+                            tempstorage <- temp[[((lengthcount * 2) + 1):length(temp)]]
+                            tempdermods <- derMods[((lengthcount * 2) + 1):length(temp)]
+                        }
+            
+                        temp[[lengthcount * 2 - 1]] <- transtemp[[1]]
+            
+                        if (length(temp) == 1) {
+                            temp <- list(unlist(temp), transtemp[[2]])
+                        } else {
+                            temp[[lengthcount * 2]] <- transtemp[[2]]
+                        }
+
+                        temp <- c(temp[1:(lengthcount * 2)], transtemp[3:length(transtemp)])
+            
+                        derMods[(lengthcount * 2) - 1] <- transdermod[1]
+                        if (length(derMods) == 1) {
+                            derMods <- c(derMods, transdermod[2])
+                        } else {
+                            derMods[lengthcount * 2] <- transdermod[2]
+                        }
+            
+                        derMods <- c(
+                            derMods[1:(lengthcount * 2)],
+                            transdermod[3:length(transdermod)]
+                        )
+            
+                        if (!is.null(tempstorage)) {
+                            temp <- c(temp, tempstorage)
+                            derMods <- c(derMods, tempdermods)
+                        }
+
+                    } else {
+                        transchrom <- stringr::str_extract(
+                            Cyto_sample[coln],
+                            paste(
+                                gsub("\\?", "\\\\?",
+                                    gsub("\\+", "\\\\+",
+                                        gsub("\\(", "\\\\(", derMods[lengthcount * 2 - 1])
+                                    )
+                                ),
+                                "\\)",
+                                sep = ''
+                            )
+                        )
+
+                        selectedTransTable <- as.matrix(
+                            transloctable[
+                                grep(
+                                    gsub("\\)", "\\\\)",
+                                        gsub("\\(", "\\\\(", transchrom)
+                                    ),
+                                    names(transloctable)
+                                )
+                            ][[1]]
+                        )
+
+                        transDer <- selectedTransTable[
+                            grep(
+                                paste(
+                                    "der\\(",
+                                    paste(
+                                        sapply(
+                                            Mainchr,
+                                            function(x) {
+                                                substr(x, 0, nchar(x) - 1)
+                                            }
+                                        ),
+                                        sep = '',
+                                        collapse = ';'
+                                    ),
+                                    "\\)",
+                                    sep = ''
+                                ),
+                                selectedTransTable[, 1]
+                            ), 
+                        ][2]
+
+                        transtemp <- strsplit(
+                            gsub("[\\(\\)]", "",
+                                regmatches(transDer, gregexpr("\\(.*?\\)",  transDer))[[1]]
+                            ),
+                            ";"
+                        )
+
+                        # This isnt working
+                        temp <- c(
+                            if ((lengthcount * 2 - 1) != 1) {
+                                temp[1:(lengthcount * 2 - 1)]
+                            } else {
+                                transtemp[1]
+                            },
+                            transtemp[2],
+                            if (
+                                (length(temp) >= lengthcount * 2)
+                                && (
+                                    !grepl("p|q|->|:", derMods[length(temp)])
+                                    || IsOdd(length(temp))
+                                )
+                            ) {
+                                temp[lengthcount * 2:length(temp)]
+                            }
+                        )
+                    }
+
+                    # Instead of below, for now, replace with equivilent derivative chromosome
           
-          if (grepl("^\\++t\\(", derMods[(lengthcount * 2 - 1)]) &
-              !grepl("der", Cyto_sample[coln]))
-          {
-            plusT = T
-            
-            transderplus <-
-              transloctable[grep(regtranschrom, names(transloctable))]
-            dertransextract <-
-              transderplus[[1]][grep(paste(
-                "der\\(",
-                temp[[(lengthcount * 2) - 1]],
-                "\\)",
-                sep = "",
-                collapse = "|"
-              ),
-              transderplus[[1]][, 1]), 2]
-            
-            transtemp <-
-              unlist(lapply(as.list(dertransextract), function(x) {
-                strsplit(gsub("[\\(\\)]", "", regmatches(
-                  x, gregexpr("\\(.*?\\)",  x)
-                )[[1]]), ";")
-              }), recursive = F)
-            
-            transdermod <-
-              unlist(lapply(dertransextract, function(x) {
-                y <- paste("+", x, sep = "")
-                strsplit(y, "\\)")
-              }))
-            ##make temp storage for rest of temp
-            tempstorage <- NULL
-            tempdermods <- NULL
-            if ((length(temp)) > (lengthcount * 2))
-            {
-              tempstorage <- temp[[((lengthcount * 2) + 1):length(temp)]]
-              tempdermods <-
-                derMods[((lengthcount * 2) + 1):length(temp)]
-              
-              
+                    # Get stuff in transloctable that matches same chromosom
+                    # transtable <-
+                    #  cbind(transloctable[grep(paste("chr", Mainchr, sep = '', collapse = '|'),
+                    #        transloctable[, 1]), 1:3], derMods[(lengthcount * 2-1)])
+                    # coord <- rbind(coord, transtable)
+                    # temp <- temp[[-((lengthcount * 2-1))]]
+                    # derMods <- derMods[-(lengthcount)]
+                    # lengthcount <- lengthcount - 1
+                }
             }
-            
-            temp[[(lengthcount * 2 - 1)]] <- transtemp[[1]]
-            
-            if (length(temp) == 1)
-            {
-              temp <- list(unlist(temp), transtemp[[2]])
-            } else{
-              temp[[lengthcount * 2]] <- transtemp[[2]]
-              
-            }
-            temp <-
-              c(temp[1:(lengthcount * 2)], transtemp[3:length(transtemp)])
-            
-            derMods[(lengthcount * 2) - 1] <- transdermod[1]
-            if (length(derMods) == 1)
-            {
-              derMods <- c(derMods, transdermod[2])
-            } else{
-              derMods[lengthcount * 2] <- transdermod[2]
-              
-            }
-            derMods <-
-              c(derMods[1:(lengthcount * 2)], transdermod[3:length(transdermod)])
-            
-            
-            if (!is.null(tempstorage))
-            {
-              temp <- c(temp, tempstorage)
-              derMods <- c(derMods, tempdermods)
-              
-            }
-            
-          } else{
-            transchrom <-
-              stringr::str_extract(Cyto_sample[coln], paste(gsub(
-                "\\?", "\\\\?", gsub("\\+", "\\\\+", gsub("\\(", "\\\\(", derMods[(lengthcount *
-                                                                                     2 - 1)]))
-              ), "\\)", sep = ''))
-            selectedTransTable <-
-              as.matrix(transloctable[grep((gsub(
-                "\\)", "\\\\)", gsub("\\(", "\\\\(", transchrom)
-              )), names(transloctable))][[1]])
-            transDer <-
-              selectedTransTable[grep(paste(
-                "der\\(",
-                paste(
-                  sapply(Mainchr, function(x) {
-                    substr(x, 0, nchar(x) - 1)
-                  }),
-                  sep = '',
-                  collapse = ';'
-                ),
-                "\\)",
-                sep = ''
-              ),
-              selectedTransTable[, 1]), ][2]
-            transtemp <-
-              strsplit(gsub(
-                "[\\(\\)]",
-                "",
-                regmatches(transDer, gregexpr("\\(.*?\\)",  transDer))[[1]]
-              ), ";")
-            #####
-            ##this isnt working
-            ###
-            temp <-
-              c(if ((lengthcount * 2 - 1) != 1) {
-                temp[1:((lengthcount * 2 - 1))]
-              } else{
-                transtemp[1]
-              }, transtemp[2], if ((length(temp) >= lengthcount * 2) &&
-                                   (!grepl("p|q|->|:", derMods[length(temp)]) ||
-                                    (IsOdd(
-                                      length(temp)
-                                    )))) {
-                temp[lengthcount * 2:length(temp)]
-              })
-          }
-          ##instead of below, for now, replace with equivilent derivative chromosome
-          
-          ##get stuff in transloctable that matches same chromosom
-          ##transtable <-
-          ##  cbind(transloctable[grep(paste("chr", Mainchr, sep = '', collapse = '|'),
-          ##                           transloctable[, 1]), 1:3], derMods[(lengthcount * 2-1)])
-          ##coord <- rbind(coord, transtable)
-          ##temp <- temp[[-((lengthcount * 2-1))]]
-          ##derMods <- derMods[-(lengthcount)]
-          ##lengthcount <- lengthcount - 1
-          
-          
-        }
-        
-        
-      }
       
-      if (any(grepl("[pq]", temp[[(lengthcount * 2 - 1)]]))) {
-        ##get chromosome , at 10 to other half, get coordinates for that
-        temp[[(lengthcount * 2 - 1)]] <-
-          gsub("p|q", "", temp[[(lengthcount * 2 - 1)]])
-      }
-      if (grepl("t\\(", derMods[(lengthcount * 2 - 1)])) {
-        ##if translocation , do this , shouldnt be placed , should be placed one loop above
-        ## if not in the table, add to table
-        ##names are just t(1;12)
+            if (any(grepl("[pq]", temp[[lengthcount * 2 - 1]]))) {
+                # get chromosome, at 10 to other half, get coordinates for that
+                temp[[lengthcount * 2 - 1]] <- gsub("p|q", "", temp[[lengthcount * 2 - 1]])
+            }
+
+            if (grepl("t\\(", derMods[lengthcount * 2 - 1])) {
+                # if translocation, do this, shouldnt be placed, should be placed one loop above
+                # if not in the table, add to table
+                # names are just t(1;12)
         
-        ######################################################################
-        ###################################################333
-        ##############################################################################
-        #######################################################################3
-        ##if its t(9;22) or t(22;9) , add to table if not already found
-        #########################################################################
-        #########################################################################
-        #############################################################################
-        #######################################################################
+                # if its t(9;22) or t(22;9) , add to table if not already found
         
-        transchrom <-
-          stringr::str_extract(Cyto_sample[coln], paste(gsub(
-            "\\?", "\\\\?", gsub("\\+", "\\\\+", gsub("\\(", "\\\\(", derMods[(lengthcount *
+                transchrom <- stringr::str_extract(
+                    Cyto_sample[coln],
+                    paste(
+                        gsub("\\?", "\\\\?",
+                            gsub("\\+", "\\\\+",
+                                gsub("\\(", "\\\\(", derMods[(lengthcount *
                                                                                  2 - 1)]))
           ), "\\)\\(.+?\\)", sep = ''))
         ##if this is not labled
