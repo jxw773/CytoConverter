@@ -1141,7 +1141,6 @@ colparse <- function(
                         temp[[lengthcount * 2 - 1]],
                         length(temp[[lengthcount * 2]])
                     )
-
                 }
         
                 # Think about this harder
@@ -1345,704 +1344,753 @@ colparse <- function(
                             )
                         ) {
 
-                        # find p or q, take stuff before take stuff after, before is chromosomes
-                            # after is positions, this will return 2 objects, must take into account
-                        # parse data according to ::, in front of p and q are chromosomes, 
-                            # if qter or pter, do stuff, afterward is position, make table
-                            # of things included, then make list of stuff excluded
-                        # ask tom about this one
-                        # only splits first one
-                        longform_table <- strsplit(
-                            strsplit(temp[[lengthcount * 2]][i], "::")[[1]],
-                            "(~>)|(->)"
-                        )
-
-                        # take away any front loaded :
-                        longform_table <- lapply(
-                            longform_table,
-                            function(x) {
-                                gsub(':', '', x)
-                            }
-                        )
-              
-                        in_table = data.frame()
-              
-                        # mark for dic, trc
-                        if (grepl("dic|trc", derMods[lengthcount])) {
-                            addBool <- paste("long", addBool, sep = '')
-                        }
-              
-                        # get data for each read of something->something
-                        for (j in 1:length(longform_table)) {
-                            stringdx <- str_locate_all(pattern = "p|q", longform_table[[j]])
-                            chr_name_long <- substr(longform_table[[j]][1], 0, stringdx[[1]][1] - 1)
-                            positions <- as.vector(
-                                cbind(
-                                    substr(
-                                        longform_table[[j]][1],
-                                        stringdx[[1]][1],
-                                        nchar(longform_table[[j]][1])
-                                    ),
-                                    substr(
-                                        longform_table[[j]][2],
-                                        stringdx[[2]][1],
-                                        nchar(longform_table[[j]][2])
-                                    )
-                                )
+                            # find p or q, take stuff before take stuff after, before is chromosomes
+                                # after is positions, this will return 2 objects, must take into account
+                            # parse data according to ::, in front of p and q are chromosomes, 
+                                # if qter or pter, do stuff, afterward is position, make table
+                                # of things included, then make list of stuff excluded
+                            # ask tom about this one
+                            # only splits first one
+                            longform_table <- strsplit(
+                                strsplit(temp[[lengthcount * 2]][i], "::")[[1]],
+                                "(~>)|(->)"
                             )
-                
-                            if (nchar(chr_name_long) != 0) {
-                                chr_table_2 <- Cyto_ref_table[
-                                    grep(
-                                        paste(
-                                            paste("chr", chr_name_long, sep = ""),
-                                            "$",
-                                            sep = ""
-                                        ),
-                                        Cyto_ref_table
-                                    ),
-                                ]
-                            } else {
-                                chr_table_2 <- chr_table
-                            }
-                
-                            # account for terminal ends
-                            if (any(grepl("pter", positions))) {
-                                positions[grep("pter", positions)] <- chr_table_2[1, 4]
-                            }
-                            if (any(grepl("qter", positions))) {
-                                positions[grep("qter", positions)] <- chr_table_2[nrow(chr_table_2), 4]
-                            }
-                            # be careful on centromeneter
-                            if (any(grepl("cen", positions))) {
-                                # likey will have to be careful about this one
-                                positions[grep("cen", positions)] <- chr_table_2[
-                                    grep("acen", chr_table_2[, 5]),
-                                ][1, 4]
-                            }
-                
-                            # account for p10/q10
-                            # double check naming convention for this one
-                            # have to change the one for q
-                            positions[grep("p10", positions)] <-
-                                chr_table_2[grep("acen", chr_table_2[, 5]),][1, 4]
-                            positions[grep("q10", positions)] <-
-                                chr_table_2[grep("acen", chr_table_2[, 5]),][2, 4]
-                
-                            # make sure positions is in order to be processed correctly
-                            positions <- mod_utils$positionSorter(positions)
-                            if (length(unlist(strsplit(positions, "-|~"))) > 1) {
-                            positions <- unlist(
-                                lapply(
-                                    strsplit(positions, "-|~"),
-                                    function(x) {
-                                        x[1]
-                                    }
-                                )
-                            )
-                        }
 
-                        # put stuff in table
-                        positions_table <- matrix(
-                            chr_table_2[
-                                grep(
-                                    paste(positions, collapse = "|", sep = "|"),
-                                    chr_table_2[, 4]
-                                ),
-                            ],
-                            ncol = 5
-                        )
-                
-                        if (
-                            is.vector(positions_table)
-                            | nrow(positions_table) == 1
-                            | ncol(positions_table) == 1
-                        ) {
-                            if (ncol(positions_table) == 1) {
-                                positions_table <- t(positions_table)
-                            }
-                            in_table <- rbind(
-                                in_table,
-                                cbind(
-                                    chr_table_2[1, 1],
-                                    positions_table[2],
-                                    positions_table[3],
-                                    derMods[lengthcount * 2 - 1]
-                                )
-                            )
-                        } else {
-                            in_table <- rbind(
-                                in_table,
-                                cbind(
-                                    chr_table_2[1, 1],
-                                    positions_table[1, 2],
-                                    positions_table[nrow(positions_table), 3],
-                                    derMods[lengthcount * 2 - 1]
-                                )
-                            )
-                        }
-                    }
-
-                    # add to coord
-              
-                    # combine piecewise with total count
-                    coord <- rbind(coord, in_table)
-                    # make note where the breaks are
-                    # excoord<-rbind(excoord,) ##constant exclusion
-              
-                } else {
-                    in_table <- data.frame()
-                    positions <- strsplit(
-                        gsub("q", ",q",
-                            gsub("p", ",p", temp[[lengthcount * 2]][i])
-                        ),
-                        ","
-                    )[[1]][2:length(
-                        strsplit(
-                            gsub("q", ",q",
-                                gsub("p", ",p", temp[[lengthcount * 2]][i])
-                            ),
-                            ","
-                        )[[1]]
-                    )]
-
-                    # have to change the one to q
-                    positions[grep("p10", positions)] <-
-                        chr_table[grep("acen", chr_table[, 5]),][1, 4]
-                    positions[grep("q10", positions)] <-
-                        chr_table[grep("acen", chr_table[, 5]),][2, 4]
-                    # check order, test this
-                    postions <- mod_utils$positionSorter(positions)
-                    if (length(unlist(strsplit(positions, "-|~"))) > 1) {
-                        positions <- unlist(
-                            lapply(
-                                strsplit(positions, "-|~"),
+                            # take away any front loaded :
+                            longform_table <- lapply(
+                                longform_table,
                                 function(x) {
-                                    x[1]
+                                    gsub(':', '', x)
                                 }
                             )
+                
+                            in_table = data.frame()
+                
+                            # mark for dic, trc
+                            if (grepl("dic|trc", derMods[lengthcount])) {
+                                addBool <- paste("long", addBool, sep = '')
+                            }
+            
+                            # get data for each read of something->something
+                            for (j in 1:length(longform_table)) {
+                                stringdx <- str_locate_all(pattern = "p|q", longform_table[[j]])
+                                chr_name_long <- substr(longform_table[[j]][1], 0, stringdx[[1]][1] - 1)
+                                positions <- as.vector(
+                                    cbind(
+                                        substr(
+                                            longform_table[[j]][1],
+                                            stringdx[[1]][1],
+                                            nchar(longform_table[[j]][1])
+                                        ),
+                                        substr(
+                                            longform_table[[j]][2],
+                                            stringdx[[2]][1],
+                                            nchar(longform_table[[j]][2])
+                                        )
+                                    )
+                                )
+                    
+                                if (nchar(chr_name_long) != 0) {
+                                    chr_table_2 <- Cyto_ref_table[
+                                        grep(
+                                            paste(
+                                                paste("chr", chr_name_long, sep = ""),
+                                                "$",
+                                                sep = ""
+                                            ),
+                                            Cyto_ref_table
+                                        ),
+                                    ]
+                                } else {
+                                    chr_table_2 <- chr_table
+                                }
+                    
+                                # account for terminal ends
+                                if (any(grepl("pter", positions))) {
+                                    positions[grep("pter", positions)] <- chr_table_2[1, 4]
+                                }
+                                if (any(grepl("qter", positions))) {
+                                    positions[grep("qter", positions)] <- chr_table_2[nrow(chr_table_2), 4]
+                                }
+                                # be careful on centromeneter
+                                if (any(grepl("cen", positions))) {
+                                    # likey will have to be careful about this one
+                                    positions[grep("cen", positions)] <- chr_table_2[
+                                        grep("acen", chr_table_2[, 5]),
+                                    ][1, 4]
+                                }
+                    
+                                # account for p10/q10
+                                # double check naming convention for this one
+                                # have to change the one for q
+                                positions[grep("p10", positions)] <-
+                                    chr_table_2[grep("acen", chr_table_2[, 5]),][1, 4]
+                                positions[grep("q10", positions)] <-
+                                    chr_table_2[grep("acen", chr_table_2[, 5]),][2, 4]
+                    
+                                # make sure positions is in order to be processed correctly
+                                positions <- mod_utils$positionSorter(positions)
+                                if (length(unlist(strsplit(positions, "-|~"))) > 1) {
+                                    positions <- unlist(
+                                        lapply(
+                                            strsplit(positions, "-|~"),
+                                            function(x) {
+                                                x[1]
+                                            }
+                                        )
+                                    )
+                                }
+
+                                # put stuff in table
+                                positions_table <- matrix(
+                                    chr_table_2[
+                                        grep(
+                                            paste(positions, collapse = "|", sep = "|"),
+                                            chr_table_2[, 4]
+                                        ),
+                                    ],
+                                    ncol = 5
+                                )
+                    
+                                if (
+                                    is.vector(positions_table)
+                                    | nrow(positions_table) == 1
+                                    | ncol(positions_table) == 1
+                                ) {
+                                    if (ncol(positions_table) == 1) {
+                                        positions_table <- t(positions_table)
+                                    }
+                                    in_table <- rbind(
+                                        in_table,
+                                        cbind(
+                                            chr_table_2[1, 1],
+                                            positions_table[2],
+                                            positions_table[3],
+                                            derMods[lengthcount * 2 - 1]
+                                        )
+                                    )
+                                } else {
+                                    in_table <- rbind(
+                                        in_table,
+                                        cbind(
+                                            chr_table_2[1, 1],
+                                            positions_table[1, 2],
+                                            positions_table[nrow(positions_table), 3],
+                                            derMods[lengthcount * 2 - 1]
+                                        )
+                                    )
+                                }
+                            } # for (j in 1:length(longform_table))
+
+                            # add to coord
+                    
+                            # combine piecewise with total count
+                            coord <- rbind(coord, in_table)
+                            # make note where the breaks are
+                            # excoord<-rbind(excoord,) ##constant exclusion
+            
+                        } else {
+                            in_table <- data.frame()
+                            positions <- strsplit(
+                                gsub("q", ",q",
+                                    gsub("p", ",p", temp[[lengthcount * 2]][i])
+                                ),
+                                ","
+                            )[[1]][2:length(
+                                strsplit(
+                                    gsub("q", ",q",
+                                        gsub("p", ",p", temp[[lengthcount * 2]][i])
+                                    ),
+                                    ","
+                                )[[1]]
+                            )]
+
+                            # have to change the one to q
+                            positions[grep("p10", positions)] <-
+                                chr_table[grep("acen", chr_table[, 5]),][1, 4]
+                            positions[grep("q10", positions)] <-
+                                chr_table[grep("acen", chr_table[, 5]),][2, 4]
+                            # check order, test this
+                            postions <- mod_utils$positionSorter(positions)
+                            if (length(unlist(strsplit(positions, "-|~"))) > 1) {
+                                positions <- unlist(
+                                    lapply(
+                                        strsplit(positions, "-|~"),
+                                        function(x) {
+                                            x[1]
+                                        }
+                                    )
+                                )
+                            }
+                    
+                            positions_table <- matrix(
+                                chr_table[grep(paste(positions, collapse = "|"), chr_table[, 4]),],
+                                ncol = 5
+                            )
+                    
+                            # if only one q or p , add on end point
+                            # fix this so if p or q doesnt rely on order (p always being before q)
+                            if (length(positions) == 1) {
+                                if (any(grepl("p", positions))) {
+                                    if (is.vector(positions_table)) {
+                                        in_table <- rbind(
+                                            in_table,
+                                            cbind(
+                                                chr_table[1, 1],
+                                                "0",
+                                                positions_table[3],
+                                                derMods[lengthcount * 2 - 1]
+                                            )
+                                        )
+                                    } else {
+                                        in_table <- rbind(
+                                            in_table,
+                                            cbind(
+                                                chr_table[1, 1],
+                                                "0",
+                                                positions_table[nrow(positions_table), 3],
+                                                derMods[lengthcount * 2 - 1]
+                                            )
+                                        )
+                                    }
+                                }
+
+                                if (any(grepl("q", positions))) {
+                                    if (is.vector(positions_table)) {
+                                        in_table <- rbind(
+                                            in_table,
+                                            cbind(
+                                                chr_table[1, 1],
+                                                positions_table[2],
+                                                ref_table[
+                                                    grep(
+                                                        paste(chr_table[1, 1], "$", sep = ""), ref_table
+                                                    ),
+                                                ][2],
+                                                derMods[lengthcount * 2 - 1]
+                                            )
+                                        )
+                                    } else {
+                                        in_table <- rbind(
+                                            in_table,
+                                            cbind(
+                                                chr_table[1, 1],
+                                                positions_table[1, 2],
+                                                ref_table[
+                                                    grep(
+                                                        paste(chr_table[1, 1], "$", sep = ""), ref_table
+                                                    ),
+                                                ][2],
+                                                derMods[lengthcount * 2 - 1]
+                                            )
+                                        )
+                                    }
+                                }
+                            } else {
+                                in_table <- rbind(
+                                    in_table,
+                                    cbind(
+                                        chr_table[1, 1],
+                                        positions_table[1, 2],
+                                        positions_table[nrow(positions_table), 3],
+                                        derMods[lengthcount * 2 - 1]
+                                    )
+                                )
+                            }
+
+                            # combine piecewise with total count
+                            coord <- rbind(coord, in_table)
+                            # make note where the breaks are
+                            # excoord<-rbind(excoord,) ##constant exclusion
+                        }
+                    } # if
+                } # if
+            } # for (i in 1:length(temp[[lengthcount * 2 - 1]]))
+
+            lengthcount <- lengthcount + 1
+      
+        } # repeat
+    }
+
+    # for loop every chr
+    # things are getting offset here
+    # +der ider duplicate
+    if (
+        grepl("ider", Cyto_sample[coln])
+        & grepl("t\\(", Cyto_sample[coln])
+    ) {
+        coord <- coord[-1, ]
+    }
+  
+    if (nrow(coord) > 0) {
+        # case for vectors
+        coord[, 1] <- as.character(coord[, 1])
+    
+        # convert to numeric
+        coord[, 2:3] <- apply(
+            coord[, 2:3],
+            2,
+            function(x) {
+                as.numeric(as.character(x))
+            }
+        )
+    
+        # sort in order numerically
+        # coord[,2:3]<-t(apply(coord[,2:3],1,function(x){sort(x)}))
+    
+        # if there are two translocations, fix coordinate overlap so only overlap counts,
+    
+        # if(str_count(Cyto_sample[coln],"t\\(")>1)
+        # {
+        ##find which chromosomes have more than one reading
+        ##index of entries with chromosomes
+    
+        #add to coord
+    
+        ##combine piecewise with total count
+        ##coord <- rbind(coord, in_table)
+        ##make note where the breaks are
+        ##excoord<-rbind(excoord,) ##constant exclusion
+        ##chromindex<-lapply(unique(coord[,1]),function(x){grep(x,coord[,1])})
+        ##which index in chrom index have more than 2 readings
+        ##relevantindex<-which(lapply(chromindex,length)>1)
+        ##for(z in 1:length(relevantindex)) 
+        ##{
+        ##  tempcoord<-coord[chromindex[[relevantindex[z]]],]
+        ##    }
+    
+        ##}
+    
+        # make sure coords are in numerical order
+        coord <- coord[order(coord[, 1], coord[, 2], coord[, 3]), ]
+    
+    
+    
+        # all chromosomes used
+        Chr <- unique(c(Mainchr, Allchr))
+    
+    
+        # make sure translocations are consistant
+        for (p in 1:length(Chr)) {
+            curChr <- Chr[p]
+      
+            tempChr = coord[
+                grep(
+                    paste(
+                        "chr",
+                        curChr,
+                        "$",
+                        sep = "",
+                        collapse = "|"
+                    ),
+                    coord[, 1]
+                ),
+            ]
+            tempChr = apply(tempChr, 2, as.character)
+
+            if (
+                !is.vector(tempChr)
+                && grepl("t\\(", tempChr[, 4])
+                && nchar(addBool) > 0
+            ) {
+                # sub out translocations--delete areas of no overlap, mainchr only,
+                    # translocatios only
+                
+                transloc <- tempChr[grep("t\\(", tempChr[, 4]), ]
+                if (
+                    (
+                        is.data.frame(transloc)
+                        | is.matrix(transloc)
+                    )
+                    && nrow(transloc) > 1
+                ) {
+                    if (
+                        DescTools::Overlap(
+                            as.numeric(transloc[1, 2:3]),
+                            as.numeric(transloc[2, 2:3])
+                        )
+                    ) {
+                        # if nothing , handle
+                        if (
+                            as.numeric(transloc[1, 3]) == as.numeric(transloc[2, 2])
+                        ) {
+
+                            temptransloc <- c(
+                                tempChr[1, 1],
+                                as.numeric(transloc[1, 2]),
+                                as.numeric(transloc[2, 3]),
+                                tempChr[1, 4]
+                            )
+                            tempChr <- tempChr[-1 * grep("t\\(", tempChr[, 4]), ]
+
+                            tempChr <- rbind(tempChr, temptransloc)
+                            coord <- rbind(
+                                temptransloc,
+                                coord[
+                                    -1 * intersect(
+                                        grep("t\\(", coord[, 4]),
+                                        grep(paste("chr", curChr, sep = ""), coord[, 1])
+                                    ), 
+                                ]
+                            )
+                        } else {
+                            temptransloc <- c(
+                                tempChr[1, 1],
+                                mod_utils$mergeIntOverlap(
+                                    as.numeric(transloc[1, 2:3]),
+                                    as.numeric(transloc[2, 2:3])
+                                ),
+                                tempChr[1, 4]
+                            )
+                            tempChr <- tempChr[-1 * grep("t\\(", tempChr[, 4]), ]
+                            tempChr <- rbind(tempChr, temptransloc)
+                            coord <- rbind(
+                                temptransloc,
+                                coord[
+                                    -1 * intersect(
+                                        grep("t\\(", coord[, 4]),
+                                        grep(paste("chr", curChr, sep = ""), coord[, 1])
+                                    ), 
+                                ]
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (is.data.frame(tempChr) && nrow(tempChr) == 1) {
+                tempChr <- as.vector(tempChr)
+            }
+        } # for (p in 1:length(Chr))
+    
+    
+        # make sure coords are in numerical order again
+        coord <- coord[order(coord[, 1], coord[, 2], coord[, 3]), ]
+    
+    
+        # make excoord table
+    
+        for (p in 1:length(Mainchr)) {
+            # need something for $ so chr 1 doesnt net chr 10
+            curChr <- Mainchr[p]
+      
+            tempChr = coord[
+                grep(
+                    paste(
+                        "chr",
+                        curChr,
+                        "$",
+                        sep = "",
+                        collapse = "|"
+                    ),
+                    coord[, 1]
+                ),
+            ]
+            tempChr = apply(tempChr, 2, as.character)
+      
+            if (length(tempChr) == 0) {
+
+                # go back to here
+                excoord = rbind(
+                    excoord,
+                    cbind(
+                        paste("chr", gsub("\\$", "", curChr), sep = ""),
+                        0,
+                        ref_table[grep(paste("chr", curChr, sep = ""), ref_table),][2],
+                        derModsBackup[1]
+                    )
+                )
+        
+            } else if (is.vector(tempChr)) {
+                if (
+                    !identical(gsub(" ", "", as.character(tempChr[2])), "0")
+                ) {
+                    excoord = rbind(
+                        excoord,
+                        cbind(tempChr[1], 0, tempChr[2], tempChr[4])
+                    )
+                }
+        
+                if (
+                    !identical(
+                        gsub(" ", "", as.character(tempChr[3])),
+                        gsub(" ", "",
+                            as.character(
+                                ref_table[
+                                    grep(paste(tempChr[1], "$", sep = ""), ref_table),
+                                ][2]
+                            )
+                        )
+                    )
+                ) {
+                    excoord = rbind(
+                        excoord,
+                        cbind(
+                            tempChr[1],
+                            tempChr[3],
+                            ref_table[grep(paste(tempChr[1], "$", sep = ""), ref_table),][2], tempChr[4]
+                        )
+                    )
+                }
+            } else {
+                # make sure none are inside intervals, if it is, delete out of tempChr
+                for (z in 1:nrow(tempChr)) {
+                    inbetween <- F
+                    for (x in 1:(nrow(tempChr))) {
+                        if (
+                            as.numeric(tempChr[x, 2]) < as.numeric(tempChr[z, 2])
+                            & as.numeric(tempChr[x, 3] > tempChr[z, 3])
+                        ) {
+                            inbetween <- T
+                        }
+                    }
+
+                    if (inbetween == T) {
+                        tempChr[z, ] <- c(0, 0, 0, 0)
+                    }
+                }
+        
+                tempChr <- tempChr[which(tempChr[, 1] != "0"), ]
+        
+        
+                # if its a vector, do top part again
+                if (is.vector(tempChr)) {
+                    if (!identical(gsub(" ", "", as.character(tempChr[2])), "0")) {
+                        excoord = rbind(
+                            excoord,
+                            cbind(tempChr[1], 0, tempChr[2], tempChr[4])
                         )
                     }
-              
-              positions_table <-
-                matrix(chr_table[grep(paste(positions, collapse = "|"), chr_table[, 4]),], ncol =
-                         5)
-              
-              ################################################
-              ##############################################
-              #########################################
-              ##if only one q or p , add on end point
-              
-              ##fix this so if p or q doesnt rely on order (p always being before q)
-              if (length(positions) == 1)
-              {
-                if (any(grepl("p", positions)))
-                {
-                  if (is.vector(positions_table))
-                  {
-                    in_table <-
-                      rbind(in_table,
-                            cbind(
-                              chr_table[1, 1],
-                              "0",
-                              positions_table[3],
-                              derMods[lengthcount * 2 -
-                                        1]
+          
+                    if (
+                        !identical(
+                            gsub(" ", "", as.character(tempChr[3])),
+                            gsub(" ", "", as.character(
+                                ref_table[grep(paste(tempChr[1], "$", sep = ""), ref_table),][2]
                             ))
-                    
-                  } else{
-                    in_table <-
-                      rbind(in_table,
+                        )
+                    ) {
+                        excoord = rbind(
+                            excoord,
                             cbind(
-                              chr_table[1, 1],
-                              "0",
-                              positions_table[nrow(positions_table), 3],
-                              derMods[lengthcount *
-                                        2 - 1]
-                            ))
-                  }
-                }
-                if (any(grepl("q", positions)))
-                {
-                  if (is.vector(positions_table))
-                  {
-                    in_table <-
-                      rbind(
-                        in_table,
-                        cbind(
-                          chr_table[1, 1],
-                          positions_table[2],
-                          ref_table[grep(paste(chr_table[1, 1], "$", sep = ""),
-                                         ref_table),][2],
-                          derMods[(lengthcount * 2 - 1)]
+                                tempChr[1],
+                                tempChr[3],
+                                ref_table[grep(paste(tempChr[1], "$", sep = ""), ref_table),][2], tempChr[4]
+                            )
                         )
-                      )
-                    
-                  } else{
-                    in_table <-
-                      rbind(
-                        in_table,
-                        cbind(
-                          chr_table[1, 1],
-                          positions_table[1, 2],
-                          ref_table[grep(paste(chr_table[1, 1], "$", sep = ""),
-                                         ref_table),][2],
-                          derMods[(lengthcount * 2 - 1)]
-                        )
-                      )
-                  }
+                    }
+                } else {
+                    for (z in 1:nrow(tempChr)) {
+                        if (z == 1) {
+                            if (
+                                !identical(
+                                    gsub(" ", "", as.character(tempChr[1, 2])),
+                                    "0"
+                                )
+                            ) {
+                                excoord = rbind(
+                                    excoord,
+                                    cbind(tempChr[z, 1], 0, tempChr[z, 2], tempChr[z, 4])
+                                )
+                            }
+              
+                            if (
+                                nrow(tempChr) > 1
+                                && !identical(
+                                    gsub(" ", "", as.character(tempChr[z, 3])),
+                                    gsub(" ", "", as.character(tempChr[z + 1, 2]))
+                                )
+                            ) {
+                                excoord = rbind(
+                                    excoord,
+                                    cbind(tempChr[z, 1], tempChr[z, 3], tempChr[z + 1, 2], tempChr[z, 4])
+                                )
+                            }
+                        } else if (
+                            z == nrow(tempChr)
+                            & !identical(
+                                gsub(" ", "", as.character(tempChr[z, 3])),
+                                gsub(" ", "", as.character(
+                                    ref_table[grep(as.character(paste(tempChr[z, 1], "$", sep = "")), ref_table),][2]
+                                ))
+                            )
+                        ) {
+                            excoord = rbind(
+                                excoord,
+                                cbind(
+                                    tempChr[z, 1],
+                                    tempChr[z, 3],
+                                    ref_table[grep(as.character(paste(tempChr[z, 1], "$", sep = "")), ref_table),][2], tempChr[z, 4]
+                                )
+                            )
+              
+                        } else if (
+                            z < nrow(tempChr)
+                            & z > 1
+                            && !identical(
+                                gsub(" ", "", as.character(tempChr[z, 3])),
+                                gsub(" ", "", as.character(tempChr[z + 1, 2]))
+                            )
+                        ) {
+                            # if this interval is not inside another
+                            excoord = rbind(
+                                excoord,
+                                cbind(
+                                    tempChr[z, 1],
+                                    tempChr[z, 3],
+                                    tempChr[z + 1, 2],
+                                    tempChr[z, 4]
+                                )
+                            )
+                        }
+                    }
                 }
-              } else{
-                in_table <-
-                  rbind(
-                    in_table,
-                    cbind(
-                      chr_table[1, 1],
-                      positions_table[1, 2],
-                      positions_table[nrow(positions_table), 3],
-                      derMods[(lengthcount * 2 - 1)]
-                    )
-                  )
-              }
-              
-              
-              ##}
-              
-              ##combine piecewise with total count
-              coord <- rbind(coord, in_table)
-              ##make note where the breaks are
-              ##excoord<-rbind(excoord,) ##constant exclusion
-              
             }
-            
-            
-            
-          }
         }
-      }
-      
-      
-      lengthcount <- lengthcount + 1
-      
     }
-  }
   
+    if (grepl("ider", Cyto_sample[coln])) {
+        if (any(!grepl(Mainchr, coord[, 1]))) {
+            coord <- rbind(coord, coord[grep(Mainchr, coord[, 1], invert = T), ])
+        }
+    }
   
-  
-  ##for loop every chr
-  ##things are getting offset here
-  ##+der ider duplicate
-  if (grepl("ider", Cyto_sample[coln]) &
-      grepl("t\\(", Cyto_sample[coln]))
-  {
-    coord <- coord[-1, ]
-  }
-  
-  if (nrow(coord) > 0)
-  {
-    ##case for vectors
-    coord[, 1] <- as.character(coord[, 1])
-    
-    ##convert to numeric
-    coord[, 2:3] <-
-      apply(coord[, 2:3], 2, function(x) {
-        as.numeric(as.character(x))
-      })
-    
-    ##sort in order numerically
-    ##coord[,2:3]<-t(apply(coord[,2:3],1,function(x){sort(x)}))
-    
-    ##if there are two translocations, fix coordinate overlap so only overlap counts,
-    
-    ##if(str_count(Cyto_sample[coln],"t\\(")>1)
-    ##{
-    ##find which chromosomes have more than one reading
-    ##index of entries with chromosomes
-    
-    #add to coord
-    
-    ##combine piecewise with total count
-    ##coord <- rbind(coord, in_table)
-    ##make note where the breaks are
-    ##excoord<-rbind(excoord,) ##constant exclusion
-    ##chromindex<-lapply(unique(coord[,1]),function(x){grep(x,coord[,1])})
-    ##which index in chrom index have more than 2 readings
-    ##relevantindex<-which(lapply(chromindex,length)>1)
-    ##for(z in 1:length(relevantindex))
-    ##{
-    ##  tempcoord<-coord[chromindex[[relevantindex[z]]],]
-    
-    
-    ##    }
-    
-    ##}
-    
-    ##make sure coords are in numerical order
-    coord <- coord[order(coord[, 1], coord[, 2], coord[, 3]), ]
-    
-    
-    
-    ##all chromosomes used
-    Chr <- unique(c(Mainchr, Allchr))
-    
-    
-    #make sure translocations are consistant
-    for (p in 1:length(Chr))
-    {
-      curChr <- Chr[p]
-      
-      tempChr = coord[grep(paste(
-        "chr",
-        curChr,
-        "$" ,
-        sep = "",
-        collapse = "|"
-      ),
-      coord[, 1]),]
-      tempChr = apply(tempChr, 2, as.character)
-      
-      
-      
-      if (!is.vector(tempChr) &&
-          grepl("t\\(", tempChr[, 4]) && nchar(addBool) > 0)
-      {
-        ##sub out translocations--delete areas of no overlap, mainchr only, translocatios only
-        ##transloc<-tempChr[grep(paste("der\\(",gsub("\\$","",curChr),"t\\(",sep=""),tempChr[,4]),]
-        transloc <- tempChr[grep("t\\(", tempChr[, 4]), ]
-        if ((is.data.frame(transloc) |
-             is.matrix(transloc)) && nrow(transloc) > 1)
-        {
-          if (DescTools::Overlap(as.numeric(transloc[1, 2:3]), as.numeric(transloc[2, 2:3])))
-          #if (as.numeric(transloc[1, 2:3]) %overlaps% as.numeric(transloc[2, 2:3]))
-          {
-            ##if nothing , handle
-            if (as.numeric(transloc[1, 3]) == as.numeric(transloc[2, 2]))
-            {
-              temptransloc <-
-                c(tempChr[1, 1],
-                  as.numeric(transloc[1, 2]),
-                  as.numeric(transloc[2, 3]),
-                  tempChr[1, 4])
-              tempChr <-
-                tempChr[-1 * grep("t\\(", tempChr[, 4]), ]
-              
-              
-              tempChr <- rbind(tempChr, temptransloc)
-              coord <-
-                rbind(temptransloc, coord[-1 * intersect(grep("t\\(", coord[, 4]), grep(paste("chr", curChr, sep =
-                                                                                                ""), coord[, 1])), ])
-              
-            } else{
-              temptransloc <-
-                c(tempChr[1, 1],
-                  mod_utils$mergeIntOverlap(
-                    as.numeric(transloc[1, 2:3]),
-                    as.numeric(transloc[2, 2:3])
-                  ),
-                  tempChr[1, 4])
-              tempChr <-
-                tempChr[-1 * grep("t\\(", tempChr[, 4]), ]
-              
-              
-              tempChr <- rbind(tempChr, temptransloc)
-              coord <-
-                rbind(temptransloc, coord[-1 * intersect(grep("t\\(", coord[, 4]), grep(paste("chr", curChr, sep =
-                                                                                                ""), coord[, 1])), ])
+    if (length(coord) > 0) {
+        coord[, 2:3] <- apply(
+            coord[, 2:3],
+            2,
+            function(x) {
+                as.numeric(as.character(x))
             }
-          }
-        }
-      }
-      if (is.data.frame(tempChr) && nrow(tempChr) == 1)
-      {
-        tempChr <- as.vector(tempChr)
-      }
+        )
+    
+        # make it so coord only takes what is in the mainchr
+        #  if(!any(grepl("ider\\(",coord[,4])))
+        #   {
+        #     coord<-coord[grep(paste(Mainchr,collapse="|"),coord[,1]),]
+        #   }
+        coord[, 4] <- paste(addBool, coord[, 4], sep = "")
     }
-    
-    
-    ##make sure coords are in numerical order again
-    coord <- coord[order(coord[, 1], coord[, 2], coord[, 3]), ]
-    
-    
-    ##make excoord table
-    
-    for (p in 1:length(Mainchr))
-    {
-      ##need something for $ so chr 1 doesnt net chr 10
-      curChr <- Mainchr[p]
-      
-      tempChr = coord[grep(paste(
-        "chr",
-        curChr,
-        "$" ,
-        sep = "",
-        collapse = "|"
-      ),
-      coord[, 1]),]
-      tempChr = apply(tempChr, 2, as.character)
-      
-      if (length(tempChr) == 0)
-      {
-        ###go back to here
-        
-        excoord = rbind(excoord,
-                        cbind(
-                          paste("chr", gsub("\\$", "", curChr), sep = ""),
-                          0,
-                          ref_table[grep(paste("chr", curChr, sep = ""), ref_table),][2],
-                          derModsBackup[1]
-                        ))
-        
-      } else if (is.vector(tempChr))
-      {
-        if (!identical(gsub(" ", "", as.character(tempChr[2])), "0"))
-        {
-          excoord = rbind(excoord, cbind(tempChr[1], 0, tempChr[2], tempChr[4]))
-        }
-        
-        if (!identical(gsub(" ", "", as.character(tempChr[3])),
-                       gsub(" ", "", as.character(ref_table[grep(paste(tempChr[1], "$", sep = ""), ref_table),][2]))))
-        {
-          excoord = rbind(excoord,
-                          cbind(tempChr[1], tempChr[3], ref_table[grep(paste(tempChr[1], "$", sep =
-                                                                               ""), ref_table),][2], tempChr[4]))
-        }
-      }
-      else{
-        ##make sure none are inside intervals, if it is, delete out of tempChr
-        for (z in 1:nrow(tempChr))
-        {
-          inbetween <- F
-          for (x in 1:(nrow(tempChr))) {
-            if ((
-              as.numeric(tempChr[x, 2]) < as.numeric(tempChr[z, 2]) &
-              as.numeric(tempChr[x, 3] > tempChr[z, 3])
-            ))
-            {
-              inbetween <- T
+  
+    # probably have to rework this because of inversions and insersions
+    if (
+        length(excoord) > 0
+        && !is.vector(excoord) && ncol(excoord) > 1
+    ) {
+        excoord[, 2:3] <- apply(
+            excoord[, 2:3],
+            2,
+            function(x) {
+                as.numeric(as.character(x))
             }
-            
-            
-          }
-          
-          if (inbetween == T)
-          {
-            tempChr[z, ] <- c(0, 0, 0, 0)
-          }
-        }
-        
-        tempChr <- tempChr[which(tempChr[, 1] != "0"), ]
-        
-        
-        ##if its a vector, do top part again
-        if (is.vector(tempChr))
-        {
-          if (!identical(gsub(" ", "", as.character(tempChr[2])), "0"))
-          {
-            excoord = rbind(excoord, cbind(tempChr[1], 0, tempChr[2], tempChr[4]))
-          }
-          
-          if (!identical(gsub(" ", "", as.character(tempChr[3])),
-                         gsub(" ", "", as.character(ref_table[grep(paste(tempChr[1], "$", sep = ""), ref_table),][2]))))
-          {
-            excoord = rbind(excoord,
-                            cbind(tempChr[1], tempChr[3], ref_table[grep(paste(tempChr[1], "$", sep =
-                                                                                 ""), ref_table),][2], tempChr[4]))
-          }
-        } else{
-          #else
-          for (z in 1:nrow(tempChr))
-          {
-            if (z == 1)
-            {
-              if (!identical(gsub(" ", "", as.character(tempChr[1, 2])), "0"))
-              {
-                excoord = rbind(excoord,
-                                cbind(tempChr[z, 1], 0, tempChr[z, 2], tempChr[z, 4]))
-              }
-              
-              if (nrow(tempChr) > 1 &&
-                  !identical(gsub(" ", "", as.character(tempChr[z, 3])),
-                             gsub(" ", "", as.character(tempChr[z + 1, 2]))))
-              {
-                excoord = rbind(excoord,
-                                cbind(tempChr[z, 1], tempChr[z, 3], tempChr[z + 1, 2], tempChr[z, 4]))
-              }
-              
-              
-              
-            } else if (z == nrow(tempChr) &
-                       !identical(gsub(" ", "", as.character(tempChr[z, 3])),
-                                  gsub(" ", "", as.character(ref_table[grep(as.character(paste(tempChr[z, 1], "$", sep =
-                                                                                               "")), ref_table),][2])))) {
-              excoord = rbind(excoord,
-                              cbind(tempChr[z, 1], tempChr[z, 3], ref_table[grep(as.character(paste(tempChr[z, 1], "$", sep =
-                                                                                                      "")), ref_table),][2], tempChr[z, 4]))
-              
-            } else if (z < nrow(tempChr) &
-                       z > 1 &&
-                       !identical(gsub(" ", "", as.character(tempChr[z, 3])),
-                                  gsub(" ", "", as.character(tempChr[z + 1, 2])))) {
-              ##if this interval is not inside another
-              excoord = rbind(excoord,
-                              cbind(tempChr[z, 1], tempChr[z, 3], tempChr[z + 1, 2], tempChr[z, 4]))
-              
-              
+        )
+    
+        # as numeric as character
+        # delete any rows in which first number is larger than the second-
+            # inversions occur so dont do this
+        bads <- vector(length = 0)
+    
+        for (i in 1:nrow(excoord)) {
+            if (as.numeric(excoord[i, 2]) > as.numeric(excoord[i, 3])) {
+                bads <- c(bads, i)
             }
-            
-            
-          }
-          
-          
-          
         }
-      }
-    }
-    
-  }
-  
-  if (grepl("ider", Cyto_sample[coln]))
-  {
-    if (any(!grepl(Mainchr, coord[, 1])))
-    {
-      coord <-
-        rbind(coord, coord[grep(Mainchr, coord[, 1], invert = T), ])
-    }
-  }
-  
-  if (length(coord) > 0)
-  {
-    coord[, 2:3] <-
-      apply(coord[, 2:3], 2, function(x) {
-        as.numeric(as.character(x))
-      })
-    
-    ##make it so coord only takes what is in the mainchr
-    ## if(!any(grepl("ider\\(",coord[,4])))
-    ##  {
-    ##    coord<-coord[grep(paste(Mainchr,collapse="|"),coord[,1]),]
-    ##  }
-    coord[, 4] <- paste(addBool, coord[, 4], sep = "")
-  }
-  
-  ##probably have to rework this because of inversions and insersions
-  if (length(excoord) > 0 &&
-      !is.vector(excoord) && ncol(excoord) > 1)
-  {
-    ##excoord<-excoord[grep(paste(Mainchr,collapse="|"),excoord[,1]),]
-    excoord[, 2:3] <-
-      apply(excoord[, 2:3], 2, function(x) {
-        as.numeric(as.character(x))
-      })
-    
-    #as numeric as character
-    ##delete any rows in which first number is larger than the second- inversions occur so dont do this
-    bads <- vector(length = 0)
-    
-    for (i in 1:nrow(excoord))
-    {
-      if (as.numeric(excoord[i, 2]) > as.numeric(excoord[i, 3]))
-      {
-        bads <- c(bads, i)
-      }
-      
-    }
-    if (length(bads) > 0)
-    {
-      if (nrow(excoord[-bads, ]) > 0) {
-        excoord <- excoord[-bads, ]
-      } else
-      {
-        excoord <- data.frame()
-      }
-    }
-    if (is.vector(excoord) && length(excoord) > 0)
-    {
-      excoord[4] <- paste(addBool, excoord[4], sep = "")
-    } else if (ncol(excoord) == 1) {
-      excoord <- t(excoord)
-      excoord[4] <- paste(addBool, excoord[4], sep = "")
-      
-    } else if (length(excoord) > 0)
-    {
-      excoord[, 4] <- paste(addBool, excoord[, 4], sep = "")
-    }
-  } else if (ncol(excoord) == 1)
-  {
-    excoord <- t(excoord)
-    ecoord[2:3] <- as.numeric(as.character(excoord[2:3]))
-    excoord[4] <- paste(addBool, excoord[4], sep = "")
-  } else if (is.vector(excoord) && length(excoord) > 0) {
-    ecoord[2:3] <- as.numeric(as.character(excoord[2:3]))
-    excoord[4] <- paste(addBool, excoord[4], sep = "")
-  }
-  
-  
-  
-  ##make sure this does what i want it to
-  ##excoord<-unique(excoord)
-  ##coord<-unique(coord)
-  
-  ##}
-  
-  
-  ##have to fix derivative chromosomes  with two translocations , if they overlap in a chromosome , its the overlapping increment that maters
-  
-  
-  ##do multi (X2) processing right now
-  ##for over X2 times, its a gain
-  if ((nrow(coord) > 0 &&
-       any(grepl("multi", coord[, 4]))) &&
-      (constitutional == T |
-       (constitutional == F &
-        !grepl("(c$)|(c\\?$)", coord[, 4]))))
-  {
-    n <- multi - 1
-    multimastercoord <- coord
-    multimasterexcoord <- excoord
-    for (f in 1:n)
-    {
-      if (f > 1)
-      {
-        multitemp <- coord[grep("multi", coord[, 4]),]
-        multitemp[, 4] <- paste("+", multitemp[, 4], sep = '')
-        multimastercoord <- rbind(multimastercoord, multitemp)
-        if (any(nrow(excoord) > 0 &&
-                grepl("multi", excoord[, 4])))
-        {
-          multitemp <- excoord[grep("multi", excoord[, 4]),]
-          multitemp[, 4] <- paste("+", multitemp[, 4], sep = '')
-          multimasterexcoord <-
-            rbind(multimasterexcoord, multitemp)
-        }
-        
-      } else{
-        multimastercoord <- rbind(coord, coord[grep("multi", coord[, 4]),])
-        if (any(nrow(excoord) > 0 &&
-                grepl("multi", excoord[, 4])))
-        {
-          multimasterexcoord <-
-            rbind(multimasterexcoord, excoord[grep("multi", excoord[, 4]),])
-          
-        }
-      }
-    }
-    coord <- multimastercoord
-    excoord <- multimasterexcoord
-  }
-  
-  
-  
-  
-  listCoord <-
-    list(coord,
-         excoord,
-         xmod,
-         ymod,
-         Mainchr,
-         multi,
-         transloctable,
-         addtot)
-  return(listCoord)
-  
-}
 
+        if (length(bads) > 0) {
+            if (nrow(excoord[-bads, ]) > 0) {
+                excoord <- excoord[-bads, ]
+            } else {
+                excoord <- data.frame()
+            }
+        }
+
+        if (is.vector(excoord) && length(excoord) > 0) {
+            excoord[4] <- paste(addBool, excoord[4], sep = "")
+        } else if (ncol(excoord) == 1) {
+            excoord <- t(excoord)
+            excoord[4] <- paste(addBool, excoord[4], sep = "")
+        } else if (length(excoord) > 0) {
+            excoord[, 4] <- paste(addBool, excoord[, 4], sep = "")
+        }
+    } else if (ncol(excoord) == 1) {
+        excoord <- t(excoord)
+        ecoord[2:3] <- as.numeric(as.character(excoord[2:3]))
+        excoord[4] <- paste(addBool, excoord[4], sep = "")
+    } else if (is.vector(excoord) && length(excoord) > 0) {
+        ecoord[2:3] <- as.numeric(as.character(excoord[2:3]))
+        excoord[4] <- paste(addBool, excoord[4], sep = "")
+    }
+  
+    # make sure this does what i want it to
+    # excoord<-unique(excoord)
+    # coord<-unique(coord)
+  
+    # have to fix derivative chromosomes with two translocations,
+        # if they overlap in a chromosome, its the overlapping increment that maters
+  
+    # do multi (X2) processing right now
+    # for over X2 times, its a gain
+    if (
+        (
+            nrow(coord) > 0
+            && any(grepl("multi", coord[, 4]))
+        )
+        && (
+            constitutional == T
+            | (
+                constitutional == F
+                & !grepl("(c$)|(c\\?$)", coord[, 4])
+            )
+        )
+    ) {
+        n <- multi - 1
+        multimastercoord <- coord
+        multimasterexcoord <- excoord
+        for (f in 1:n) {
+            if (f > 1) {
+                multitemp <- coord[grep("multi", coord[, 4]), ]
+                multitemp[, 4] <- paste("+", multitemp[, 4], sep = '')
+                multimastercoord <- rbind(multimastercoord, multitemp)
+                if (
+                    any(
+                        nrow(excoord) > 0
+                        && grepl("multi", excoord[, 4])
+                    )
+                ) {
+                    multitemp <- excoord[grep("multi", excoord[, 4]), ]
+                    multitemp[, 4] <- paste("+", multitemp[, 4], sep = '')
+                    multimasterexcoord <- rbind(multimasterexcoord, multitemp)
+                }
+            } else {
+                multimastercoord <- rbind(coord, coord[grep("multi", coord[, 4]), ])
+                if (
+                    any(
+                        nrow(excoord) > 0
+                        && grepl("multi", excoord[, 4])
+                    )
+                ) {
+                    multimasterexcoord <- rbind(
+                        multimasterexcoord,
+                        excoord[grep("multi", excoord[, 4]), ]
+                    )
+                }
+            }
+        }
+
+        coord <- multimastercoord
+        excoord <- multimasterexcoord
+    }
+  
+    listCoord <- list(
+        coord,
+        excoord,
+        xmod,
+        ymod,
+        Mainchr,
+        multi,
+        transloctable,
+        addtot
+    )
+
+    return(listCoord)
+}
