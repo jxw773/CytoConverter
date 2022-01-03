@@ -34,13 +34,11 @@ colparse <- function(
         Cyto_sample[coln] <- gsub("c$", "", Cyto_sample[coln])
     }
   
-  
     # Derivative chromosomes with translocations are a loss (on native chromosome)
     #   gain (on new chromosome)
-    # figure out what add bool is and consaolidate that
-    # string splits by ;, takes into account multiple chromosomes odd values are chromosomes even
-    #   are the positions, for derivaties, first one needs to be treated differently
-
+    # figure out what add bool is and consolidate that
+    # string splits by ;, takes into account multiple chromosomes odd values are chromosomes,
+    #   even are the positions, for derivaties, first one needs to be treated differently
 
     ## JP: test and temp are the same, why have both?
     test <- strsplit(
@@ -1232,9 +1230,9 @@ colparse <- function(
                             paste("der(", temp[[lengthcount * 2 - 1]][2], ")", sep = ''),
                             paste(
                                 "der(",
-                                temp[[(lengthcount * 2 - 1)]][2],
+                                temp[[lengthcount * 2 - 1]][2],
                                 ";",
-                                temp[[(lengthcount * 2 - 1)]][2],
+                                temp[[lengthcount * 2 - 1]][2],
                                 ")(",
                                 currentvec[1],
                                 ";",
