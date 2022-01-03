@@ -1172,335 +1172,357 @@ colparse <- function(
                     
                 }
         
-        if (!any(grepl(reginschrom, names(transloctable))))
-        {
-          ##entire translocation only if nessesary
-          tempins <- data.frame()
+                if (!any(grepl(reginschrom, names(transloctable)))) {
+                    # entire translocation only if nessesary
+                    tempins <- data.frame()
           
-          currentvec <-
-            mod_cytobands$getCytoBands(Cyto_ref_table,
-                                       Cyto_sample,
-                                       lengthcount,
-                                       1,
-                                       temp,
-                                       coln,
-                                       derMods,
-                                       forMtn)[[1]]
+                    currentvec <- mod_cytobands$getCytoBands(
+                        Cyto_ref_table,
+                        Cyto_sample,
+                        lengthcount,
+                        1,
+                        temp,
+                        coln,
+                        derMods,
+                        forMtn
+                    )[[1]]
           
-          ##fix this later , insertion is simply stopping where it left off instead of listing other half of the chromosome
+                    # fix this later , insertion is simply stopping where it left of
+                    # instead of listing other half of the chromosome
           
-          tempins <-
-            rbind(tempins, cbind(
-              paste("der(", temp[[(lengthcount * 2 - 1)]][1], ")", sep = ''),
-              paste(
-                "der(",
-                temp[[(lengthcount * 2 - 1)]][1],
-                ";",
-                temp[[(lengthcount * 2 - 1)]][2],
-                ";",
-                temp[[(lengthcount * 2 - 1)]][1],
-                ")(",
-                temp[[lengthcount * 2]][1],
-                ";",
-                temp[[lengthcount * 2]][2],
-                ";",
-                currentvec[1],
-                ")",
-                sep = '',
-                collapse = ";"
-              ),
-              ""
-            ))
+                    tempins <- rbind(
+                        tempins,
+                        cbind(
+                            paste("der(", temp[[(lengthcount * 2 - 1)]][1], ")", sep = ''),
+                            paste(
+                                "der(",
+                                temp[[lengthcount * 2 - 1]][1],
+                                ";",
+                                temp[[lengthcount * 2 - 1]][2],
+                                ";",
+                                temp[[lengthcount * 2 - 1]][1],
+                                ")(",
+                                temp[[lengthcount * 2]][1],
+                                ";",
+                                temp[[lengthcount * 2]][2],
+                                ";",
+                                currentvec[1],
+                                ")",
+                                sep = '',
+                                collapse = ";"
+                            ),
+                            ""
+                        )
+                    )
           
-          ##change this to be a del chromosome
-          currentvec <-
-            mod_cytobands$getCytoBands(Cyto_ref_table,
-                                       Cyto_sample,
-                                       lengthcount,
-                                       2,
-                                       temp,
-                                       coln,
-                                       derMods,
-                                       forMtn)[[1]]
+                    # change this to be a del chromosome
+                    currentvec <- mod_cytobands$getCytoBands(
+                        Cyto_ref_table,
+                        Cyto_sample,
+                        lengthcount,
+                        2,
+                        temp,
+                        coln,
+                        derMods,
+                        forMtn
+                    )[[1]]
+                
+                    tempins <- rbind(
+                        tempins,
+                        cbind(
+                            paste("der(", temp[[lengthcount * 2 - 1]][2], ")", sep = ''),
+                            paste(
+                                "der(",
+                                temp[[(lengthcount * 2 - 1)]][2],
+                                ";",
+                                temp[[(lengthcount * 2 - 1)]][2],
+                                ")(",
+                                currentvec[1],
+                                ";",
+                                currentvec[2],
+                                ")",
+                                sep = '',
+                                collapse = ";"
+                            ),
+                            ""
+                        )
+                    )
           
-          ##tempins <-
-          ##rbind(tempins, cbind(
-          ##paste("der(", temp[[(lengthcount * 2-1)]][2], ")", sep = ''),
-          ##paste(
-          ##"del(",
-          ##temp[[(lengthcount * 2-1)]][2],
-          ##")(",
-          ##temp[[(lengthcount*2)]][2],
-          ##")",
-          ##sep = '',
-          ##collapse = ";"
-          ##),
-          ##""
-          ##))
+                    transloctable <- c(transloctable, list(tempins))
+                    names(transloctable)[length(transloctable)] <- inschrom
           
-          tempins <- rbind(tempins, cbind(
-            paste("der(", temp[[(lengthcount * 2 - 1)]][2], ")", sep = ''),
-            paste(
-              "der(",
-              temp[[(lengthcount * 2 - 1)]][2],
-              ";",
-              temp[[(lengthcount * 2 - 1)]][2],
-              ")(",
-              currentvec[1],
-              ";",
-              currentvec[2],
-              ")",
-              sep = '',
-              collapse = ";"
-            ),
-            ""
-          ))
+                    # dont take into account second derivative chromosome if there
+                    # is only 1 chromosome where the insersion occures
+                    if (within) {
+                        transloctable[[length(transloctable)]] <-
+                            transloctable[[length(transloctable)]][-2, ]
+                    }
           
-          transloctable <- c(transloctable, list(tempins))
-          names(transloctable)[length(transloctable)] <-
-            inschrom
-          
-          ##dont take into account second derivative chromosome if there is only 1 chromosome where the insersion occures
-          if (within)
-          {
-            transloctable[[length(transloctable)]] <-
-              transloctable[[length(transloctable)]][-2, ]
-          }
-          
-        }
+                }
         
-        
-        
-        if (!grepl("^\\+*ins\\(", Cyto_sample[coln]))
-        {
-          ##this is a factor, not a table
-          insDer <-
-            as.matrix(transloctable[[grep(reginschrom, names(transloctable))]][grep(paste("der\\(", substr(Mainchr, 0, nchar(
-              Mainchr
-            ) - 1), "\\)", sep = ""),
-            transloctable[[grep(reginschrom, names(transloctable))]][, 1]), ])[2]
-          instemp <-
-            strsplit(gsub("[\\(\\)]", "", regmatches(
-              insDer, gregexpr("\\(.*?\\)",  insDer)
-            )[[1]]), ";")
-          temp[[(lengthcount * 2 - 1)]] <- instemp[[1]]
-          
-          temp[[lengthcount * 2]] <- instemp[[2]]
-          
-        }
-        
-      }
-      ##check for labling long der again
-      if (grepl("der\\([0-9;]+\\)\\(|rec\\([0-9;]+\\)\\(", derMods[(lengthcount *
-                                                                    2 - 1)]) &
-          !grepl("ider", Cyto_sample[coln]))
-      {
-        addBool <- paste(addBool, "LongDer", sep = "")
-      }
-      
-      
-      
-      for (i in 1:length(temp[[(lengthcount * 2 - 1)]]))
-      {
-        if (length(test) > 1 | plusT) {
-          if (!is.na(stringr::str_length(temp[[(lengthcount * 2)]][i])))
-          {
-            chr_table <-
-              Cyto_ref_table[grep(paste(paste("chr", temp[[(lengthcount * 2 -
-                                                              1)]][i], sep =
-                                                ""), "$", sep = ""), Cyto_ref_table),]
-            ##put handling ? and ~ here
-            ##put satilites and stuff here
-            ##if long form
-            ##deal with centromere stuff grep acen, take 2nd last
-            ##der long form handling
-            
-            ##convert all - to ~ and cut out outer part of ~ if it is between 2 numbers
-            ##need to do this better
-            if (grepl("~|(- &!(->))", temp[[lengthcount * 2]][i]))
-            {
-              ##maybe add function to make this less conservative
-              ##right now it takes earlier one
-              ##make this reg expression exclude ->
-              temp[[lengthcount * 2]][i] <-
-                gsub("-", "~", temp[[lengthcount * 2]][i])
-              if (grepl("[pq][[:digit:]]+~", temp[[lengthcount * 2]][i]))
-              {
-                ##make sure this handles before and end
-                temp[[lengthcount * 2]][i] <-
-                  unlist(strsplit(temp[[lengthcount * 2]][i], "~"))[1]
-              }
-              
+                if (!grepl("^\\+*ins\\(", Cyto_sample[coln]))  {
+                    # this is a factor, not a table
+                    insDer <- as.matrix(
+                        transloctable[[grep(reginschrom, names(transloctable))]][
+                            grep(
+                                paste(
+                                    "der\\(",
+                                    substr(Mainchr, 0, nchar(Mainchr) - 1),
+                                    "\\)",
+                                    sep = ""
+                                ),
+                                transloctable[[grep(reginschrom, names(transloctable))]][, 1]
+                            ),
+                        ]
+                    )[2]
+
+                    instemp <-  strsplit(
+                        gsub(
+                            "[\\(\\)]",
+                            "",
+                            regmatches(insDer, gregexpr("\\(.*?\\)",  insDer))[[1]]
+                        ),
+                        ";"
+                    )
+
+                    temp[[lengthcount * 2 - 1]] <- instemp[[1]]
+                    temp[[lengthcount * 2]] <- instemp[[2]]
+                }
             }
+
+            # check for labling long der again
+            if (
+                grepl(
+                    "der\\([0-9;]+\\)\\(|rec\\([0-9;]+\\)\\(",
+                    derMods[lengthcount * 2 - 1]
+                )
+                & !grepl("ider", Cyto_sample[coln])
+            ) {
+                addBool <- paste(addBool, "LongDer", sep = "")
+            }
+
+            for (i in 1:length(temp[[lengthcount * 2 - 1]])) {
+                if (length(test) > 1 | plusT) {
+                    if (!is.na(stringr::str_length(temp[[lengthcount * 2]][i]))) {
+                        chr_table <- Cyto_ref_table[
+                            grep(
+                                paste(
+                                    paste("chr", temp[[lengthcount * 2 - 1]][i], sep = ""),
+                                    "$",
+                                    sep = ""
+                                ),
+                                Cyto_ref_table
+                            ),
+                        ]
+
+                        # put handling ? and ~ here
+                        # put satilites and stuff here
+                        # if long form
+                        # deal with centromere stuff grep acen, take 2nd last
+                        # der long form handling
             
-            
-            ##if long form
-            
-            if (any(grepl("::", temp[[lengthcount * 2]][i]) |
-                    grepl("~>", temp[[lengthcount * 2]][i]) |
-                    grepl("->", temp[[lengthcount * 2]][i]))) {
-              #parse data according to ::, in front of p and q are chromosomes, if qter or pter, do stuff, afterward is position, make table of things included, then make list of stuff excluded
-              ##ask tom about this one
-              ##find p or q, take stuff before take stuff after, before is chromosomes after is positions, this will return 2 objects, must take into account
-              ##parse data according to ::, in front of p and q are chromosomes, if qter or pter, do stuff, afterward is position, make table of things included, then make list of stuff excluded
-              ##ask tom about this one
-              ##only splits first one
-              longform_table <-
-                strsplit(strsplit(temp[[lengthcount * 2]][i], "::")[[1]], "(~>)|(->)")
-              ##take away any front loaded :
-              longform_table <-
-                lapply(longform_table, function(x) {
-                  gsub(':', '', x)
-                })
+                        # convert all - to ~ and cut out outer part of ~ if it is between 2 numbers
+                        # need to do this better
+                        if (grepl("~|(- &!(->))", temp[[lengthcount * 2]][i])) {
+                            # maybe add function to make this less conservative
+                            # right now it takes earlier one
+                            # make this reg expression exclude ->
+                            temp[[lengthcount * 2]][i] <- gsub("-", "~", temp[[lengthcount * 2]][i])
+                            if (grepl("[pq][[:digit:]]+~", temp[[lengthcount * 2]][i])) {
+                                # make sure this handles before and end
+                                temp[[lengthcount * 2]][i] <- unlist(
+                                    strsplit(temp[[lengthcount * 2]][i], "~")
+                                )[1]
+                            }
+                        }
+
+                        # if long form
+                        if (
+                            any(
+                                grepl("::", temp[[lengthcount * 2]][i])
+                                | grepl("~>", temp[[lengthcount * 2]][i])
+                                | grepl("->", temp[[lengthcount * 2]][i])
+                            )
+                        ) {
+
+                        # find p or q, take stuff before take stuff after, before is chromosomes
+                            # after is positions, this will return 2 objects, must take into account
+                        # parse data according to ::, in front of p and q are chromosomes, 
+                            # if qter or pter, do stuff, afterward is position, make table
+                            # of things included, then make list of stuff excluded
+                        # ask tom about this one
+                        # only splits first one
+                        longform_table <- strsplit(
+                            strsplit(temp[[lengthcount * 2]][i], "::")[[1]],
+                            "(~>)|(->)"
+                        )
+
+                        # take away any front loaded :
+                        longform_table <- lapply(
+                            longform_table,
+                            function(x) {
+                                gsub(':', '', x)
+                            }
+                        )
               
-              in_table = data.frame()
+                        in_table = data.frame()
               
-              ##mark for dic, trc
-              if (grepl("dic|trc", derMods[lengthcount]))
-              {
-                addBool <- paste("long", addBool, sep = '')
-              }
+                        # mark for dic, trc
+                        if (grepl("dic|trc", derMods[lengthcount])) {
+                            addBool <- paste("long", addBool, sep = '')
+                        }
               
-              ##get data for each read of something->something
-              for (j in 1:length(longform_table))
-              {
-                stringdx <- str_locate_all(pattern = "p|q", longform_table[[j]])
-                chr_name_long <-
-                  substr(longform_table[[j]][1], 0, stringdx[[1]][1] - 1)
-                positions <-
-                  as.vector(cbind(
-                    substr(
-                      longform_table[[j]][1],
-                      stringdx[[1]][1],
-                      nchar(longform_table[[j]][1])
-                    ),
-                    substr(
-                      longform_table[[j]][2],
-                      stringdx[[2]][1],
-                      nchar(longform_table[[j]][2])
-                    )
-                  ))
+                        # get data for each read of something->something
+                        for (j in 1:length(longform_table)) {
+                            stringdx <- str_locate_all(pattern = "p|q", longform_table[[j]])
+                            chr_name_long <- substr(longform_table[[j]][1], 0, stringdx[[1]][1] - 1)
+                            positions <- as.vector(
+                                cbind(
+                                    substr(
+                                        longform_table[[j]][1],
+                                        stringdx[[1]][1],
+                                        nchar(longform_table[[j]][1])
+                                    ),
+                                    substr(
+                                        longform_table[[j]][2],
+                                        stringdx[[2]][1],
+                                        nchar(longform_table[[j]][2])
+                                    )
+                                )
+                            )
                 
-                if (nchar(chr_name_long) != 0)
-                {
-                  chr_table_2 <-
-                    Cyto_ref_table[grep(paste(
-                      paste("chr", chr_name_long, sep = ""),
-                      "$",
-                      sep = ""
-                    ),
-                    Cyto_ref_table),]
+                            if (nchar(chr_name_long) != 0) {
+                                chr_table_2 <- Cyto_ref_table[
+                                    grep(
+                                        paste(
+                                            paste("chr", chr_name_long, sep = ""),
+                                            "$",
+                                            sep = ""
+                                        ),
+                                        Cyto_ref_table
+                                    ),
+                                ]
+                            } else {
+                                chr_table_2 <- chr_table
+                            }
+                
+                            # account for terminal ends
+                            if (any(grepl("pter", positions))) {
+                                positions[grep("pter", positions)] <- chr_table_2[1, 4]
+                            }
+                            if (any(grepl("qter", positions))) {
+                                positions[grep("qter", positions)] <- chr_table_2[nrow(chr_table_2), 4]
+                            }
+                            # be careful on centromeneter
+                            if (any(grepl("cen", positions))) {
+                                # likey will have to be careful about this one
+                                positions[grep("cen", positions)] <- chr_table_2[
+                                    grep("acen", chr_table_2[, 5]),
+                                ][1, 4]
+                            }
+                
+                            # account for p10/q10
+                            # double check naming convention for this one
+                            # have to change the one for q
+                            positions[grep("p10", positions)] <-
+                                chr_table_2[grep("acen", chr_table_2[, 5]),][1, 4]
+                            positions[grep("q10", positions)] <-
+                                chr_table_2[grep("acen", chr_table_2[, 5]),][2, 4]
+                
+                            # make sure positions is in order to be processed correctly
+                            positions <- mod_utils$positionSorter(positions)
+                            if (length(unlist(strsplit(positions, "-|~"))) > 1) {
+                            positions <- unlist(
+                                lapply(
+                                    strsplit(positions, "-|~"),
+                                    function(x) {
+                                        x[1]
+                                    }
+                                )
+                            )
+                        }
+
+                        # put stuff in table
+                        positions_table <- matrix(
+                            chr_table_2[
+                                grep(
+                                    paste(positions, collapse = "|", sep = "|"),
+                                    chr_table_2[, 4]
+                                ),
+                            ],
+                            ncol = 5
+                        )
+                
+                        if (
+                            is.vector(positions_table)
+                            | nrow(positions_table) == 1
+                            | ncol(positions_table) == 1
+                        ) {
+                            if (ncol(positions_table) == 1) {
+                                positions_table <- t(positions_table)
+                            }
+                            in_table <- rbind(
+                                in_table,
+                                cbind(
+                                    chr_table_2[1, 1],
+                                    positions_table[2],
+                                    positions_table[3],
+                                    derMods[lengthcount * 2 - 1]
+                                )
+                            )
+                        } else {
+                            in_table <- rbind(
+                                in_table,
+                                cbind(
+                                    chr_table_2[1, 1],
+                                    positions_table[1, 2],
+                                    positions_table[nrow(positions_table), 3],
+                                    derMods[lengthcount * 2 - 1]
+                                )
+                            )
+                        }
+                    }
+
+                    # add to coord
+              
+                    # combine piecewise with total count
+                    coord <- rbind(coord, in_table)
+                    # make note where the breaks are
+                    # excoord<-rbind(excoord,) ##constant exclusion
+              
                 } else {
-                  chr_table_2 <- chr_table
-                }
-                
-                ##account for terminal ends
-                if (any(grepl("pter", positions)))
-                {
-                  positions[grep("pter", positions)] <- chr_table_2[1, 4]
-                }
-                if (any(grepl("qter", positions)))
-                {
-                  positions[grep("qter", positions)] <-
-                    chr_table_2[nrow(chr_table_2), 4]
-                }
-                ##be careful on centromeneter
-                if (any(grepl("cen", positions)))
-                {
-                  ##likey will have to be careful about this one
-                  positions[grep("cen", positions)] <-
-                    chr_table_2[grep("acen", chr_table_2[, 5]),][1, 4]
-                }
-                
-                ##account for p10/q10
-                ##double check naming convention for this one
-                ##have to change the one for q
-                positions[grep("p10", positions)] <-
-                  chr_table_2[grep("acen", chr_table_2[, 5]),][1, 4]
-                positions[grep("q10", positions)] <-
-                  chr_table_2[grep("acen", chr_table_2[, 5]),][2, 4]
-                
-                ##make sure positions is in order to be processed correctly
-                positions <- mod_utils$positionSorter(positions)
-                if (length(unlist(strsplit(positions, "-|~"))) > 1)
-                {
-                  positions <-
-                    unlist(lapply(strsplit(positions, "-|~"), function(x) {
-                      x[1]
-                    }))
-                }
-                ##put stuff in table
-                positions_table <-
-                  matrix(chr_table_2[grep(paste(
-                    positions,
-                    collapse = "|",
-                    sep = "|"
-                  ),
-                  chr_table_2[, 4]),], ncol = 5)
-                
-                if (is.vector(positions_table) |
-                    nrow(positions_table) == 1 |
-                    ncol(positions_table) == 1)
-                {
-                  if (ncol(positions_table) == 1)
-                  {
-                    positions_table <- t(positions_table)
-                  }
-                  in_table <-
-                    rbind(
-                      in_table,
-                      cbind(
-                        chr_table_2[1, 1],
-                        positions_table[2],
-                        positions_table[3],
-                        derMods[(lengthcount * 2 - 1)]
-                      )
-                    )
-                  
-                } else{
-                  in_table <-
-                    rbind(
-                      in_table,
-                      cbind(
-                        chr_table_2[1, 1],
-                        positions_table[1, 2],
-                        positions_table[nrow(positions_table), 3],
-                        derMods[(lengthcount * 2 - 1)]
-                      )
-                    )
-                }
-                
-              }
-              
-              
-              
-              #add to coord
-              
-              ##combine piecewise with total count
-              coord <- rbind(coord, in_table)
-              ##make note where the breaks are
-              ##excoord<-rbind(excoord,) ##constant exclusion
-              
-            } else {
-              in_table <- data.frame()
-              positions <-
-                strsplit(gsub("q", ",q", gsub("p", ",p", temp[[lengthcount * 2]][i])), ",")[[1]][2:length(strsplit(gsub(
-                  "q", ",q", gsub("p", ",p", temp[[lengthcount * 2]][i])
-                ), ",")[[1]])]
-              ##have to change the one to q
-              positions[grep("p10", positions)] <-
-                chr_table[grep("acen", chr_table[, 5]),][1, 4]
-              positions[grep("q10", positions)] <-
-                chr_table[grep("acen", chr_table[, 5]),][2, 4]
-              ##check order, test this
-              postions <- mod_utils$positionSorter(positions)
-              if (length(unlist(strsplit(positions, "-|~"))) > 1)
-              {
-                positions <-
-                  unlist(lapply(strsplit(positions, "-|~"), function(x) {
-                    x[1]
-                  }))
-              }
+                    in_table <- data.frame()
+                    positions <- strsplit(
+                        gsub("q", ",q",
+                            gsub("p", ",p", temp[[lengthcount * 2]][i])
+                        ),
+                        ","
+                    )[[1]][2:length(
+                        strsplit(
+                            gsub("q", ",q",
+                                gsub("p", ",p", temp[[lengthcount * 2]][i])
+                            ),
+                            ","
+                        )[[1]]
+                    )]
+
+                    # have to change the one to q
+                    positions[grep("p10", positions)] <-
+                        chr_table[grep("acen", chr_table[, 5]),][1, 4]
+                    positions[grep("q10", positions)] <-
+                        chr_table[grep("acen", chr_table[, 5]),][2, 4]
+                    # check order, test this
+                    postions <- mod_utils$positionSorter(positions)
+                    if (length(unlist(strsplit(positions, "-|~"))) > 1) {
+                        positions <- unlist(
+                            lapply(
+                                strsplit(positions, "-|~"),
+                                function(x) {
+                                    x[1]
+                                }
+                            )
+                        )
+                    }
               
               positions_table <-
                 matrix(chr_table[grep(paste(positions, collapse = "|"), chr_table[, 4]),], ncol =
