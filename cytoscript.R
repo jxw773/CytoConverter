@@ -24,6 +24,7 @@ CytoConverter <- function(
         constitutional = T,
         guess = F,
         guess_q = F,
+        guess_by_first_val = F,
         forMtn = T,
         orOption = T,
         sexstimate = F,
@@ -495,6 +496,7 @@ CytoConverter <- function(
                     constitutional,
                     guess,
                     guess_q,
+                    guess_by_first_val,
                     forMtn,
                     orOption,
                     sexstimate

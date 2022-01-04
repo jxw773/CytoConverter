@@ -72,13 +72,14 @@ if(require("hash")){
 #' @param build
 #' @param guess
 #' @param guess_q
+#' @param guess_by_first_val
 #' @param forMtn
 #' @param orOption
 #' @keyword
 #' @export
 #' @examples 
 #' CytoConverter()
-CytoConverter<-function(in_data,build="GRCh38",constitutional=T,guess=F,guess_q=F,forMtn=T,orOption=T,sexstimate=F,complexSexEstimate=F,allow_Shorthand=F){
+CytoConverter<-function(in_data,build="GRCh38",constitutional=T,guess=F,guess_q=F,guess_by_first_val=F,forMtn=T,orOption=T,sexstimate=F,complexSexEstimate=F,allow_Shorthand=F){
 
   
 ##if for dr. mitelman, overide parameters
@@ -376,8 +377,6 @@ if(build =="GRCh38")
       ##parse data according to ::, in front of p and q are chromosomes, if qter or pter, do stuff, afterward is position, make table of things included, then make list of stuff excluded
       ##ask tom about this one
       ##only splits first one
-      # JP: longform_table <-
-      # JP:   strsplit(strsplit(temp[[lengthcount * 2]][i], "::")[[1]], "(~>)|(->)")
       longform_table <-
         strsplit(strsplit(temp[[lengthcount * 2]][o], "::")[[1]], "(~>)|(->)")
       ##take away any front loaded : 
@@ -4246,6 +4245,7 @@ if(build =="GRCh38")
         }
         
         print(c(val, idealval, val_remainder, val_divider))
+        print(c(diffval,orgval))
         
         
         if (val_remainder == 0 )
@@ -4304,7 +4304,6 @@ if(build =="GRCh38")
             
             print(c("val_div<0", Cyto_sample))
           }
-          
        
         }else if (grepl("^ids$", Cyto_sample[length(Cyto_sample)]) && any(diffval / length(clone_chrom_tracker) > 0 &
                                                                           diffval %% length(clone_chrom_tracker) == 0) )
@@ -4471,8 +4470,119 @@ if(build =="GRCh38")
           print(c("unaccounted", Cyto_sample))
           
         
+        }else if((guess_by_first_val==T | forMtn==T) &
+                 (any(orgval > 0 & orgval <= 34)|any(orgval >= 58 & orgval <= 80)
+                  |any(orgval >= 81 & orgval <= 103)|any(orgval >= 104 & orgval <= 126)
+                  |any(orgval >= 127 & orgval <= 149)|any(orgval >= 150 & orgval <= 172 )
+                  |any(orgval >= 173 & orgval <= 195))){
+          ###################################################
+          ###################################################
+          ##################################################
+          ###THIS IS NEW
+          ### DONT FORGET TO COMMIT TO DR PHANS SCRIPT
+          ###DONT FORGET
+          ##PAY ATTENTION
+          ##ETC
+          #ETC 
+          ##ETC
+          ################################################
+          ##################################################
+          ################################################
+          
+          ##if the initial exact match or the estimate match does not work, and the options are turned on, estimate from the initial value as defined in the iscn up until the octaploid level 
+          if(length(orgval) > 1)
+          {
+            ## take the one that fits and first one that is true
+            new_val<-orgval[which((orgval >= 0 & orgval <= 34)| (orgval>=58&orgval<=80)|
+                                 (orgval>=81 & orgval <= 103)|(orgval>=104 & orgval<=126)|(orgval >= 127 & orgval <= 149)
+                               |(orgval>= 150 & orgval <= 172)|(orgval >= 173 & orgval <= 195) )][1]
+            
+          }else{
+            new_val<-orgval
+          }
+          print(c(new_val))
+          
+          ##assign ploidy here 
+          if(new_val >= 0 & new_val <= 34){
+            ploidy=1
+          }
+          if(new_val>=58 & new_val<=80){
+            ploidy=3
+          }
+          if(new_val>=81 & new_val <= 103){
+            ploidy=4
+          }
+          if(new_val>=104 & new_val<=126){
+            ploidy=5
+          }
+          if(new_val >= 127 & new_val <= 149){
+            ploidy=6
+          }
+          if(new_val>= 150 & new_val <= 172){
+            ploidy=7
+          }
+          if(new_val >= 173 & new_val <= 195) {
+            ploidy=8
+          }
+          ##loop to get values here
+          if(ploidy == 1 )
+          {
+            
+            temp_table <-
+              data.frame(ref_table[, 1],
+                         rep(0, nrow(ref_table)),
+                         ref_table[, 2],
+                         rep("Loss", nrow(ref_table)))
+            temp_table<-temp_table[1:22,]
+            ##temp_table <-
+            ##temp_table[grep(paste("chr", clone_chrom_tracker, collapse = '|'),
+            ##              temp_table[, 1]), ]
+            
+            temp_table[, 4] <- as.character(temp_table[, 4])
+            temp_table <- as.matrix(temp_table)
+            sample_table[, 4] <- as.character(sample_table[, 4])
+            sample_table <- rbind(sample_table, temp_table)
+            sample_table[, 4] <- as.character(sample_table[, 4])
+
+          }else if(ploidy > 2 )
+          {
+            end<-(ploidy-2)
+            for (k in 1:end)
+            {
+              temp_table <-
+                data.frame(ref_table[, 1],
+                           rep(0, nrow(ref_table)),
+                           ref_table[, 2],
+                           rep("Gain", nrow(ref_table)))
+              temp_table<-temp_table[1:22,]
+              ##temp_table <-
+              ##temp_table[grep(paste("chr", clone_chrom_tracker, collapse = '|'),
+              ##                temp_table[, 1]), ]
+              
+              temp_table[, 4] <- as.character(temp_table[, 4])
+              temp_table <- as.matrix(temp_table)
+              sample_table[, 4] <- as.character(sample_table[, 4])
+              sample_table <- rbind(sample_table, temp_table)
+              sample_table[, 4] <- as.character(sample_table[, 4])
+            }
+            
+          }  
+          
+          print(c(new_val,ploidy))
+          
+          ##time to guess according to ranges if guessing is true
+          
+          ##put in dump table
+          Dump_table <-
+            rbind(Dump_table,
+                  c(
+                    as.vector(Con_data[i, ]),
+                    "Warning in some chromosomes unaccounted for"
+                  ))
+          print(c("unaccounted", Cyto_sample))
+          
         }else if(val_divider>1){
-          ##if doesnt match initially, try to see if bottom few match
+          ##if current ploidy cannot be estimated, see if the next decrease level in ploidy can be calculated
           val_temp=floor(val_divider)
           ploidy=val_temp+2
           if (val_temp > 0)
