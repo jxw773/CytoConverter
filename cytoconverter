@@ -4,7 +4,7 @@
 #### Helper Functions ####
 ###############################################################################
 
-## Usage description should match command line arguments defined below
+# Usage description should match command line arguments defined below
 usage() {
     echo "Usage: $(basename "$0")"
     echo "  --input => Input file"
@@ -13,21 +13,20 @@ usage() {
     echo "  --log => Log file"
 }
 
-###############################################################################
-## SCRIPT_DIR: directory of current script
-###############################################################################
+# SCRIPT_DIR: directory of current script
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 
 ###############################################################################
 #### Parse Command-Line Arguments ####
 ###############################################################################
+
 getopt --test > /dev/null
 if [ $? -ne 4 ]; then
     echo "`getopt --test` failed in this environment."
     exit 1
 fi
 
-## Command line options should match usage description
+# Command line options should match usage description
 OPTIONS=
 LONGOPTIONS=help,input:,threads:,output:,log:
 
@@ -47,14 +46,11 @@ fi
 # read getopt's output this way to handle the quoting right:
 eval set -- "$PARSED"
 
-## ****************************************************************************                     
-## Set any defaults for command line options                                                        
+# Set any defaults for command line options                                                        
 THREADS="2"                                                                                         
-## ****************************************************************************
 
-## ****************************************************************************
-## Handle each command line option. The Upper-case variable, e.g.,
-## ${FILE}, is assigned from the command line parameter.
+# Handle each command line option. The Upper-case variable, e.g.,
+# ${FILE}, is assigned from the command line parameter.
 while true; do
     case "$1" in
         --help)
@@ -88,15 +84,12 @@ while true; do
             ;;
     esac
 done
-## ****************************************************************************
 
-## ****************************************************************************
-## Log any variables passed as inputs
+# Log any variables passed as inputs
 echo "Input: ${INPUT}"
 echo "Threads: ${THREADS}"
 echo "Output: ${OUTPUT}"
 echo "Log: ${LOG}"
-## ****************************************************************************
 
 ###############################################################################
 #### Validate and Set Variables ####
@@ -140,31 +133,30 @@ LOG_BASE=$(basename "${LOG_FULL}")
 
 # TMP location is in the same location as output file
 TMP_FULL="${OUTPUT_DIR}/_tmp"
-## ****************************************************************************
 
 ###############################################################################
 #### Main execution logic ####
 ###############################################################################
 
-# create tmp directory
+# Create _tmp directory
 mkdir -p ${TMP_FULL}
 
-# clear contents of tmp directory
+# Clear contents of tmp directory
 rm ${TMP_FULL}/cyto_input_*
 rm ${TMP_FULL}/cyto_output_*
 rm ${TMP_FULL}/cyto_log_*
 
-# split input into multiple pieces
-total_lines=$(wc -l < ${INPUT_FULL})
-((lines_per_file = (total_lines + ${THREADS} - 1) / ${THREADS}))
+# Split input into multiple pieces
+total_lines=$( wc -l < ${INPUT_FULL} )
+(( lines_per_file = (total_lines + ${THREADS} - 1) / ${THREADS} ))
 split -l ${lines_per_file} ${INPUT_FULL} ${TMP_FULL}/cyto_input_
 
-# run CytoConverter on each piece
+# Run CytoConverter on each piece
 ls ${TMP_FULL}/cyto_input_* \
     | awk -F_input_ '{print $2};' \
-    | xargs -n 1 -t -I {} -P 4 bash -c "${SCRIPT_DIR}/main.R -i ${TMP_FULL}/cyto_input_{} -o ${TMP_FULL}/cyto_output_{}.txt -l ${TMP_FULL}/cyto_log_{}.txt 2>&1 > ${TMP_FULL}/cyto_stdout_{}.txt"
+    | xargs -n 1 -t -I {} -P ${THREADS} bash -c "${SCRIPT_DIR}/main.R -i ${TMP_FULL}/cyto_input_{} -o ${TMP_FULL}/cyto_output_{}.txt -l ${TMP_FULL}/cyto_log_{}.txt 2>&1 > ${TMP_FULL}/cyto_stdout_{}.txt"
 
-# combine into final output and log
+# Combine into final output and log
 cat ${TMP_FULL}/cyto_output_* > ${OUTPUT_FULL}
 cat ${TMP_FULL}/cyto_log_* > ${LOG_FULL}
 
