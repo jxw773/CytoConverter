@@ -1,0 +1,162 @@
+#!/bin/bash
+
+###############################################################################
+#### Helper Functions ####
+###############################################################################
+
+# Usage description should match command line arguments defined below
+usage() {
+    echo "Usage: $(basename "$0")"
+    echo "  --input => Input file"
+    echo "  --threads => Number of threads"
+    echo "  --output => Output file"
+    echo "  --log => Log file"
+}
+
+# SCRIPT_DIR: directory of current script
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+
+###############################################################################
+#### Parse Command-Line Arguments ####
+###############################################################################
+
+getopt --test > /dev/null
+if [ $? -ne 4 ]; then
+    echo "`getopt --test` failed in this environment."
+    exit 1
+fi
+
+# Command line options should match usage description
+OPTIONS=
+LONGOPTIONS=help,input:,threads:,output:,log:
+
+# -temporarily store output to be able to check for errors
+# -e.g. use "--options" parameter by name to activate quoting/enhanced mode
+# -pass arguments only via   -- "$@"   to separate them correctly
+PARSED=$(\
+    getopt --options=$OPTIONS --longoptions=$LONGOPTIONS --name "$0" -- "$@"\
+)
+if [ $? -ne 0 ]; then
+    # e.g. $? == 1
+    #  then getopt has complained about wrong arguments to stdout
+    usage
+    exit 2
+fi
+
+# read getopt's output this way to handle the quoting right:
+eval set -- "$PARSED"
+
+# Set any defaults for command line options                                                        
+THREADS="2"                                                                                         
+
+# Handle each command line option. The Upper-case variable, e.g.,
+# ${FILE}, is assigned from the command line parameter.
+while true; do
+    case "$1" in
+        --help)
+            usage
+            exit 0
+            ;;
+        --input)
+            INPUT=$2
+            shift 2
+            ;;
+        --threads)
+            THREADS=$2
+            shift 2
+            ;;
+        --output)
+            OUTPUT=$2
+            shift 2
+            ;;
+        --log)
+            LOG=$2
+            shift 2
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "Invalid option"
+            usage
+            exit 3
+            ;;
+    esac
+done
+
+# Log any variables passed as inputs
+echo "Input: ${INPUT}"
+echo "Threads: ${THREADS}"
+echo "Output: ${OUTPUT}"
+echo "Log: ${LOG}"
+
+###############################################################################
+#### Validate and Set Variables ####
+###############################################################################
+
+# INPUT
+if [ -z "${INPUT}" ]; then
+    echo "Input file required"
+    echo
+    usage
+    exit 1
+fi
+
+INPUT_FULL=$(readlink -f "${INPUT}")
+INPUT_DIR=$(dirname "${INPUT_FULL}")
+INPUT_BASE=$(basename "${INPUT_FULL}")
+
+# OUTPUT
+if [ -z "${OUTPUT}" ]; then
+    echo "Output file required"
+    echo
+    usage
+    exit 1
+fi
+
+OUTPUT_FULL=$(readlink -f "${OUTPUT}")
+OUTPUT_DIR=$(dirname "${OUTPUT_FULL}")
+OUTPUT_BASE=$(basename "${OUTPUT_FULL}")
+
+# LOG
+if [ -z "${LOG}" ]; then
+    echo "Log file required"
+    echo
+    usage
+    exit 1
+fi
+
+LOG_FULL=$(readlink -f "${LOG}")
+LOG_DIR=$(dirname "${LOG_FULL}")
+LOG_BASE=$(basename "${LOG_FULL}")
+
+# TMP location is in the same location as output file
+TMP_FULL="${OUTPUT_DIR}/_tmp"
+
+###############################################################################
+#### Main execution logic ####
+###############################################################################
+
+# Create _tmp directory
+mkdir -p ${TMP_FULL}
+
+# Clear contents of tmp directory
+rm ${TMP_FULL}/cyto_input_*
+rm ${TMP_FULL}/cyto_output_*
+rm ${TMP_FULL}/cyto_log_*
+
+# Split input into multiple pieces
+total_lines=$( wc -l < ${INPUT_FULL} )
+(( lines_per_file = (total_lines + ${THREADS} - 1) / ${THREADS} ))
+split -l ${lines_per_file} ${INPUT_FULL} ${TMP_FULL}/cyto_input_
+
+# Run CytoConverter on each piece
+ls ${TMP_FULL}/cyto_input_* \
+    | awk -F_input_ '{print $2};' \
+    | xargs -n 1 -t -I {} -P ${THREADS} bash -c "${SCRIPT_DIR}/main.R -i ${TMP_FULL}/cyto_input_{} -o ${TMP_FULL}/cyto_output_{}.txt -l ${TMP_FULL}/cyto_log_{}.txt 2>&1 > ${TMP_FULL}/cyto_stdout_{}.txt"
+
+# Combine into final output and log
+cat ${TMP_FULL}/cyto_output_* > ${OUTPUT_FULL}
+cat ${TMP_FULL}/cyto_log_* > ${LOG_FULL}
+
