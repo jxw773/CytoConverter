@@ -72,13 +72,14 @@ if(require("hash")){
 #' @param build
 #' @param guess
 #' @param guess_q
+#' @param guess_by_first_val
 #' @param forMtn
 #' @param orOption
 #' @keyword
 #' @export
 #' @examples 
 #' CytoConverter()
-CytoConverter<-function(in_data,build="GRCh38",constitutional=T,guess=F,guess_q=F,forMtn=T,orOption=T,sexstimate=F,complexSexEstimate=F,allow_Shorthand=F){
+CytoConverter<-function(in_data,build="GRCh38",constitutional=T,guess=F,guess_q=F,guess_by_first_val=F,forMtn=T,orOption=T,sexstimate=F,complexSexEstimate=F,allow_Shorthand=F){
 
   
 ##if for dr. mitelman, overide parameters
@@ -224,72 +225,81 @@ if(build =="GRCh38")
     if (any(grepl("idem|sl|sdl", Con_data[, 2])))
     {
       idem_index <- grep("idem|sl|sdl", Con_data[, 2])
-      temp_data <-
-        Con_data[(idem_index[1] - 1):idem_index[length(idem_index)], ]
-      
-      for (j in 2:nrow(temp_data))
-      {
-        if (grepl("idem|sl", temp_data[j, 2]))
+        temp_data <-
+          Con_data[(idem_index[1] - 1):idem_index[length(idem_index)], ]
+        if(!is.vector(temp_data) && nrow(temp_data)>1)
         {
-          prev <- unlist(strsplit(temp_data[1, 2], "\\["))[1]
-        } else{
-          ##implement this so it can handel two sl1 in sucession and sdl1 sdl2
-          prev <- unlist(strsplit(temp_data[j - 1, 2], "\\["))[1]
-          
-        }
-        prev <- unlist(strsplit(prev, ","))
-        prev <- prev[2:length(prev)]
-        sexchromprev <- prev[grep("^[XY]+", prev)[1]]
-        autochromprev <- prev[grep("^[XY]+", prev, invert = T)]
-        
-        
-        clonecount = 1
-        if (grepl("idemx|idemX|slx|slX|sdl*x|sdl*X", temp_data[j, 2]))
-        {
-          ##check if there is a X3 etc value , if there is pick that up, store, add to addtot, make it process through twice later
-          
-          clonecount = unlist(strsplit(temp_data[j, 2], "idemx|idemX|slx|slX"))[2]
-          if (grepl("-|~", clonecount))
+          for (j in 2:nrow(temp_data))
           {
-            clonecount <- unlist(strsplit(clonecount, "~|-"))[1]
+                ##make sure temp data has more than 1 row
+            
+                if (grepl("idem|sl", temp_data[j, 2]))
+                {
+                  prev <- unlist(strsplit(temp_data[1, 2], "\\["))[1]
+                } else{
+                  ##implement this so it can handel two sl1 in sucession and sdl1 sdl2
+                  prev <- unlist(strsplit(temp_data[j - 1, 2], "\\["))[1]
+                  
+                }
+                prev <- unlist(strsplit(prev, ","))
+                prev <- prev[2:length(prev)]
+                sexchromprev <- prev[grep("^[XY]+", prev)[1]]
+                autochromprev <- prev[grep("^[XY]+", prev, invert = T)]
+                
+                
+                clonecount = 1
+                if (grepl("idemx|idemX|slx|slX|sdl*x|sdl*X", temp_data[j, 2]))
+                {
+                  ##check if there is a X3 etc value , if there is pick that up, store, add to addtot, make it process through twice later
+                  
+                  clonecount = unlist(strsplit(temp_data[j, 2], "idemx|idemX|slx|slX"))[2]
+                  if (grepl("-|~", clonecount))
+                  {
+                    clonecount <- unlist(strsplit(clonecount, "~|-"))[1]
+                    
+                  }
+                  clonecount = as.numeric(unlist(strsplit(
+                    as.character(clonecount), "\\[|,"
+                  ))[1])
+                }
+                cur <- unlist(strsplit(temp_data[j, 2], ","))
+                if (!is.na(sexchromprev))
+                {
+                  if (grepl("^[XY]+", cur[2]))
+                  {
+                    cur[2] <-
+                      paste(paste(rep(sexchromprev, clonecount), collapse = ''), cur[2], sep =
+                              '')
+                  } else if (grepl("idem|sl|sdl", cur[2]))
+                  {
+                    cur[2] <- paste(rep(sexchromprev, clonecount), collapse = '')
+                  } else{
+                    cur <-
+                      c(cur[1], paste(rep(sexchromprev, clonecount), collapse = ''), cur[2:length(cur)])
+                    
+                  }
+                }
+                if (!is.null(autochromprev))
+                {
+                  if (length(cur) > 2)
+                  {
+                    cur <- c(cur[1:2], rep(autochromprev, clonecount), cur[3:length(cur)])
+                  } else
+                  {
+                    cur <- c(cur[1:2], rep(autochromprev, clonecount))
+                  }
+                }
+                cur <- cur[grep("idem|sl|sdl", cur, invert = T)]
+                temp_data[j, 2] <- paste(c(cur, "ids"), sep = '', collapse = ',')
             
           }
-          clonecount = as.numeric(unlist(strsplit(
-            as.character(clonecount), "\\[|,"
-          ))[1])
+          Con_data[(idem_index[1] - 1):idem_index[length(idem_index)], ] <-
+            temp_data
+        }else{
+          ##put it in the error table 
+          Dump_table<-rbind(Dump_table, c(temp_data, "no proceeding cell line to refer to"))
+          
         }
-        cur <- unlist(strsplit(temp_data[j, 2], ","))
-        if (!is.na(sexchromprev))
-        {
-          if (grepl("^[XY]+", cur[2]))
-          {
-            cur[2] <-
-              paste(paste(rep(sexchromprev, clonecount), collapse = ''), cur[2], sep =
-                      '')
-          } else if (grepl("idem|sl|sdl", cur[2]))
-          {
-            cur[2] <- paste(rep(sexchromprev, clonecount), collapse = '')
-          } else{
-            cur <-
-              c(cur[1], paste(rep(sexchromprev, clonecount), collapse = ''), cur[2:length(cur)])
-            
-          }
-        }
-        if (!is.null(autochromprev))
-        {
-          if (length(cur) > 2)
-          {
-            cur <- c(cur[1:2], rep(autochromprev, clonecount), cur[3:length(cur)])
-          } else
-          {
-            cur <- c(cur[1:2], rep(autochromprev, clonecount))
-          }
-        }
-        cur <- cur[grep("idem|sl|sdl", cur, invert = T)]
-        temp_data[j, 2] <- paste(c(cur, "ids"), sep = '', collapse = ',')
-      }
-      Con_data[(idem_index[1] - 1):idem_index[length(idem_index)], ] <-
-        temp_data
     }
     
     
@@ -651,6 +661,7 @@ if(build =="GRCh38")
       Cyto_sample[coln]<-gsub("c$","",Cyto_sample[coln])
     }
     
+
     ##derivative chromosomes with translocations are a loss (on native chromosome) gain (on new chromosome)
     ##figure out what add bool is and consaolidate that
     ##string splits by ;, takes into account multiple chromosomes  odd values are chromosomes even are the positions, for derivaties, first one needs to be treated differently
@@ -718,10 +729,13 @@ if(build =="GRCh38")
         !grepl("ider", Cyto_sample[coln]))
     {
       addBool <- paste(addBool, "LongDer", sep = "")
-    } else if (grepl("der|rec", Cyto_sample[coln]) &
-               !grepl("ider", Cyto_sample[coln]))
+    } else if (grepl("der|rec|dic", Cyto_sample[coln]) &
+               !grepl("ider|idic", Cyto_sample[coln]))
     {
-      addBool <- paste(addBool, derMods[1], sep = "")
+      if(grepl("der|rec",Cyto_sample[coln]))
+      {
+        addBool <- paste(addBool, derMods[1], sep = "")
+      }
       ##something is going wrong where when i changed this
       ##only want more than one
       if (grepl(
@@ -738,6 +752,66 @@ if(build =="GRCh38")
         derMods <-tail(derMods, length(derMods) - 1)
         temp <- tail(temp, length(temp) - 1)
          
+      }else if(grepl("der\\([[:digit:]]+;[[:digit:]]+\\)t\\(|dic\\([[:digit:]]+;[[:digit:]]+\\)t\\(",Cyto_sample)[coln])
+      {
+        
+        ##handle der(11;13)t( and dic(11;13)t( esq cases here
+        
+        ##remember to search t(11;13 if its referring to previous call of translocation
+        ##figure out how to do this 
+        
+        ##this will only work with two translocations and the translocation must immediantly follow 
+        ##the der or dic
+        
+        if(grepl("der\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)\\(|dic\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)\\(",Cyto_sample[coln])){
+          ##translocation is fully described 
+          if(grepl("der\\(",Cyto_sample[coln])){
+            ##replace der with dic
+            derMods[1]<-gsub("der","dic",derMods[1])  
+            ##delete der so its treated like a pure dic
+            addBool[1]<-gsub("der","dic",addBool[1])
+          }
+          
+          ##delete translocation from both temp and derMods
+          derMods<-derMods[-2]
+          temp<-temp[-2]
+        }else if(grepl("der\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)|dic\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)",Cyto_sample[coln])){
+          ##if the translocation needs lookup 
+          
+          ##see if translocation is found
+          ##else this thing crashes
+          if(length(transloctable) > 0 && grepl(derMods[2],names(transloctable),perl=F,fixed=T))
+          {
+            ##last chunk of translocation indicating position
+            addOnTrans<-names(transloctable)[grep(derMods[2],names(transloctable),perl=F,fixed=T)]
+            addOnTrans<- strsplit(addOnTrans,"\\)")[[1]][2]
+            addOnTransTemp<-strsplit(gsub("\\(|\\)","",addOnTrans),";")
+            ##if the string is longer than just the translocation
+            if(length(derMods)>2){
+              derMods<-c(derMods[1:2],addOnTrans,derMods[3:length(derMods)])
+              temp<-c(temp[1:2],addOnTransTemp,temp[3:length(temp)])
+            }else{
+              ##just the der and the translocation
+              derMods<-c(derMods[1:2],addOnTrans)
+              temp<-c(temp[1:2],addOnTransTemp)
+            }
+            
+            if(grepl("der\\(",Cyto_sample[coln])){
+              ##replace der with dic
+              derMods[1]<-gsub("der","dic",derMods[1])  
+              ##delete der so its treated like a pure dic
+              addBool[1]<-gsub("der","dic",addBool[1])
+              
+            }
+            
+            ##delete translocation from both temp and derMods
+            derMods<-derMods[-2]
+            temp<-temp[-2]
+          }else{
+            print("translocation undefined")
+            return(NULL)
+          }
+        }
       }
     }
     
@@ -959,7 +1033,7 @@ if(build =="GRCh38")
           
           if (grepl("(t|ins)\\(", derMods[(lengthcount * 2-1)]) )
           {
-            
+            ##consider adding t(num;num) option
             
             transchrom <-
               str_extract(Cyto_sample[coln], gsub("\\?","\\\\?",paste(gsub("\\+","\\\\+",gsub("\\(","\\\\(",derMods[(lengthcount*2-1)])),"\\)\\(.+?\\)",sep='')))
@@ -2253,6 +2327,382 @@ if(build =="GRCh38")
     }
     return(out)
   }
+
+
+  
+  
+  ### Now the whole deal
+  
+  ##for merginign loss gain pairs (returns index )
+  ##consolidatesimple<-function(gTable,lTable,i){ 
+  ##think i should do this via recursion some how
+  ##return(which(lTable[,1] == gTable[i,1] & lTable[,2] == gTable[i,2] & lTable[,3] == gTable[i,3]))
+  
+  ##}
+  
+  
+  ### Now the whole deal
+  
+  mergeTable_jp <- function(M,keep_extras=F) {
+     ##store non gains and losses for intermediate steps
+     M_temp<-M[grep("Gain|Loss",M[,4],invert=T),]
+      
+    insertSection <- function(h_, start, end, type) {
+      # This function inserts regions into the data structure h_, which 
+      # keeps track of all non-overlapping gain/loss sections within regions
+      
+      # h_:
+      #   Start coord:
+      #      End: end coordinate for this section
+      #      Gain: list of end coords of "Gain" regions, ordered by appearance in original list
+      #      Loss: list of end coords of "Loss" regions, ordered by appearance in original list
+      #   next start coord:
+      #    ...
+      #   next start coord:
+      #    ...
+      
+      # For all existing sections in h_, split depending on new start and end
+      
+      ### Check Start Pos ###
+      ## EXAMPLE:
+      ## h_     |-----------|       |---------|
+      ## new   start->|----------------|<-end
+      ## BECOMES:
+      ## h_     |-----|-----|       |---------|
+      ## new   start->|----------------|<-end
+      
+      for (h_key in keys(h_)) {
+        if (start > as.numeric(h_key) & start < h_[[h_key]][['End']] ) {
+          # add a new section starting at "start"
+          h_[start] <- hash(
+            End=h_[[h_key]][['End']],
+            Gain=h_[[h_key]][['Gain']],
+            Loss=h_[[h_key]][['Loss']],
+            PLoss=h_[[h_key]][['+Loss']]
+          )
+          # modify the old section to end at "start"
+          h_[[h_key]][['End']] <- start
+          
+          break
+        }
+      }
+      
+      ### Check End Pos ###
+      ## EXAMPLE:
+      ## h_     |-----|-----|       |---------|
+      ## new   start->|----------------|<-end
+      ## BECOMES:
+      ## h_     |-----|-----|       |--|------|
+      ## new   start->|----------------|<-end
+      
+      for (h_key in keys(h_)) {
+        if (end > as.numeric(h_key) & end < h_[[h_key]][['End']] ) {
+          # add a new section starting at "end"
+          h_[end] <- hash(
+            End=h_[[h_key]][['End']],
+            Gain=h_[[h_key]][['Gain']],
+            Loss=h_[[h_key]][['Loss']],
+            PLoss=h_[[h_key]][['+Loss']]
+          )
+          # modify the old section to end at "end"
+          h_[[h_key]][['End']] <- end
+          
+          break
+        }
+      }
+      
+      ### Now add new section by splitting it accordingly
+      start_vals <- sort(as.numeric(keys(h_)))
+      prev_end <- start
+      for (start_val in start_vals) {
+        
+        ## Check if existing section is completely within new region
+        ## Update existing section accordingly by adding to gain/loss
+        ## EXAMPLE: Adjust gain/loss of ** sections
+        ## h_     |-----|*****|       |**|------|
+        ## new   start->|----------------|<-end
+        
+        if (start_val >= start & h_[[as.character(start_val)]][['End']] <= end) {
+          # keep track of original section order
+          h_[[as.character(start_val)]][[type]][[
+            length(h_[[as.character(start_val)]][[type]])+1
+          ]] <- end
+          
+          ## Add a new section from prev_end
+          ## This fills in the gaps
+          ## EXAMPLE: 
+          ## h_     |-----|-----|       |--|------|
+          ## new   start->|----------------|<-end
+          ## BECOMES:
+          ## h_     |-----|-----|-------|--|------|
+          ## new   start->|----------------|<-end
+          
+          if (prev_end < start_val) {
+            
+            h_[prev_end] <- hash(
+              End=start_val, Gain=list(), Loss=list(),"+Loss"=list()
+            )
+            h_[[as.character(prev_end)]][[type]] <- list(end)
+            
+          }
+          
+          # set new previous end
+          prev_end <- h_[[as.character(start_val)]][['End']]
+        }
+      }
+      
+      ## Check if no new sections have been added, this indicates no overlaps
+      ## Create a new section
+      ## EXAMPLE:
+      ## h_       |-----|             |----|
+      ## new         start->|-------|<-end
+      ## BECOMES:
+      ## h_       |-----|   |-------| |----|
+      ## new         start->|-------|<-end
+      
+      if (prev_end == start) {
+        
+        h_[start] <- hash(
+          End=end, Gain=list(), Loss=list(),"+Loss"=list()
+        )
+        h_[[as.character(start)]][[type]] <- list(end)
+        
+      } else {
+        
+        ## Check if any remaining end section is outside of existing sections
+        ## Create a new end section accordingly
+        ## EXAMPLE:
+        ## h_       |-----| |----|
+        ## new       start->|-------|<-end
+        ## BECOMES:
+        ## h_       |-----| |----|--|
+        ## new       start->|-------|<-end
+        
+        if (prev_end < end) {
+          
+          h_[prev_end] <- hash(
+            End=end, Gain=list(), Loss=list(),"+Loss"=list()
+          )
+          h_[[as.character(prev_end)]][[type]] <- list(end)
+          
+        }
+      }
+      
+      return(h_)
+    }
+    
+    deleteIntersections <- function(h_) {
+      start_vals <- sort(as.numeric(keys(h_)))
+      for (start_val in start_vals) {
+
+        ## If both gain and loss are > 0, then there is overlap
+        ## If min_val is > 1, then there is duplicate overlap
+        ## Only delete one gain for each loss or one loss for each gain
+        gain <- length(h_[[as.character(start_val)]][['Gain']])
+        loss <- length(h_[[as.character(start_val)]][['Loss']])
+        ploss <-length(h_[[as.character(start_val)]][['+Loss']])
+        if(gain == (ploss + loss)){
+          ###delete section
+          del(start_val, h_)
+        }else{
+          
+          ##delete ploss first
+          min_val <- min(gain, ploss)
+          
+          # Delete leading elements from Gain and Loss lists
+          if (min_val > 0) {
+
+            for (i in 1:min_val) {
+              h_[[as.character(start_val)]][['Gain']][[1]] <- NULL
+              h_[[as.character(start_val)]][['+Loss']][[1]] <- NULL
+            }
+          }
+          
+          ## If both gain and loss are > 0, then there is overlap
+          ## If min_val is > 1, then there is duplicate overlap
+          ## Only delete one gain for each loss or one loss for each gain
+          gain <- length(h_[[as.character(start_val)]][['Gain']])
+          loss <- length(h_[[as.character(start_val)]][['Loss']])
+          ##delete loss afterwards 
+          min_val <- min(gain, loss)
+          # Delete leading elements from Gain and pLoss lists
+          if (min_val > 0) {
+            
+            for (i in 1:min_val) {
+              h_[[as.character(start_val)]][['Gain']][[1]] <- NULL
+              h_[[as.character(start_val)]][['Loss']][[1]] <- NULL
+            }
+          }
+          
+        }
+        
+        ##do this again at the end after everything is cleared 
+        ##gain <- length(h_[[as.character(start_val)]][['Gain']])
+        ##loss <- length(h_[[as.character(start_val)]][['Loss']])
+        ##ploss <-length(h_[[as.character(start_val)]][['+Loss']])
+        ##if(gain == (ploss+ loss)){
+          ###delete section
+          ##del(start_val, h_)
+        ##}
+        
+        
+      }
+      return(h_)
+    }
+    
+    mergeAdjacentSections <- function(h_) {
+      
+      getContiguousSection <- function(h__, section, orig_end) {
+        # This is a recursive function that crawls the hash to build
+        # contiguous sections
+        
+        sect_end <- section[['End']]
+        if (has.key(as.character(sect_end), h__)) {
+          
+          # extend section only if it matches the original ending of the previous section
+          # and also matches Type (e.g., Gain/Loss)
+          if (orig_end %in% h__[[sect_end]][[section[['Type']]]]) {
+            # delete item from list
+            orig_end_index <- match(orig_end, h__[[sect_end]][[section[['Type']]]])
+            h__[[sect_end]][[section[['Type']]]][[orig_end_index]] <- NULL
+            
+            # extend section
+            section[['End']] <- h__[[sect_end]][['End']]
+            
+            if (length(h__[[sect_end]][['Gain']]) == 0
+                & length(h__[[sect_end]][['Loss']]) == 0
+                & length(h__[[sect_end]][['+Loss']]) == 0)
+            {
+              # delete entire section if no more gain or loss
+              delete(sect_end, h__)
+            }
+            
+            # continue searching recursively
+            section <- getContiguousSection(h__, section, orig_end)
+            
+          } 
+          
+        }
+        return(section)
+      }
+      
+      coord_table <- data.frame(matrix(ncol=4, nrow=0))
+      colnames(coord_table) <- c('Chr', 'Start', 'End', 'Type')
+      
+      for (chr in keys(h_)) {
+        # while there are still values in the section hash
+        start_vals <- sort(as.numeric(keys(h_[[chr]])))
+        while (length(start_vals)) {
+          
+          # initialize the contiguous section
+          start <- start_vals[1]
+          ch_start <- as.character(start)
+          end <- as.numeric(h_[[chr]][[ch_start]][['End']])
+          orig_end <- 0
+          
+          type <- ''
+          if (length(h_[[chr]][[ch_start]][['Gain']]) > 0) {
+            type <- 'Gain'
+          } else if (length(h_[[chr]][[ch_start]][['Loss']]) > 0) {
+            type <- 'Loss'
+          } else if (length(h_[[chr]][[ch_start]][['+Loss']]) > 0)
+          {
+            type<-'+Loss'
+          }else{
+            # this should never happen
+            print('Error, should have deleted this key')
+          }
+          
+          # get original end value and delete from list
+          orig_end <- h_[[chr]][[ch_start]][[type]][[1]]
+          h_[[chr]][[ch_start]][[type]][[1]] <- NULL
+          
+          # delete section if no more gain or ploss
+          if (length(h_[[chr]][[ch_start]][['Gain']]) == 0
+              & length(h_[[chr]][[ch_start]][['+Loss']]) == 0 
+              & length(h_[[chr]][[ch_start]][['Loss']]) == 0) {
+            delete(ch_start, h_[[chr]])
+          }
+          
+          
+          # first part of contiguous section
+          section <- c(Chr=chr, Start=start, End=end, Type=type)
+          # build the contiguous section recursively
+          section <- getContiguousSection(h_[[chr]], section, orig_end)
+          
+          ### add contiguous section to the table
+          # find existing sections that fit at the end of the new section
+          end_index <- which(
+            as.numeric(coord_table[['Start']])==end & coord_table[['Type']]==type
+          )
+          # or existing sections that fit at the beginning of the new section
+          start_index <- which(
+            as.numeric(coord_table[['End']])==start & coord_table[['Type']]==type
+          )
+          if (length(start_index) > 0) {
+            if (length(end_index) > 0) {
+              # modify existing row to combine with new section and
+              # existing end section
+              coord_table[start_index[1],][['End']] <- coord_table[end_index[1],][['End']]
+              # delete existing end section
+              coord_table <- coord_table[-end_index[1],]
+            } else {
+              # modify existing row to combine with new section at the end
+              coord_table[start_index[1],][['End']] <- section[['End']]
+            }
+          } else {
+            if (length(end_index) > 0) {
+              # modify existing row to combine with new section at the beginning
+              coord_table[end_index[1],][['Start']] <- section[['Start']]
+            } else {
+              # add new section to table
+              coord_table <- rbind(coord_table, as.data.frame(t(section)))
+            }
+          }
+          
+          # update list of start values for loop's stopping condition
+          start_vals <- sort(as.numeric(keys(h_[[chr]])))
+        }
+      }
+      return(coord_table)
+    }
+    
+    ## Create an empty hash map for each chromosome
+    chrs <- unique(M[,1])
+    h <- hash()
+    for (chr in chrs) {
+      h[chr] <- hash()
+    }
+    
+    ## Populate the hash map with sections
+    for (row in 1:nrow(M)) {
+      if (M[row, 'Type'] == 'Gain' | M[row, 'Type'] == 'Loss' | M[row, 'Type'] == '+Loss' ) {
+        h[M[row, 'Chr']] <- insertSection(
+          h[[M[row, 'Chr']]],
+          as.numeric(M[row, 'Start']),
+          as.numeric(M[row, 'End']),
+          M[row, 'Type']
+        )
+      }
+    }
+    
+    ## Delete intersections
+    for (key in keys(h)) {
+      h[key] <- deleteIntersections(h[[key]])
+    }
+    
+    ## Merge adjacent sections and create final table
+    final_coord_table <- mergeAdjacentSections(h)
+    
+    ##if want other info 
+    if(keep_extras){
+      final_coord_table<-rbind(final_coord_table,M_temp)
+    }
+    
+    return(final_coord_table)
+  }
+  
+  
   
   ##section to cancel out loss gains
   ### First code that takes two intervals (start, loss), where gain is first, that 
@@ -2342,21 +2792,21 @@ if(build =="GRCh38")
         
         ##if returns as loss, collapse
         if(length(nxt[,3])> 0 && nxt[,3]=="Loss"){
-         
+          
           modL[i,]<-nxt
           modified=T
           ##newG<-rbind(newG,G[j,])
         }
         
-          w<-which(nxt[,3]=="Gain")
-          if(length(w)>0){newG<-rbind(newG, nxt[w,],
-                                      if(nrow(G)>1 && !is.vector(G[-j,]) && nrow(G[-j,])>=j &&!modified ){G[-j,][j:nrow(G[-j,]),]}
-          )
-          }else if(nrow(nxt)>0){newG<-rbind(newG,if(nrow(G)>1 && !is.vector(G[-j,]) && nrow(G[-j,])>=j && !modified){G[-j,][j:nrow(G[-j,]),]})}
-          else if(!is.vector(G[-j,])){newG<-rbind(newG,apply(G[-j,],2,as.character))}
-          else{newG<-rbind(newG,sapply(G[-j,],as.character))}
-  
-          print(list(j,modified,newG))
+        w<-which(nxt[,3]=="Gain")
+        if(length(w)>0){newG<-rbind(newG, nxt[w,],
+                                    if(nrow(G)>1 && !is.vector(G[-j,]) && nrow(G[-j,])>=j &&!modified ){G[-j,][j:nrow(G[-j,]),]}
+        )
+        }else if(nrow(nxt)>0){newG<-rbind(newG,if(nrow(G)>1 && !is.vector(G[-j,]) && nrow(G[-j,])>=j && !modified){G[-j,][j:nrow(G[-j,]),]})}
+        else if(!is.vector(G[-j,])){newG<-rbind(newG,apply(G[-j,],2,as.character))}
+        else{newG<-rbind(newG,sapply(G[-j,],as.character))}
+        
+        print(list(j,modified,newG))
         
         j<-j+1
       }
@@ -2391,22 +2841,22 @@ if(build =="GRCh38")
         out<-rbind(out, Msub)
         
       }else{
-          wg<-which(Msub[,4]=="Gain")
-          wl<-which(Msub[,4]=="Loss")
-          
-          if(length(wg)==0 | length(wl)==0){
-            out<-rbind(out, Msub)} else{
-              
-              
-              nxt<-mergeGLmat(Msub[wg,-1],Msub[wl,-1])
-              if(nrow(nxt)>0)
-              {
-                nxt<-cbind(chrs[i],nxt)
-                colnames(nxt)[1]<-"Chr"
-              }
-              out<-rbind(out, nxt)
+        wg<-which(Msub[,4]=="Gain")
+        wl<-which(Msub[,4]=="Loss")
+        
+        if(length(wg)==0 | length(wl)==0){
+          out<-rbind(out, Msub)} else{
+            
+            
+            nxt<-mergeGLmat(Msub[wg,-1],Msub[wl,-1])
+            if(nrow(nxt)>0)
+            {
+              nxt<-cbind(chrs[i],nxt)
+              colnames(nxt)[1]<-"Chr"
             }
-        }
+            out<-rbind(out, nxt)
+          }
+      }
     }
     
     return(out)}
@@ -2481,385 +2931,13 @@ if(build =="GRCh38")
       tbl[i,]<-c(NA,NA,NA)}}
     return(tbl)} 
   
-  ##for merginign loss gain pairs (returns index )
-  ##consolidatesimple<-function(gTable,lTable,i){ 
-  ##think i should do this via recursion some how
-  ##return(which(lTable[,1] == gTable[i,1] & lTable[,2] == gTable[i,2] & lTable[,3] == gTable[i,3]))
-  
-  ##}
-  
-  
-  ### Now the whole deal
-  
-  ##for merginign loss gain pairs (returns index )
-  ##consolidatesimple<-function(gTable,lTable,i){ 
-  ##think i should do this via recursion some how
-  ##return(which(lTable[,1] == gTable[i,1] & lTable[,2] == gTable[i,2] & lTable[,3] == gTable[i,3]))
-  
-  ##}
-  
-  
-  ### Now the whole deal
-  
-  mergeTable_jp <- function(M) {
-    
-    insertSection <- function(h_, start, end, type) {
-      # This function inserts regions into the data structure h_, which 
-      # keeps track of all non-overlapping gain/loss sections within regions
-      
-      # h_:
-      #   Start coord:
-      #      End: end coordinate for this section
-      #      Gain: list of end coords of "Gain" regions, ordered by appearance in original list
-      #      Loss: list of end coords of "Loss" regions, ordered by appearance in original list
-      #   next start coord:
-      #    ...
-      #   next start coord:
-      #    ...
-      
-      # For all existing sections in h_, split depending on new start and end
-      
-      ### Check Start Pos ###
-      ## EXAMPLE:
-      ## h_     |-----------|       |---------|
-      ## new   start->|----------------|<-end
-      ## BECOMES:
-      ## h_     |-----|-----|       |---------|
-      ## new   start->|----------------|<-end
-      
-      for (h_key in keys(h_)) {
-        if (start > as.numeric(h_key) & start < h_[[h_key]][['End']] ) {
-          # add a new section starting at "start"
-          h_[start] <- hash(
-            End=h_[[h_key]][['End']],
-            Gain=h_[[h_key]][['Gain']],
-            Loss=h_[[h_key]][['Loss']]
-          )
-          # modify the old section to end at "start"
-          h_[[h_key]][['End']] <- start
-          
-          break
-        }
-      }
-      
-      ### Check End Pos ###
-      ## EXAMPLE:
-      ## h_     |-----|-----|       |---------|
-      ## new   start->|----------------|<-end
-      ## BECOMES:
-      ## h_     |-----|-----|       |--|------|
-      ## new   start->|----------------|<-end
-      
-      for (h_key in keys(h_)) {
-        if (end > as.numeric(h_key) & end < h_[[h_key]][['End']] ) {
-          # add a new section starting at "end"
-          h_[end] <- hash(
-            End=h_[[h_key]][['End']],
-            Gain=h_[[h_key]][['Gain']],
-            Loss=h_[[h_key]][['Loss']]
-          )
-          # modify the old section to end at "end"
-          h_[[h_key]][['End']] <- end
-          
-          break
-        }
-      }
-      
-      ### Now add new section by splitting it accordingly
-      start_vals <- sort(as.numeric(keys(h_)))
-      prev_end <- start
-      for (start_val in start_vals) {
-        
-        ## Check if existing section is completely within new region
-        ## Update existing section accordingly by adding to gain/loss
-        ## EXAMPLE: Adjust gain/loss of ** sections
-        ## h_     |-----|*****|       |**|------|
-        ## new   start->|----------------|<-end
-        
-        if (start_val >= start & h_[[as.character(start_val)]][['End']] <= end) {
-          # keep track of original section order
-          h_[[as.character(start_val)]][[type]][[
-            length(h_[[as.character(start_val)]][[type]])+1
-          ]] <- end
-          
-          ## Add a new section from prev_end
-          ## This fills in the gaps
-          ## EXAMPLE: 
-          ## h_     |-----|-----|       |--|------|
-          ## new   start->|----------------|<-end
-          ## BECOMES:
-          ## h_     |-----|-----|-------|--|------|
-          ## new   start->|----------------|<-end
-          
-          if (prev_end < start_val) {
-            
-            h_[prev_end] <- hash(
-              End=start_val, Gain=list(), Loss=list()
-            )
-            h_[[as.character(prev_end)]][[type]] <- list(end)
-            
-          }
-          
-          # set new previous end
-          prev_end <- h_[[as.character(start_val)]][['End']]
-        }
-      }
-      
-      ## Check if no new sections have been added, this indicates no overlaps
-      ## Create a new section
-      ## EXAMPLE:
-      ## h_       |-----|             |----|
-      ## new         start->|-------|<-end
-      ## BECOMES:
-      ## h_       |-----|   |-------| |----|
-      ## new         start->|-------|<-end
-      
-      if (prev_end == start) {
-        
-        h_[start] <- hash(
-          End=end, Gain=list(), Loss=list()
-        )
-        h_[[as.character(start)]][[type]] <- list(end)
-        
-      } else {
-        
-        ## Check if any remaining end section is outside of existing sections
-        ## Create a new end section accordingly
-        ## EXAMPLE:
-        ## h_       |-----| |----|
-        ## new       start->|-------|<-end
-        ## BECOMES:
-        ## h_       |-----| |----|--|
-        ## new       start->|-------|<-end
-        
-        if (prev_end < end) {
-          
-          h_[prev_end] <- hash(
-            End=end, Gain=list(), Loss=list()
-          )
-          h_[[as.character(prev_end)]][[type]] <- list(end)
-          
-        }
-      }
-      
-      return(h_)
-    }
-    
-    deleteIntersections <- function(h_) {
-      start_vals <- sort(as.numeric(keys(h_)))
-      for (start_val in start_vals) {
-        ## If both gain and loss are > 0, then there is overlap
-        ## If min_val is > 1, then there is duplicate overlap
-        ## Only delete one gain for each loss or one loss for each gain
-        gain <- length(h_[[as.character(start_val)]][['Gain']])
-        loss <- length(h_[[as.character(start_val)]][['Loss']])
-        if (gain == loss) {
-          # Delete the section entirely
-          del(start_val, h_)
-        } else {
-          min_val <- min(gain, loss)
-          # Delete leading elements from Gain and Loss lists
-          if (min_val > 0) {
-            for (i in 1:min_val) {
-              h_[[as.character(start_val)]][['Gain']][[1]] <- NULL
-              h_[[as.character(start_val)]][['Loss']][[1]] <- NULL
-            }
-          }
-        }
-      }
-      return(h_)
-    }
-    
-    mergeAdjacentSections <- function(h_) {
-      
-      getContiguousSection <- function(h__, section, orig_end) {
-        # This is a recursive function that crawls the hash to build
-        # contiguous sections
-        
-        sect_end <- section[['End']]
-        if (has.key(as.character(sect_end), h__)) {
-          
-          # extend section only if it matches the original ending of the previous section
-          # and also matches Type (e.g., Gain/Loss)
-          if (orig_end %in% h__[[sect_end]][[section[['Type']]]]) {
-            # delete item from list
-            orig_end_index <- match(orig_end, h__[[sect_end]][[section[['Type']]]])
-            h__[[sect_end]][[section[['Type']]]][[orig_end_index]] <- NULL
-            
-            # extend section
-            section[['End']] <- h__[[sect_end]][['End']]
-            
-            if (length(h__[[sect_end]][['Gain']]) == 0
-                & length(h__[[sect_end]][['Loss']]) == 0)
-            {
-              # delete entire section if no more gain or loss
-              delete(sect_end, h__)
-            }
-            
-            # continue searching recursively
-            section <- getContiguousSection(h__, section, orig_end)
-            
-          } 
-          
-        }
-        return(section)
-      }
-      
-      coord_table <- data.frame(matrix(ncol=4, nrow=0))
-      colnames(coord_table) <- c('Chr', 'Start', 'End', 'Type')
-      
-      for (chr in keys(h_)) {
-        # while there are still values in the section hash
-        start_vals <- sort(as.numeric(keys(h_[[chr]])))
-        while (length(start_vals)) {
-          
-          # initialize the contiguous section
-          start <- start_vals[1]
-          ch_start <- as.character(start)
-          end <- as.numeric(h_[[chr]][[ch_start]][['End']])
-          orig_end <- 0
-          
-          type <- ''
-          if (length(h_[[chr]][[ch_start]][['Gain']]) > 0) {
-            type <- 'Gain'
-          } else if (length(h_[[chr]][[ch_start]][['Loss']]) > 0) {
-            type <- 'Loss'
-          } else {
-            # this should never happen
-            print('Error, should have deleted this key')
-          }
-          
-          # get original end value and delete from list
-          orig_end <- h_[[chr]][[ch_start]][[type]][[1]]
-          h_[[chr]][[ch_start]][[type]][[1]] <- NULL
-          
-          # delete section if no more gain or loss
-          if (length(h_[[chr]][[ch_start]][['Gain']]) == 0 
-              & length(h_[[chr]][[ch_start]][['Loss']]) == 0) {
-            delete(ch_start, h_[[chr]])
-          }
-          
-          # first part of contiguous section
-          section <- c(Chr=chr, Start=start, End=end, Type=type)
-          # build the contiguous section recursively
-          section <- getContiguousSection(h_[[chr]], section, orig_end)
-          
-          ### add contiguous section to the table
-          # find existing sections that fit at the end of the new section
-          end_index <- which(
-            as.numeric(coord_table[['Start']])==end & coord_table[['Type']]==type
-          )
-          # or existing sections that fit at the beginning of the new section
-          start_index <- which(
-            as.numeric(coord_table[['End']])==start & coord_table[['Type']]==type
-          )
-          if (length(start_index) > 0) {
-            if (length(end_index) > 0) {
-              # modify existing row to combine with new section and
-              # existing end section
-              coord_table[start_index[1],][['End']] <- coord_table[end_index[1],][['End']]
-              # delete existing end section
-              coord_table <- coord_table[-end_index[1],]
-            } else {
-              # modify existing row to combine with new section at the end
-              coord_table[start_index[1],][['End']] <- section[['End']]
-            }
-          } else {
-            if (length(end_index) > 0) {
-              # modify existing row to combine with new section at the beginning
-              coord_table[end_index[1],][['Start']] <- section[['Start']]
-            } else {
-              # add new section to table
-              coord_table <- rbind(coord_table, as.data.frame(t(section)))
-            }
-          }
-          
-          # update list of start values for loop's stopping condition
-          start_vals <- sort(as.numeric(keys(h_[[chr]])))
-        }
-      }
-      return(coord_table)
-    }
-    
-    ## Create an empty hash map for each chromosome
-    chrs <- unique(M[,1])
-    h <- hash()
-    for (chr in chrs) {
-      h[chr] <- hash()
-    }
-    
-    ## Populate the hash map with sections
-    for (row in 1:nrow(M)) {
-      if (M[row, 'Type'] == 'Gain' | M[row, 'Type'] == 'Loss') {
-        h[M[row, 'Chr']] <- insertSection(
-          h[[M[row, 'Chr']]],
-          as.numeric(M[row, 'Start']),
-          as.numeric(M[row, 'End']),
-          M[row, 'Type']
-        )
-      }
-    }
-    
-    ## Delete intersections
-    for (key in keys(h)) {
-      h[key] <- deleteIntersections(h[[key]])
-    }
-    
-    ## Merge adjacent sections and create final table
-    final_coord_table <- mergeAdjacentSections(h)
-    
-    return(final_coord_table)
-  }
-  
-  mergeTable<-function(M){
-    wg<-which(as.character(M[,4])=="Gain")
-    wl<-which(as.character(M[,4])=="Loss")
-    ## order
-    ##order
-    
-    
-    M<-M[c(wg,wl),]
-    if(length(wg)>0 & length(wl)>0)
-    {
-      M<- bigGLMerge(M)
-    }
-    
-    
-    wg<-which(as.character(M[,4])=="Gain")
-    wl<-which(as.character(M[,4])=="Loss")
-    Mg<-M[wg,1:3]
-    Ml<-M[wl,1:3]
-    
-    if(length(wg)>1){
-      ##Mg<-M[wg,1:3]
-      ##for(j in 1:(nrow(Mg)-1)){
-        ##Mg[j:nrow(Mg),]<-mergeBelow(Mg[j:nrow(Mg),])}
-      M[wg,1:3]<-Mg}
-    
-    if(length(wl)>1){
-      ##Ml<-M[wl,1:3]
-      ##for(j in 1:(nrow(Ml)-1)){
-        ##Ml[j:nrow(Ml),]<-mergeBelowL(Ml[j:nrow(Ml),])}
-      M[wl,1:3]<-Ml}
-    
-    bads<-which(!M[,4]%in%c("Loss", "Gain"))
-    
-    w<-setdiff(which(!is.na(M[,2])), bads)
-    
-    
-    out<-M[w,]
-    if(length(w)==1){out<-t(out)}
-    
-    return(out)}
-  
-  
   
   ###use machinery for deletion intervals
   
   mergeDeletions<-function(M,Mainchr){
     OldM<-M
     startDel<-grep("((t\\()|(idic\\()|(rob\\()|(trc\\()|(dic\\()|(Gain))",M[,4])[1]
-
+    
     
     wdel<-union(intersect(grep("del", M[, 4]),grep("^del", M[, 4],invert=T)),intersect(grep("add", M[, 4]),grep("^add", M[, 4],invert=T)))
     
@@ -2874,7 +2952,7 @@ if(build =="GRCh38")
     rest<-(1:nrow(M))[-1*c(wdel,resttosee)]
     
     
-
+    
     M<-M[c(wdel,resttosee),]
     if(length(resttosee)>0 & length(wdel)>0)
     {
@@ -2911,8 +2989,8 @@ if(build =="GRCh38")
     ##bads<-which(!M[,4]%in%c("Loss", "Gain"))
     
     ##deletions that are to be removed
-
-
+    
+    
     w<-which(!is.na(M[,2]))
     if(length(rest)>0)
     {
@@ -2927,7 +3005,7 @@ if(build =="GRCh38")
     if(length(w)==1 ){out<-t(out)}
     
     return(out)}
- 
+  
   
   
   ##variant for deletions only
@@ -3101,6 +3179,10 @@ if(build =="GRCh38")
     xdel = 0 ##counts if -X occures as constitutional
     ydel = 0 ##counts if -Y occures as consitutional 
     
+    xdel_Q=0 ##counts of question of mark xdel 
+    ydel_Q=0 ##counts of question mark ydel
+    
+    
     xconstitutional=0 ##shift counts for xc indications (kind of a correction factor)
     yconstitutional=0  ##shift counts for yc indications (kind of a correction factor)
     
@@ -3153,8 +3235,8 @@ if(build =="GRCh38")
         {
           normX = 1
           normY = 1
-        } ##if ? is a chromosome and sexstimate is off, dont make guesses on constitutional change
-        else if(( sexstimate==F && any(grepl("\\?",Cyto_sample[2])) )){
+        } else if(( (sexstimate==F ) && any(grepl("\\?",Cyto_sample[2])) )){
+          ##if ? is a chromosome and sexstimate is off, dont make guesses on constitutional change
           normX=2
           normY=0
         }else
@@ -3162,15 +3244,57 @@ if(build =="GRCh38")
           normX = 2
         }
         
-        ##cound number of XY in 2nd slot ##make sure 2nd slot is sex chromosomes, change this code later
+        ##count number of XY in 2nd slot ##make sure 2nd slot is sex chromosomes, change this code later
         if (!grepl("^[XY]+", Cyto_sample[2]))
         {
           #make sure reg ecpression means what you want it to
+          length_XY <-length(which(grepl("Y|X", Cyto_sample)==T))
+          
+          if(sexstimate==F & guess_q==F & grepl("\\?",Cyto_sample[2]) & length_XY<3 ){
+            
+            if(any(grepl("Y",Cyto_sample[2])))
+            {
+              if(length_XY==1){
+                ycount=1
+              }
+            }else{
+              if(length_XY==0){
+                xcount=2
+                
+              }else if(length_XY==1){
+                xcount=1
+              }
+            }
+            Dump_table <- rbind(Dump_table, c(Con_data[i,], "Warning in ambiguous sex chromosome count. Default of XX set"))
+            
+          }
         }  else {
           xcount = str_count(Cyto_sample[2], "X")
-          xcount = xcount + str_count(Cyto_sample[2], "\\?")
+          
+          ##do not count ? for mitelman or no sex estimates
+          if(sexstimate == T)
+          {
+            xcount = xcount + str_count(Cyto_sample[2], "\\?")
+            
+          }
+          
           ycount = str_count(Cyto_sample[2], "Y")
           ##x,y calculation
+          
+          ##if sexstimate is false and guess_q is false and there is only one sex chromosome but several ? marks, set value =2
+          if(sexstimate==F & guess_q==F & (xcount+ycount) < 2 & grepl("\\?",Cyto_sample[2]) & !any(grepl("Y",Cyto_sample[-2]))){
+            if(ycount > 0)
+            {
+             xcount=1
+             ycount=1
+             Dump_table <- rbind(Dump_table, c(Con_data[i,], "Warning in ambiguous sex chromosome count. Default of XY set"))
+             
+            }else{
+              xcount=2
+              Dump_table <- rbind(Dump_table, c(Con_data[i,], "Warning in ambiguous sex chromosome count. Default of XX set"))
+              
+            }
+          }
         }
       }
       
@@ -3292,8 +3416,8 @@ if(build =="GRCh38")
             }
             
           }
-        }else if (grepl("^\\+[[:digit:]]+c*$", Cyto_sample[j]) |
-                  grepl("\\+X", Cyto_sample[j]) | grepl("\\+Y", Cyto_sample[j]))
+        }else if ((grepl("^\\+[[:digit:]]+c*$", Cyto_sample[j]) |
+                  grepl("\\+X", Cyto_sample[j]) | grepl("\\+Y", Cyto_sample[j])) && ((guess_q == T )| (!grepl("\\?",Cyto_sample[j]))))
         {
           cytoName <- gsub("c", "", substring(Cyto_sample[j], first = 2))
           chr_name <-
@@ -3334,11 +3458,21 @@ if(build =="GRCh38")
           if (grepl("X", chr_name[1]))
           {
             xdel <- xdel + 1
+            
+            if(grepl("\\?", cytoName)){
+              
+              xdel_Q <- xdel_Q + 1
+            }
           }
           
           if (grepl("Y", chr_name[1]))
           {
             ydel <- ydel + 1
+            
+            if(grepl("\\?", cytoName)){
+              
+              ydel_Q <- ydel_Q +1
+            }
           }
           
           ##if(!grepl("X|Y",chr_name[1]))
@@ -3461,8 +3595,8 @@ if(build =="GRCh38")
                 
                 ##check how this handles X chromosomes
                 ## if more than 2 chromosomes involved and its not a translocation an insertion or an inversion, something is "deleted"
-                if (any(grepl("-[:alpha:]", temp_table[, 4]) &
-                        !grepl("X\\$|Y\\$", Mainchr)))
+                if (any(grepl("-[:alpha:]", temp_table[, 4])) &
+                        any(!grepl("X\\$|Y\\$", Mainchr)))
                 {
                   ##deltot <- deltot + (1 * multi)
                 }else
@@ -3672,11 +3806,16 @@ if(build =="GRCh38")
                       if(nrow(temp_table)>0)
                       {
                         original_temp_table<-temp_table
-                        temp_table[grep("ider\\(.*", temp_table[, 4]), 4] <-
+                        temp_table[intersect(grep("ider\\(.*", temp_table[, 4]),grep("del\\(.*|add\\(.*",temp_table[,4],invert=T)), 4] <-
                         "Gain"
-                        additionTable[[1]] <- c(additionTable[[1]],additionTable[[1]][grep("ider\\(.*", original_temp_table[, 4])]) 
+                        additionTable[[1]] <- c(additionTable[[1]],additionTable[[1]][intersect(grep("ider\\(.*", temp_table[, 4]),grep("del\\(.*|add\\(.*",temp_table[,4],invert=T))])
                         temp_table<-rbind(temp_table,original_temp_table[grep("ider\\(.*", original_temp_table[, 4]), ])
                         
+                        
+                        ##activate deletions ? Think about this 
+                        ##JAN Thinking time 
+                        ######
+                        #######
                       }
                       if(nrow(ex_table)>0)
                       {
@@ -3695,6 +3834,10 @@ if(build =="GRCh38")
                       }
                       temp_table <- rbind(temp_table, ex_table)
                       
+                      ##mark deletions now
+                      ##temp_table[intersect(grep("ider\\(.*", temp_table[,4]),grep("del\\(.*|add\\(.*",temp_table[,4])),4] <-"Loss"
+                      
+                      
                     }
                     
                     if (any(grepl("idic\\(.*", temp_table[, 4])))
@@ -3706,7 +3849,11 @@ if(build =="GRCh38")
                       ##ex_table[grep("idic\\(.*&del\\(", ex_table[, 4]), 4]
                       if(nrow(temp_table)>0)
                       {
-                        temp_table[grep("idic\\(.*", temp_table[, 4]), 4] <- "Loss"
+                        
+                        original_temp_table<-temp_table
+                        temp_table[intersect(grep("idic\\(.*", temp_table[, 4]),grep("dup\\(.*|tan\\(.*|trp\\(*.|qdq\\(.*", temp_table[, 4],invert=T)  ), 4] <- "Loss"
+                        additionTable[[1]] <- c(additionTable[[1]],additionTable[[1]][intersect(grep("del\\(.*|add\\(.*", original_temp_table[, 4],invert=T),grep("idic\\(.*",original_temp_table[,4]))])
+                        temp_table<-rbind(temp_table,original_temp_table[intersect(grep("del\\(.*|add\\(.*", original_temp_table[, 4],invert=T),grep("idic\\(.*",original_temp_table[,4])), ])
                       }
                       if(nrow(ex_table)>0)
                       {
@@ -3727,6 +3874,9 @@ if(build =="GRCh38")
                           paste(additionTable[[2]], ex_table[, 4], sep = "")
                       }
                       temp_table <- rbind(temp_table, ex_table)
+                      ##mark deletions now
+                      ##temp_table[intersect(grep("idic\\(.*", temp_table[,4]),grep("del\\(.*|add\\(.*",temp_table[,4])),4] <-"Loss"
+                      
                     }
                     
                     ##figour out why you did this 
@@ -3743,7 +3893,7 @@ if(build =="GRCh38")
                         }
                         if(nrow(ex_table)>0)
                         {
-                          ex_table[intersect(grep("dic\\(.*", ex_table[, 4]),grep("idic\\(.*", ex_table[, 4],invert=T)  ) ,4]<-"Loss"
+                          ex_table[grep("dic\\(.*", ex_table[, 4]) ,4]<-"Loss"
                           ex_table[, 4] <-
                             paste(additionTable[[2]], ex_table[, 4], sep = "")
                         }
@@ -3752,15 +3902,25 @@ if(build =="GRCh38")
                       {
                         if(nrow(temp_table)>0)
                         {
-                          temp_table[intersect(grep("dic\\(.*", ex_table[, 4]),grep("idic\\(.*", ex_table[, 4],invert=T)  ) , 4] <- "Loss"
+                          temp_table[intersect(grep("dic\\(.*", temp_table[, 4]),grep("idic\\(.*|dup\\(.*|tan\\(.*|trp\\(*.|qdq\\(.*", temp_table[, 4],invert=T)  ) , 4] <- "Loss"
                           
                           temp_table[, 4] <-
                             paste(additionTable[[1]], temp_table[, 4], sep = "")
                         }
                         if(nrow(ex_table)>0)
                         {
+                          
+                          ex_table[intersect(intersect(grep("dic\\(.*", ex_table[, 4]),grep("idic\\(.*|dup\\(.*|tan\\(.*|trp\\(*.|qdq\\(.*", ex_table[, 4],invert=T)  ),
+                                             grep("del\\(.*|add\\(.*",ex_table[,4])) , 4] <- gsub("del\\(.*|add\\(.*","",
+                                                                                                  ex_table[intersect(intersect(grep("dic\\(.*", 
+                                                                                                  ex_table[, 4]),grep("idic\\(.*|dup\\(.*|tan\\(.*|trp\\(*.|qdq\\(.*", ex_table[, 4],invert=T)  ),
+                                                                                                  grep("del\\(.*|add\\(.*",ex_table[,4])) , 4]) 
+
+                          
+
                           ex_table[, 4] <-
                             paste(additionTable[[2]], ex_table[, 4], sep = "")
+                          
                         }
                       }
                       temp_table <- rbind(temp_table, ex_table)
@@ -3968,14 +4128,39 @@ if(build =="GRCh38")
                     ##if +Gain 
                 if(nrow(temp_table)>0)
                 {
-                    temp_table[grep("^-Gain|^-$", temp_table[, 4]), 4] <-
-                      "Loss"
+                    temp_table[grep("^-Gain|^-$", temp_table[, 4]), 4] <- "Loss"
+                    temp_table[grep("\\+Loss",temp_table[,4]),4] <- "+Loss"
+                    
                     temp_table[grep("\\+Gain", temp_table[, 4]), 4] <- "Gain"
-                    temp_table[grep("\\+Loss", temp_table[, 4]), 4] <- ""
-                    temp_table[grep("\\+", temp_table[, 4]), 4] <- "Gain"
+                    temp_table[intersect(grep("\\+", temp_table[, 4]),grep("\\+Loss", temp_table[, 4],invert=T)), 4] <- "Gain"
                     ##check other permutations of this/ dont think insertions belong here
                     temp_table[grep("dup|qdp|tan|trp|\\+$", temp_table[, 4]), 4] <-
                       "Gain"
+                    
+                    Plus_Loss<-temp_table[grep("\\+Loss",temp_table[,4]),]
+                    
+                    ##cut off intersections early
+                    ###Think aboiut this 
+                    if(length(Plus_Loss)>0 && nrow(Plus_Loss)>0 && any(grepl("Gain",temp_table[,4]) & any(grepl("Loss",temp_table[,4]))))
+                    {
+                     ## temp_table[grep("\\+Loss", temp_table[, 4]), 4] <- "Loss"
+                      
+                      temp_table<-mergeTable_jp(temp_table)
+                      ##indexLoss<--1
+                      ##loop Plus Loss here
+                      ##ask for more efficient methods
+                      ##for(i in 1:length(Plus_Loss)){
+                      ##  indexLoss<-c(indexLoss,match(Plus_Loss,temp_table[,1:3]))
+                      ##}
+                      ##indexLoss<-indexLoss[-1]
+                      ##if(length(indexLoss)>0){
+                      ##  temp_table[indexLoss,4]<-"+Loss"
+                      ##}
+                    
+                    }
+                    
+                    temp_table[grep("\\+Loss", temp_table[, 4]), 4] <- ""
+                    
                 }
               
             }
@@ -4115,6 +4300,7 @@ if(build =="GRCh38")
         }
         
         print(c(val, idealval, val_remainder, val_divider))
+        print(c(diffval,orgval))
         
         
         if (val_remainder == 0 )
@@ -4173,7 +4359,6 @@ if(build =="GRCh38")
             
             print(c("val_div<0", Cyto_sample))
           }
-          
        
         }else if (grepl("^ids$", Cyto_sample[length(Cyto_sample)]) && any(diffval / length(clone_chrom_tracker) > 0 &
                                                                           diffval %% length(clone_chrom_tracker) == 0) )
@@ -4340,8 +4525,119 @@ if(build =="GRCh38")
           print(c("unaccounted", Cyto_sample))
           
         
+        }else if((guess_by_first_val==T | forMtn==T) &
+                 (any(orgval > 0 & orgval <= 34)|any(orgval >= 58 & orgval <= 80)
+                  |any(orgval >= 81 & orgval <= 103)|any(orgval >= 104 & orgval <= 126)
+                  |any(orgval >= 127 & orgval <= 149)|any(orgval >= 150 & orgval <= 172 )
+                  |any(orgval >= 173 & orgval <= 195))){
+          ###################################################
+          ###################################################
+          ##################################################
+          ###THIS IS NEW
+          ### DONT FORGET TO COMMIT TO DR PHANS SCRIPT
+          ###DONT FORGET
+          ##PAY ATTENTION
+          ##ETC
+          #ETC 
+          ##ETC
+          ################################################
+          ##################################################
+          ################################################
+          
+          ##if the initial exact match or the estimate match does not work, and the options are turned on, estimate from the initial value as defined in the iscn up until the octaploid level 
+          if(length(orgval) > 1)
+          {
+            ## take the one that fits and first one that is true
+            new_val<-orgval[which((orgval >= 0 & orgval <= 34)| (orgval>=58&orgval<=80)|
+                                 (orgval>=81 & orgval <= 103)|(orgval>=104 & orgval<=126)|(orgval >= 127 & orgval <= 149)
+                               |(orgval>= 150 & orgval <= 172)|(orgval >= 173 & orgval <= 195) )][1]
+            
+          }else{
+            new_val<-orgval
+          }
+          print(c(new_val))
+          
+          ##assign ploidy here 
+          if(new_val >= 0 & new_val <= 34){
+            ploidy=1
+          }
+          if(new_val>=58 & new_val<=80){
+            ploidy=3
+          }
+          if(new_val>=81 & new_val <= 103){
+            ploidy=4
+          }
+          if(new_val>=104 & new_val<=126){
+            ploidy=5
+          }
+          if(new_val >= 127 & new_val <= 149){
+            ploidy=6
+          }
+          if(new_val>= 150 & new_val <= 172){
+            ploidy=7
+          }
+          if(new_val >= 173 & new_val <= 195) {
+            ploidy=8
+          }
+          ##loop to get values here
+          if(ploidy == 1 )
+          {
+            
+            temp_table <-
+              data.frame(ref_table[, 1],
+                         rep(0, nrow(ref_table)),
+                         ref_table[, 2],
+                         rep("Loss", nrow(ref_table)))
+            temp_table<-temp_table[1:22,]
+            ##temp_table <-
+            ##temp_table[grep(paste("chr", clone_chrom_tracker, collapse = '|'),
+            ##              temp_table[, 1]), ]
+            
+            temp_table[, 4] <- as.character(temp_table[, 4])
+            temp_table <- as.matrix(temp_table)
+            sample_table[, 4] <- as.character(sample_table[, 4])
+            sample_table <- rbind(sample_table, temp_table)
+            sample_table[, 4] <- as.character(sample_table[, 4])
+
+          }else if(ploidy > 2 )
+          {
+            end<-(ploidy-2)
+            for (k in 1:end)
+            {
+              temp_table <-
+                data.frame(ref_table[, 1],
+                           rep(0, nrow(ref_table)),
+                           ref_table[, 2],
+                           rep("Gain", nrow(ref_table)))
+              temp_table<-temp_table[1:22,]
+              ##temp_table <-
+              ##temp_table[grep(paste("chr", clone_chrom_tracker, collapse = '|'),
+              ##                temp_table[, 1]), ]
+              
+              temp_table[, 4] <- as.character(temp_table[, 4])
+              temp_table <- as.matrix(temp_table)
+              sample_table[, 4] <- as.character(sample_table[, 4])
+              sample_table <- rbind(sample_table, temp_table)
+              sample_table[, 4] <- as.character(sample_table[, 4])
+            }
+            
+          }  
+          
+          print(c(new_val,ploidy))
+          
+          ##time to guess according to ranges if guessing is true
+          
+          ##put in dump table
+          Dump_table <-
+            rbind(Dump_table,
+                  c(
+                    as.vector(Con_data[i, ]),
+                    "Warning in some chromosomes unaccounted for"
+                  ))
+          print(c("unaccounted", Cyto_sample))
+          
         }else if(val_divider>1){
-          ##if doesnt match initially, try to see if bottom few match
+          ##if current ploidy cannot be estimated, see if the next decrease level in ploidy can be calculated
           val_temp=floor(val_divider)
           ploidy=val_temp+2
           if (val_temp > 0)
@@ -4400,11 +4696,12 @@ if(build =="GRCh38")
       difference=0
       count_after_mods=count_before_extras
       
-      ##if the x count is consitutional and we dont want to count the constitutional state, just print -xs as is 
-      if(constitutionalcount>0 && constitutional==F){
-        if((ydel) >= 1)
+      ##if mitelman specifications are true and there is no sex count, assume constitutionality, just count -X and - Y straight
+      if(forMtn==T & (xcount+ycount)==0){
+        constitutional=T
+        if((ydel-ydel_Q) >= 1)
         {
-          for(f in 1:ydel){
+          for(f in 1:(ydel-ydel_Q)){
             temp_table <-
               data.frame(ref_table[, 1],
                          rep(0, nrow(ref_table)),
@@ -4423,8 +4720,8 @@ if(build =="GRCh38")
             sample_table[, 4] <- as.character(sample_table[, 4])
           }
         }
-        if((xdel) >= 1){
-          for(f in 1:xdel){
+        if((xdel-xdel_Q) >= 1){
+          for(f in 1:(xdel-xdel_Q)){
             temp_table <-
               data.frame(ref_table[, 1],
                          rep(0, nrow(ref_table)),
@@ -4443,6 +4740,53 @@ if(build =="GRCh38")
             sample_table[, 4] <- as.character(sample_table[, 4])
           }
         } 
+      }else if(constitutionalcount>0 && constitutional==F){
+        ##if the x count is consitutional and we dont want to count the constitutional state, just print -xs as is 
+        
+        if((ydel-ydel_Q) >= 1)
+        {
+          for(f in 1:(ydel-ydel_Q)){
+            temp_table <-
+              data.frame(ref_table[, 1],
+                         rep(0, nrow(ref_table)),
+                         ref_table[, 2],
+                         rep("Loss", nrow(ref_table)))
+            ##temp_table <-
+            temp_table <-
+              temp_table[grep("chrY", temp_table[, 1]), ]
+            
+            temp_table[, 4] <- as.character(temp_table[, 4])
+            temp_table <- as.matrix(temp_table)
+            colnames(temp_table)<-colnames(sample_table)
+            
+            sample_table[, 4] <- as.character(sample_table[, 4])
+            sample_table <- rbind(sample_table, temp_table)
+            sample_table[, 4] <- as.character(sample_table[, 4])
+          }
+        }
+        if((xdel-xdel_Q) >= 1){
+          for(f in 1:(xdel-xdel_Q)){
+            temp_table <-
+              data.frame(ref_table[, 1],
+                         rep(0, nrow(ref_table)),
+                         ref_table[, 2],
+                         rep("Loss", nrow(ref_table)))
+            ##temp_table <-
+            temp_table <-
+              temp_table[grep("chrX", temp_table[, 1]), ]
+            
+            temp_table[, 4] <- as.character(temp_table[, 4])
+            temp_table <- as.matrix(temp_table)
+            colnames(temp_table)<-colnames(sample_table)
+            
+            sample_table[, 4] <- as.character(sample_table[, 4])
+            sample_table <- rbind(sample_table, temp_table)
+            sample_table[, 4] <- as.character(sample_table[, 4])
+          }
+        } 
+        
+        
+        
       }else{
         ##do the complicated calculations
         ##if we need to take into account ploidy
@@ -4608,59 +4952,61 @@ if(build =="GRCh38")
                   }
                 }
               
-            }else if(sexDev_from_norm < 0){
+            }else if((sexDev_from_norm ) < 0){
               ynew=0
-              for(f in 1:(-1*sexDev_from_norm))
+              if((sexDev_from_norm + xdel_Q +ydel_Q) < 0)
               {
-               
-            
-                  if((ycount+ymod) < (ynew +normY)  )
-                  {
-                    temp_table <-
-                      data.frame(ref_table[, 1],
-                                 rep(0, nrow(ref_table)),
-                                 ref_table[, 2],
-                                 rep("Loss", nrow(ref_table)))
-                    ##temp_table <-
-                    temp_table <-
-                      temp_table[grep("chrY", temp_table[, 1]), ]
-                    
-                    temp_table[, 4] <- as.character(temp_table[, 4])
-                    temp_table <- as.matrix(temp_table)
-                    colnames(temp_table)<-colnames(sample_table)
-                    
-                    sample_table[, 4] <- as.character(sample_table[, 4])
-                    sample_table <- rbind(sample_table, temp_table)
-                    sample_table[, 4] <- as.character(sample_table[, 4])
-                    ynew=ynew+1
-                    
-                  }else{
-                    
-                    
-                    temp_table <-
-                      data.frame(ref_table[, 1],
-                                 rep(0, nrow(ref_table)),
-                                 ref_table[, 2],
-                                 rep("Loss", nrow(ref_table)))
-                    temp_table <-
-                      temp_table[grep("chrX", temp_table[, 1]), ]
-                    
-                    temp_table[, 4] <- as.character(temp_table[, 4])
-                    temp_table <- as.matrix(temp_table)
-                    colnames(temp_table)<-colnames(sample_table)
-                    
-                    sample_table[, 4] <- as.character(sample_table[, 4])
-                    sample_table <- rbind(sample_table, temp_table)
-                    sample_table[, 4] <- as.character(sample_table[, 4])
-                    
-                  }
+                for(f in 1:(-1*(sexDev_from_norm+xdel_Q+ydel_Q)))
+                {
+                 
+              
+                    if((ycount+ymod) < (ynew +normY)  )
+                    {
+                      temp_table <-
+                        data.frame(ref_table[, 1],
+                                   rep(0, nrow(ref_table)),
+                                   ref_table[, 2],
+                                   rep("Loss", nrow(ref_table)))
+                      ##temp_table <-
+                      temp_table <-
+                        temp_table[grep("chrY", temp_table[, 1]), ]
+                      
+                      temp_table[, 4] <- as.character(temp_table[, 4])
+                      temp_table <- as.matrix(temp_table)
+                      colnames(temp_table)<-colnames(sample_table)
+                      
+                      sample_table[, 4] <- as.character(sample_table[, 4])
+                      sample_table <- rbind(sample_table, temp_table)
+                      sample_table[, 4] <- as.character(sample_table[, 4])
+                      ynew=ynew+1
+                      
+                    }else{
+                      
+                      
+                      temp_table <-
+                        data.frame(ref_table[, 1],
+                                   rep(0, nrow(ref_table)),
+                                   ref_table[, 2],
+                                   rep("Loss", nrow(ref_table)))
+                      temp_table <-
+                        temp_table[grep("chrX", temp_table[, 1]), ]
+                      
+                      temp_table[, 4] <- as.character(temp_table[, 4])
+                      temp_table <- as.matrix(temp_table)
+                      colnames(temp_table)<-colnames(sample_table)
+                      
+                      sample_table[, 4] <- as.character(sample_table[, 4])
+                      sample_table <- rbind(sample_table, temp_table)
+                      sample_table[, 4] <- as.character(sample_table[, 4])
+                      
+                    }
+                }
               }
-            
             }else{
               ##if sexDev == 0, make sure to take into account -y and XX canceling out 
-                if((ydel) >= 1)
+                if((ydel-ydel_Q) >= 1)
                 {
-                    for(f in 1:ydel){
+                    for(f in 1:(ydel-ydel_Q)){
                      temp_table <-
                       data.frame(ref_table[, 1],
                                  rep(0, nrow(ref_table)),
