@@ -337,6 +337,29 @@ if(build =="GRCh38")
   
   ##convert to genomic coordinates (used in parser several times)
   ##function for getting cytobands for translocations and insertions (taking compliment of stuff not included in discription)
+  ##helper function to handle temporary storage and restoration of chromosome data
+  storeRemainingData <- function(temp, derMods, lengthcount) {
+    tempstorage <- NULL                                 # Temporary storage for remaining chromosome data beyond current processing pair
+    tempdermods <- NULL                                 # Temporary storage for remaining derivative modifications beyond current processing pair
+    
+    if((length(temp)) > (lengthcount*2)) {              # If there are more chromosome-position pairs to process after current one
+      tempstorage <- temp[[((lengthcount*2)+1):length(temp)]]       # Store remaining chromosome data
+      tempdermods <- derMods[((lengthcount*2)+1):length(temp)]      # Store remaining derivative modification data
+    }
+    
+    return(list(tempstorage = tempstorage, tempdermods = tempdermods))
+  }
+  
+  ##helper function to restore temporarily stored data
+  restoreRemainingData <- function(temp, derMods, tempstorage, tempdermods) {
+    if(!is.null(tempstorage)) {                         # If there was remaining data stored temporarily
+      temp <- c(temp, tempstorage)                      # Restore remaining chromosome data
+      derMods <- c(derMods, tempdermods)                # Restore remaining derivative modification data
+    }
+    
+    return(list(temp = temp, derMods = derMods))
+  }
+
   ##helper function to update derMods array with new transdermod data
   updateDerMods <- function(derMods, lengthcount, transdermod) {
     derMods[(lengthcount*2)-1] <- transdermod[1]          # Update first derivative modification
@@ -368,6 +391,15 @@ if(build =="GRCh38")
     return(list(in_table = in_table, addBool = addBool))
   }
 
+  ##getCytoBands function: Extracts and processes cytogenetic band information
+  ##Handles complex cytogenetic notation including translocations, insertions, and ring chromosomes
+  ##Parameters:
+  ##  lengthcount - current position in chromosome-position pair processing
+  ##  o - index for current position being processed  
+  ##  temp - parsed chromosome and position data
+  ##  coln - column index of cytogenetic data
+  ##  derMods - derivative modifications array
+  ##Returns: List containing processed band data and early return flag
   getCytoBands <- function(lengthcount, o, temp,coln,derMods) {
     ##must take into account acen and qter pter and only one listing (will have to relte to two), reuse later code for this
     chr_table <-
@@ -623,7 +655,11 @@ if(build =="GRCh38")
   
   
   
-  ##make sure the order of the bands is in the order we like (p to q highers ps to low, lower qs to high )
+  ##positionsorter function: Orders cytogenetic band positions correctly
+  ##Ensures positions are ordered from p-arm to q-arm and in proper numeric sequence
+  ##Parameters: 
+  ##  positions - vector of cytogenetic band positions (e.g., "p11", "q21")
+  ##Returns: Properly ordered position vector
   positionsorter<-function(positions){
     ##if(length(positions)==2)
     ##{
@@ -669,13 +705,19 @@ if(build =="GRCh38")
   
   
   
-  ##function for separating normal data
-  ##take into acc same chrom insestion
-  ##add cen into here (pter qter analouge)
-  
+  ##parser function: Main cytogenetic karyotype parsing function
+  ##Processes cytogenetic nomenclature strings and converts them to genomic coordinates
+  ##Parameters:
+  ##  coln - column index of the cytogenetic data being processed
+  ##  xmod - X chromosome modifications tracking
+  ##  ymod - Y chromosome modifications tracking  
+  ##  transloctable - lookup table for translocation coordinates
+  ##  addtot - total additions/gains counter
+  ##  Cyto - cytogenetic data array containing karyotype strings
+  ##Returns: Processed coordinate data for gains/losses
   parser <- function(coln, xmod, ymod, transloctable,addtot,Cyto)
   {
-    Cyto_sample<-Cyto
+    Cyto_sample<-Cyto                                   # Working copy of cytogenetic data for this parsing operation
     
     ##for or statements, take first statement
     Cyto_sample[coln]<-gsub("or.*$","",Cyto_sample[coln])
@@ -727,9 +769,9 @@ if(build =="GRCh38")
     if (length(temp) > 0)
     {
       ##chooses main chr for exclusion
-      Mainchr <- temp[[1]]
-      Mainchr <- paste(Mainchr, "$", sep = "")
-      Mainchr<-gsub("p|q","",Mainchr)
+      Mainchr <- temp[[1]]                             # Extract main chromosome from first parsed element
+      Mainchr <- paste(Mainchr, "$", sep = "")         # Add end-of-string marker for regex matching
+      Mainchr<-gsub("p|q","",Mainchr)                  # Remove arm designations (p/q) to get chromosome number only
       
       
     }
@@ -1010,16 +1052,10 @@ if(build =="GRCh38")
                
                  tempRing<-list(unlist(temp[[rindex]]), tempRingPosition)                # Create ring chromosome data structure
                  derModsRing<-c(paste("r(",paste(unlist(temp),sep="",collapse=";"),sep=""),paste("(",paste(tempRingPosition,collapse = ";"),sep=""))  # Create ring chromosome derivative modifications
-                 tempstorage<-NULL                              # Temporary storage for remaining data beyond ring processing
-                 tempdermods<-NULL                              # Temporary storage for remaining derivative modifications beyond ring processing
                  
-                 if((length(temp))>(lengthcount*2))             # If there are more chromosome-position pairs after ring processing
-                 {
-                   tempstorage<-temp[((lengthcount*2)):length(temp)]          # Store remaining chromosome data
-                   tempdermods<-derMods[((lengthcount*2)):length(temp)]       # Store remaining derivative modification data
-                   
-                   
-                 }
+                 storage_result <- storeRemainingData(temp, derMods, lengthcount)     # Store remaining data temporarily
+                 tempstorage <- storage_result$tempstorage
+                 tempdermods <- storage_result$tempdermods
                  
                  temp[[(lengthcount*2-1)]]<-tempRing[[1]]
                  
@@ -1139,15 +1175,9 @@ if(build =="GRCh38")
               
               transdermod<-unlist(lapply(dertransextract,function(x){y<-paste("+",x,sep="");strsplit(y, "\\)")}))
               ##make temp storage for rest of temp
-              tempstorage<-NULL                         # Temporary storage for remaining chromosome data beyond current processing pair
-              tempdermods<-NULL                         # Temporary storage for remaining derivative modifications beyond current processing pair
-              if((length(temp))>(lengthcount*2))        # If there are more chromosome-position pairs to process after current one
-              {
-                tempstorage<-temp[[((lengthcount*2)+1):length(temp)]]     # Store remaining chromosome data
-                tempdermods<-derMods[((lengthcount*2)+1):length(temp)]    # Store remaining derivative modification data
-                
-                
-              }
+              storage_result <- storeRemainingData(temp, derMods, lengthcount)  # Store remaining data temporarily
+              tempstorage <- storage_result$tempstorage
+              tempdermods <- storage_result$tempdermods
               
               temp[[(lengthcount*2-1)]]<-transtemp[[1]]
               
@@ -1165,12 +1195,9 @@ if(build =="GRCh38")
               
               
               ##restore any remaining data that was temporarily stored
-              if(!is.null(tempstorage))               # If there was remaining data stored temporarily
-              {
-                temp<-c(temp,tempstorage)             # Restore remaining chromosome data
-                derMods<-c(derMods,tempdermods)       # Restore remaining derivative modification data
-                
-              }
+              restore_result <- restoreRemainingData(temp, derMods, tempstorage, tempdermods)  # Restore remaining data
+              temp <- restore_result$temp
+              derMods <- restore_result$derMods
               
             }else{
             
@@ -1403,15 +1430,9 @@ if(build =="GRCh38")
             
             transdermod<-unlist(lapply(dertransextract,function(x){y<-paste("+",x,sep="");strsplit(y, "\\)")}))
             ##make temp storage for rest of temp
-            tempstorage<-NULL                           # Temporary storage for remaining chromosome data beyond current processing pair
-            tempdermods<-NULL                           # Temporary storage for remaining derivative modifications beyond current processing pair
-            if((length(temp))>(lengthcount*2))          # If there are more chromosome-position pairs to process after current one
-            {
-              tempstorage<-temp[[((lengthcount*2)+1):length(temp)]]       # Store remaining chromosome data
-              tempdermods<-derMods[((lengthcount*2)+1):length(temp)]      # Store remaining derivative modification data
-            
-              
-            }
+            storage_result <- storeRemainingData(temp, derMods, lengthcount)    # Store remaining data temporarily
+            tempstorage <- storage_result$tempstorage
+            tempdermods <- storage_result$tempdermods
             
             temp[[(lengthcount*2-1)]]<-transtemp[[1]]
             
@@ -1429,12 +1450,9 @@ if(build =="GRCh38")
             
             
             ##restore any remaining data that was temporarily stored
-            if(!is.null(tempstorage))                 # If there was remaining data stored temporarily
-            {
-              temp<-c(temp,tempstorage)               # Restore remaining chromosome data
-              derMods<-c(derMods,tempdermods)         # Restore remaining derivative modification data
-              
-            }
+            restore_result <- restoreRemainingData(temp, derMods, tempstorage, tempdermods)    # Restore remaining data
+            temp <- restore_result$temp
+            derMods <- restore_result$derMods
             
           }
           
@@ -3037,8 +3055,8 @@ if(build =="GRCh38")
         nxt<-mergeDel(G[i,], L[j,])
         modified<-nxt[[2]]
         nxt<-nxt[[1]]
-        w<-union(intersect(grep("del", nxt[, 3]),grep("^del", nxt[, 3],invert=T)),intersect(grep("add", nxt[, 3]),grep("^add", nxt[,3],invert=T)))
-        if(length(w)>0){newL<-rbind(newL, nxt[w,],
+        del_add_indices<-union(intersect(grep("del", nxt[, 3]),grep("^del", nxt[, 3],invert=T)),intersect(grep("add", nxt[, 3]),grep("^add", nxt[,3],invert=T)))  # Find rows with del/add patterns
+        if(length(del_add_indices)>0){newL<-rbind(newL, nxt[del_add_indices,],
                                     if(nrow(L) >1 && !is.vector(L[-j,]) && nrow(L[-j,])>=j && !modified){L[-j,][j:nrow(L[-j,]),]}
         )
         }else if(nrow(nxt)>0){newL<-rbind(newL,if(nrow(L)>1 && !is.vector(L[-j,]) && nrow(L[-j,])>=j && !modified){L[-j,][j:nrow(L[-j,]),]})}else if(!is.vector(L[-j,])){newL<-rbind(newL,apply(L[-j,],2,as.character))}else{newL<-rbind(newL,sapply(L[-j,],as.character))}
