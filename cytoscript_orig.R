@@ -337,6 +337,11 @@ if(build =="GRCh38")
   
   ##convert to genomic coordinates (used in parser several times)
   ##function for getting cytobands for translocations and insertions (taking compliment of stuff not included in discription)
+  #############################################################################
+  ## HELPER FUNCTIONS FOR CYTOGENETIC PARSING
+  ## These functions reduce complexity and code duplication in the main parser
+  #############################################################################
+  
   ##helper function to handle temporary storage and restoration of chromosome data
   storeRemainingData <- function(temp, derMods, lengthcount) {
     tempstorage <- NULL                                 # Temporary storage for remaining chromosome data beyond current processing pair
@@ -705,6 +710,10 @@ if(build =="GRCh38")
   
   
   
+  #############################################################################  
+  ## MAIN CYTOGENETIC PARSING FUNCTIONS
+  #############################################################################
+  
   ##parser function: Main cytogenetic karyotype parsing function
   ##Processes cytogenetic nomenclature strings and converts them to genomic coordinates
   ##Parameters:
@@ -1023,8 +1032,21 @@ if(build =="GRCh38")
             {
               arm="q10"
             }
-            temp<-c(if((lengthcount*2-1)!=1){temp[1:(lengthcount*2-1)]}else{temp[(lengthcount*2-1)]},arm,if(length(temp)>=2){temp[[(lengthcount*2):length(temp)]]})
-            temp[[(lengthcount*2-1)]]<-gsub("p|q","",temp[[(lengthcount*2-1)]])
+            # Reconstruct temp array with arm designation inserted at correct position
+            temp_start <- if((lengthcount*2-1)!=1) {                    # Get elements before current position
+              temp[1:(lengthcount*2-1)]
+            } else {
+              temp[(lengthcount*2-1)]
+            }
+            
+            temp_end <- if(length(temp)>=2) {                           # Get elements after current position
+              temp[[(lengthcount*2):length(temp)]]
+            } else {
+              NULL
+            }
+            
+            temp <- c(temp_start, arm, temp_end)                        # Combine with arm designation
+            temp[[(lengthcount*2-1)]] <- gsub("p|q","",temp[[(lengthcount*2-1)]])  # Remove arm letters from chromosome
             
         }
          
@@ -2946,6 +2968,10 @@ if(build =="GRCh38")
   ### the top column is the merge of it and everything below
   ### that overlaps with it (these get replaced by c(NA,NA,NA)s)
   
+  ##mergeBelow function: Merges overlapping or adjacent cytogenetic intervals
+  ##Consolidates consecutive rows in a table that represent contiguous genomic regions  
+  ##Parameters: tbl - table with chromosome, start, end coordinates
+  ##Returns: Table with merged intervals, replaced intervals marked as NA
   mergeBelow<-function(tbl){
     for(i in 2:nrow(tbl)){
       nxt<-mergeInt(t(tbl[1,2:3])[,1], t(tbl[i,2:3])[,1])
@@ -2953,13 +2979,16 @@ if(build =="GRCh38")
       tbl[i,]<-c(NA,NA,NA)}}
     return(tbl)} 
   
-  ##for losses, merge consecutive things togehter
+  ##mergeBelowL function: Specialized merger for loss intervals
+  ##Merges consecutive chromosomal loss events into larger contiguous regions
+  ##Parameters: tbl - table with loss coordinates  
+  ##Returns: Table with merged loss intervals
   mergeBelowL<-function(tbl){
     for(i in 2:nrow(tbl)){
       nxt<-mergeIntL(t(tbl[1,2:3])[,1], t(tbl[i,2:3])[,1])
       if(!is.na(nxt[1])&(tbl[1,3]==tbl[i,2])){tbl[1,2:3]<-nxt
       tbl[i,]<-c(NA,NA,NA)}}
-    return(tbl)} 
+    return(tbl)}
   
   
   ###use machinery for deletion intervals
