@@ -6,6 +6,223 @@
 mod_utils <- modules::use('modules/utils.R')
 mod_cytobands <- modules::use('modules/cytobands.R')
 
+#' Helper function to handle derivative chromosome processing
+#' @param Cyto_sample The cytogenetic sample data
+#' @param coln Column number
+#' @param derMods Derivative modifications
+#' @param temp Temporary data structure
+#' @param addBool Addition boolean string
+#' @param transloctable Translocation lookup table
+#' @return List containing updated derMods, temp, and addBool
+handle_derivative_chromosome <- function(Cyto_sample, coln, derMods, temp, addBool, transloctable = NULL) {
+    # Check for long derivative chromosome descriptions
+    if (grepl("der\\([0-9;]+\\)\\(|rec\\([0-9;]+\\)\\(", Cyto_sample[coln]) &
+        !grepl("ider", Cyto_sample[coln])) {
+        addBool <- paste(addBool, "LongDer", sep = "")
+        return(list(derMods = derMods, temp = temp, addBool = addBool))
+    }
+    
+    # Handle standard derivative/recombinant chromosomes
+    if (grepl("der|rec|dic", Cyto_sample[coln]) & !grepl("ider|idic", Cyto_sample[coln])) {
+        return(handle_standard_derivative(Cyto_sample, coln, derMods, temp, addBool, transloctable))
+    }
+    
+    return(list(derMods = derMods, temp = temp, addBool = addBool))
+}
+
+#' Helper function to handle standard derivative chromosomes
+#' @param Cyto_sample The cytogenetic sample data
+#' @param coln Column number
+#' @param derMods Derivative modifications
+#' @param temp Temporary data structure
+#' @param addBool Addition boolean string
+#' @param transloctable Translocation lookup table
+#' @return List containing updated derMods, temp, and addBool
+handle_standard_derivative <- function(Cyto_sample, coln, derMods, temp, addBool, transloctable = NULL) {
+    if (grepl("der|rec", Cyto_sample[coln])) {
+        addBool <- paste(addBool, derMods[1], sep = "")
+    }
+    
+    # Handle complex derivative patterns
+    if (grepl("der\\([[:alnum:]]+(;[[:alnum:]])*\\)[[:alpha:]]+|rec\\([[:alnum:]]+(;[[:alnum:]])*\\)[[:alpha:]]+", 
+              Cyto_sample[coln])) {
+        return(handle_complex_derivative_pattern(Cyto_sample, coln, derMods, temp, addBool))
+    }
+    
+    # Handle ring chromosomes
+    if (grepl("der|rec", Cyto_sample[coln]) && !is.na(derMods) && 
+        length(derMods) > 1 && grepl("^r\\(", derMods[2])) {
+        derMods <- utils::tail(derMods, length(derMods) - 1)
+        temp <- utils::tail(temp, length(temp) - 1)
+    }
+    
+    # Handle translocation cases
+    if (grepl("der\\([[:digit:]]+;[[:digit:]]+\\)t\\(|dic\\([[:digit:]]+;[[:digit:]]+\\)t\\(", 
+              Cyto_sample[coln])) {
+        return(handle_translocation_cases(Cyto_sample, coln, derMods, temp, addBool, transloctable))
+    }
+    
+    return(list(derMods = derMods, temp = temp, addBool = addBool))
+}
+
+#' Helper function to handle complex derivative patterns
+#' @param Cyto_sample The cytogenetic sample data
+#' @param coln Column number
+#' @param derMods Derivative modifications
+#' @param temp Temporary data structure
+#' @param addBool Addition boolean string
+#' @return List containing updated derMods, temp, and addBool
+handle_complex_derivative_pattern <- function(Cyto_sample, coln, derMods, temp, addBool) {
+    derMods <- strsplit(
+        Cyto_sample[coln],
+        "(der|rec)\\([[:digit:]XY]+(;[[:digit:]XY])*\\)"
+    )[[1]][2]
+    
+    derMods <- strsplit(derMods, "\\)")[[1]]
+    temp <- utils::tail(temp, length(temp) - 1)
+    
+    return(list(derMods = derMods, temp = temp, addBool = addBool))
+}
+
+#' Helper function to handle translocation cases
+#' @param Cyto_sample The cytogenetic sample data
+#' @param coln Column number
+#' @param derMods Derivative modifications
+#' @param temp Temporary data structure
+#' @param addBool Addition boolean string
+#' @param transloctable Translocation lookup table
+#' @return List containing updated derMods, temp, and addBool
+handle_translocation_cases <- function(Cyto_sample, coln, derMods, temp, addBool, transloctable = NULL) {
+    # Handle fully described translocations
+    if (grepl("der\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)\\(|dic\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)\\(", 
+              Cyto_sample[coln])) {
+        return(handle_fully_described_translocation(Cyto_sample, coln, derMods, temp, addBool))
+    }
+    
+    # Handle translocations requiring lookup
+    if (grepl("der\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)|dic\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)", 
+              Cyto_sample[coln])) {
+        return(handle_translocation_lookup(Cyto_sample, coln, derMods, temp, addBool, transloctable))
+    }
+    
+    return(list(derMods = derMods, temp = temp, addBool = addBool))
+}
+
+#' Helper function to handle translocation lookup
+#' @param Cyto_sample The cytogenetic sample data
+#' @param coln Column number
+#' @param derMods Derivative modifications
+#' @param temp Temporary data structure
+#' @param addBool Addition boolean string
+#' @param transloctable Translocation lookup table
+#' @return List containing updated derMods, temp, and addBool
+handle_translocation_lookup <- function(Cyto_sample, coln, derMods, temp, addBool, transloctable) {
+    # Check if translocation is found in lookup table
+    if (length(transloctable) > 0 && grepl(derMods[2], names(transloctable), perl = F, fixed = T)) {
+        # Get translocation position information
+        addOnTrans <- names(transloctable)[grep(derMods[2], names(transloctable), perl = F, fixed = T)]
+        addOnTrans <- strsplit(addOnTrans, "\\)")[[1]][2]
+        addOnTransTemp <- strsplit(gsub("\\(|\\)", "", addOnTrans), ";")
+        
+        # Update derMods and temp based on translocation length
+        if (length(derMods) > 2) {
+            derMods <- c(derMods[1:2], addOnTrans, derMods[3:length(derMods)])
+            temp <- c(temp[1:2], addOnTransTemp, temp[3:length(temp)])
+        } else {
+            derMods <- c(derMods[1:2], addOnTrans)
+            temp <- c(temp[1:2], addOnTransTemp)
+        }
+        
+        # Convert der to dic if needed
+        if (grepl("der\\(", Cyto_sample[coln])) {
+            derMods[1] <- gsub("der", "dic", derMods[1])
+            addBool[1] <- gsub("der", "dic", addBool[1])
+        }
+        
+        # Remove translocation from both temp and derMods
+        derMods <- derMods[-2]
+        temp <- temp[-2]
+        
+        return(list(derMods = derMods, temp = temp, addBool = addBool))
+    } else {
+        print("translocation undefined")
+        return(NULL)
+    }
+}
+
+#' Helper function to handle fully described translocations
+#' @param Cyto_sample The cytogenetic sample data
+#' @param coln Column number
+#' @param derMods Derivative modifications
+#' @param temp Temporary data structure
+#' @param addBool Addition boolean string
+#' @return List containing updated derMods, temp, and addBool
+handle_fully_described_translocation <- function(Cyto_sample, coln, derMods, temp, addBool) {
+    # Replace der with dic if present
+    if (grepl("der\\(", Cyto_sample[coln])) {
+        derMods[1] <- gsub("der", "dic", derMods[1])
+        addBool[1] <- gsub("der", "dic", addBool[1])
+    }
+    
+    # Remove translocation from both temp and derMods
+    derMods <- derMods[-2]
+    temp <- temp[-2]
+    
+    return(list(derMods = derMods, temp = temp, addBool = addBool))
+}
+
+#' Column Parser for Cytogenetic Data
+#'
+#' @description
+#' This function processes individual columns of cytogenetic data, handling various types
+#' of chromosomal aberrations including derivative chromosomes, translocations, and 
+#' other structural variations. The function separates normal data and handles same 
+#' chromosome insertions.
+#'
+#' @param Cyto_ref_table Reference table containing cytogenetic band information
+#' @param ref_table Reference genome table for coordinate mapping
+#' @param coln Column number to process in the cytogenetic sample
+#' @param xmod X chromosome modifications count
+#' @param ymod Y chromosome modifications count  
+#' @param transloctable Table containing translocation lookup information
+#' @param addtot Addition total count
+#' @param Cyto Cytogenetic sample data vector
+#' @param guess_q Logical, whether to guess '?' marks in karyotypes
+#' @param constitutional Logical, whether to include constitutional variations
+#' @param forMtn Logical, whether to include Mountain regions
+#'
+#' @return List containing coordinate tables and processing results
+#'
+#' @details
+#' The function processes cytogenetic nomenclature by:
+#' \itemize{
+#'   \item Handling 'or' statements by taking the first option
+#'   \item Processing question marks based on guess_q parameter
+#'   \item Managing constitutional variations if specified
+#'   \item Parsing derivative chromosomes with translocations
+#'   \item Converting cytogenetic bands to genomic coordinates
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' result <- colparse(
+#'   Cyto_ref_table = cyto_ref_table,
+#'   ref_table = ref_table,
+#'   coln = 1,
+#'   xmod = 0,
+#'   ymod = 0,
+#'   transloctable = list(),
+#'   addtot = 0,
+#'   Cyto = c("46,XY,+21"),
+#'   guess_q = FALSE,
+#'   constitutional = TRUE,
+#'   forMtn = TRUE
+#' )
+#' }
+#'
+#' @seealso 
+#' \code{\link{handle_derivative_chromosome}}, \code{\link{handle_translocation_cases}}
+#'
 colparse <- function(
         Cyto_ref_table,
         ref_table,
@@ -92,146 +309,11 @@ colparse <- function(
         Mainchr <- gsub("p|q", "", Mainchr)
     }
   
-    # If it straight up describes derivative makeup afterwads
-    if (
-        grepl(
-            "der\\([0-9;]+\\)\\(|rec\\([0-9;]+\\)\\(",
-            Cyto_sample[coln]
-        )
-        & !grepl("ider", Cyto_sample[coln])
-    ) {
-        addBool <- paste(addBool, "LongDer", sep = "")
-
-    } else if (
-        grepl("der|rec|dic", Cyto_sample[coln])
-        & !grepl("ider|idic", Cyto_sample[coln])
-
-    ) {
-        if (grepl("der|rec", Cyto_sample[coln])) {
-            addBool <- paste(addBool, derMods[1], sep = "")
-
-        }
-
-        # Something is going wrong where when i changed this
-        #   only want more than one
-        if (
-            grepl(
-                "der\\([[:alnum:]]+(;[[:alnum:]])*\\)[[:alpha:]]+|rec\\([[:alnum:]]+(;[[:alnum:]])*\\)[[:alpha:]]+",
-                Cyto_sample[coln]
-            )
-        ) {
-            derMods <- strsplit(
-                Cyto_sample[coln],
-                "(der|rec)\\([[:digit:]XY]+(;[[:digit:]XY])*\\)"
-            )[[1]][2]
-      
-            derMods <- strsplit(derMods, "\\)")[[1]]
-            temp <- utils::tail(temp, length(temp) - 1)
-
-        } else if (
-            grepl("der|rec", Cyto_sample[coln])
-            && !is.na(derMods)
-            && length(derMods) > 1
-            && grepl("^r\\(", derMods[2])
-        ) {
-            derMods <- utils::tail(derMods, length(derMods) - 1)
-            temp <- utils::tail(temp, length(temp) - 1)
-      
-        } else if (
-            grepl(
-                "der\\([[:digit:]]+;[[:digit:]]+\\)t\\(|dic\\([[:digit:]]+;[[:digit:]]+\\)t\\(",
-                Cyto_sample[coln]
-            )
-        ) {
-            # handle der(11;13)t( and dic(11;13)t( esq cases here
-      
-            # remember to search t(11;13 if its referring to previous call of translocation
-            # figure out how to do this
-      
-            # this will only work with two translocations and the translocation must immediantly
-            #   follow the der or dic
-      
-            if (
-                grepl(
-                    "der\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)\\(|dic\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)\\(",
-                    Cyto_sample[coln]
-                )
-            ) {
-                # translocation is fully described
-                if (grepl("der\\(", Cyto_sample[coln])) {
-                    # replace der with dic
-                    derMods[1] <- gsub("der", "dic", derMods[1])
-                    # delete der so its treated like a pure dic
-                    addBool[1] <- gsub("der", "dic", addBool[1])
-
-                }
-        
-                # delete translocation from both temp and derMods
-                derMods <- derMods[-2]
-                temp <- temp[-2]
-
-            } else if (
-                grepl(
-                    "der\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)|dic\\([[:digit:]]+;[[:digit:]]+\\)t\\([[:digit:]]+;[[:digit:]]+\\)",
-                    Cyto_sample[coln]
-                )
-            ) {
-                # if the translocation needs lookup
-        
-                # see if translocation is found
-                # else this thing crashes
-                if (
-                    length(transloctable) > 0
-                    && grepl(
-                        derMods[2],
-                        names(transloctable),
-                        perl = F,
-                        fixed = T
-                    )
-                ) {
-                    # last chunk of translocation indicating position
-                    addOnTrans <- names(transloctable)[
-                        grep(
-                            derMods[2],
-                            names(transloctable),
-                            perl = F,
-                            fixed = T
-                        )
-                    ]
-                    addOnTrans <- strsplit(addOnTrans, "\\)")[[1]][2]
-                    addOnTransTemp <- strsplit(gsub("\\(|\\)", "", addOnTrans), ";")
-
-                    # if the string is longer than just the translocation
-                    if (length(derMods) > 2) {
-                        derMods <- c(derMods[1:2], addOnTrans, derMods[3:length(derMods)])
-                        temp <- c(temp[1:2], addOnTransTemp, temp[3:length(temp)])
-
-                    } else {
-                        # just the der and the translocation
-                        derMods <- c(derMods[1:2], addOnTrans)
-                        temp <- c(temp[1:2], addOnTransTemp)
-
-                    }
-          
-                    if (grepl("der\\(", Cyto_sample[coln])) {
-                        # replace der with dic
-                        derMods[1] <- gsub("der", "dic", derMods[1])
-                        # delete der so its treated like a pure dic
-                        addBool[1] <- gsub("der", "dic", addBool[1])
-            
-                    }
-          
-                    # delete translocation from both temp and derMods
-                    derMods <- derMods[-2]
-                    temp <- temp[-2]
-
-                } else {
-                    print("translocation undefined")
-                    return(NULL)
-                }
-            }
-        }
-    }
+    # Handle derivative chromosome processing using helper function
+    derivative_result <- handle_derivative_chromosome(Cyto_sample, coln, derMods, temp, addBool, transloctable)
+    derMods <- derivative_result$derMods
+    temp <- derivative_result$temp
+    addBool <- derivative_result$addBool
   
   
   

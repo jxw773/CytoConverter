@@ -1,25 +1,49 @@
 # CytoConverter
 
-ISB-CGC-CytoConverter code is modified from a fork of the CytoConverter project: [https://github.com/jxw773/CytoConverter](https://github.com/jxw773/CytoConverter)
+[![R Version](https://img.shields.io/badge/R-%E2%89%A5%204.0-blue.svg)](https://www.r-project.org/)
+[![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
 
-[CytoConverter: a web-based tool to convert karyotypes to genomic coordinates](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-019-3062-4)
+CytoConverter is a powerful R tool that converts cytogenetic nomenclature (karyotypes) into genomic coordinates. This enables researchers to bridge the gap between traditional cytogenetic analysis and modern genomic approaches.
 
-Cytogenetic nomenclature is used to describe chromosomal aberrations (or lack thereof) in a collection of cells, referred to as the cells’ karyotype. The nomenclature identifies locations on chromosomes using a system of cytogenetic bands, each with a unique name and region on a chromosome. Each band is microscopically visible after staining, and encompasses a large portion of the chromosome. More modern analyses employ genomic coordinates, which precisely specify a chromosomal location according to its distance from the end of the chromosome. Currently, there is no tool to convert cytogenetic nomenclature into genomic coordinates. Since locations of genes and other genomic features are usually specified by genomic coordinates, a conversion tool will facilitate the identification of the features that are harbored in the regions of chromosomal gain and loss that are implied by a karyotype.
+## Overview
+
+**ISB-CGC-CytoConverter** is modified from a fork of the [CytoConverter project](https://github.com/jxw773/CytoConverter).
+
+**Research Paper**: [CytoConverter: a web-based tool to convert karyotypes to genomic coordinates](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-019-3062-4)
+
+### What is CytoConverter?
+
+Cytogenetic nomenclature describes chromosomal aberrations using a system of cytogenetic bands - regions on chromosomes that are microscopically visible after staining. Modern genomic analyses use precise genomic coordinates that specify chromosomal locations by distance from chromosome ends.
+
+CytoConverter fills this critical gap by:
+- **Converting** cytogenetic band notation to precise genomic coordinates
+- **Identifying** regions of chromosomal gain and loss from karyotype data
+- **Facilitating** integration with modern genomic feature databases
+- **Supporting** multiple genome builds (GRCh38, hg19, hg18, hg17)
 
 ## Requirements
 
-CytoConverter requires R 4.0+. Before running the main script, make sure that required R packages
-are installed by changing to the CytoConverter directory and running:
+**Prerequisites:**
+- R 4.0 or higher
+- Required R packages (automatically installed via init script)
 
-```
+**Installation:**
+
+1. Clone or download the CytoConverter repository
+2. Navigate to the CytoConverter directory 
+3. Install required dependencies:
+
+```bash
 ./init.R
 ```
 
-## Running CytoConverter
+## Usage
 
-Run CytoConverter with the wrapper script using the following command:
+### Command Line Interface
 
-```
+Run CytoConverter with the wrapper script:
+
+```bash
 ./cytoconverter \
   --input input-file.txt \
   --threads 4 \
@@ -27,25 +51,74 @@ Run CytoConverter with the wrapper script using the following command:
   --log log-file.txt
 ```
 
-Adjust parameters for your specific run:
+**Parameters:**
+- `input`: Input file of sample names and associated karyotypes, one per line, tab delimited
+- `threads`: Number of parallel threads to run (input file will be split accordingly)
+- `output`: Output file containing genomic coordinates and gain/loss indicators for all samples
+- `log`: Log file containing warnings or errors encountered during processing
 
-- input: Input file of sample names and associated karyotypes, one per line, tab delimited.
-- threads: Number of parallel threads to run. The input file will be split into pieces accordingly.
-- output: Output file containing genomic coordinates and indications of gain or loss for all samples.
-- log: Log file containing any warnings or errors encountered during processing.
+### R API Usage
 
+```r
+# Load the CytoConverter function
+source("modules/cytoconverter.R")
+
+# Basic usage with karyotype string
+result <- CytoConverter("46,XY,+21")
+
+# Usage with data table
+karyotype_data <- data.frame(
+  Sample = c("Sample1", "Sample2"),
+  Karyotype = c("46,XY,+21", "46,XX,del(5q)")
+)
+result <- CytoConverter(karyotype_data)
+
+# Access results
+coordinates_table <- result$Results
+error_log <- result$Error_log
+```
+
+**Function Parameters:**
+- `in_data`: Input karyotype string or data frame
+- `build`: Genome build ("GRCh38", "hg19", "hg18", "hg17") - default: "GRCh38"
+- `constitutional`: Include constitutional variations - default: TRUE
+- `guess`: Attempt to guess ambiguous notations - default: FALSE
+- `guess_q`: Guess '?' marks in karyotypes - default: FALSE
+- `forMtn`: Include Mountain regions - default: TRUE
+- `orOption`: Handle 'or' statements - default: TRUE
+- `sexstimate`: Estimate sex from karyotype - default: FALSE
+- `allow_Shorthand`: Allow shorthand notation - default: FALSE
+
+### Input Format
+
+#### Karyotype String Format
+```
+46,XY,+21
+46,XX,del(5q13q33)
+47,XY,+8,der(16)t(1;16)(q23;q24)
+```
+
+#### Table Format
+Tab-delimited file with sample names and karyotypes:
+```
+Sample1	46,XY,+21
+Sample2	46,XX,del(5q13q33)
+Sample3	47,XY,+8,der(16)t(1;16)(q23;q24)
+```
+
+### Output Format
+
+The results table contains:
+- **Sample**: Sample identifier
+- **Clone**: Clone line number
+- **Start**: Start genomic coordinate of gain/loss
+- **End**: End genomic coordinate of gain/loss  
+- **Type**: Indicator for "Gain" or "Loss"
+- **CellCount**: Number of cells in clone out of total cells in sample
 
 ## Code Structure
 
-The code has been split into multiple "modules" and structured as follows.
-
-- cytoconverter.R: includes the main entrypoint for CytoConverter. 
-- rowparser.R: includes control flow for parsing rows of a karyotype table.
-- colparser.R: includes control flow for parsing each cell line or component of a karyotype. 
-- merge.R: includes helper functions for handling and merging intervals.
-- utils.R: includes utility functions.  
-- cytobands.R: includes a function for getting cytobands for translocations and insertions.  
-
+The code has been modularized for better maintainability:
 
 ```
    ┌────────────────────┐      ┌───────────────────────────┐
@@ -56,12 +129,11 @@ The code has been split into multiple "modules" and structured as follows.
        │                       │    getContiguousSection() │
        │                       │    mergeAdjacentSections()│
        │                       │    mergeTable()           │
-       │                       │    mergeDel()             │
-   ┌───▼───────────┐           │    mergeDelmat()          │
-   │ rowparser.R   ├───────────►    bigDelMerge()          │
-   │               │           │    mergeDeletions()       │
-   │    rowparse() │           └───────────────────────────┘
-   └───┬────────┬──┘
+   ┌───▼───────────┐           │    mergeDel()             │
+   │ rowparser.R   ├───────────►    mergeDelmat()          │
+   │               │           │    bigDelMerge()          │
+   │    rowparse() │           │    mergeDeletions()       │
+   └───┬────────┬──┘           └───────────────────────────┘
        │        │              ┌──────────────────────┐
        │        └──────────────► utils.R              │
        │                       │                      │
@@ -77,41 +149,93 @@ The code has been split into multiple "modules" and structured as follows.
                                └───────────────────┘
 ```
 
-## Additional Information
+**Module Descriptions:**
+- `cytoconverter.R`: Main entry point and core conversion logic
+- `rowparser.R`: Handles parsing of individual karyotype rows
+- `colparser.R`: Processes individual karyotype components and chromosomal aberrations
+- `merge.R`: Provides functions for merging and handling genomic intervals
+- `utils.R`: Utility functions for position sorting and overlap detection
+- `cytobands.R`: Manages cytoband data for translocations and insertions
 
-Builds are at 850 resolution and provided for human genome builds GRCh38, hg19, hg18, and hg17
-if wanted, the user can supply thier own list of cytobands to process as CytoConverter uses the 
-bands at 850 resolution for build GRCh38 as default.
+## Visualization
 
-The function CytoConverter will output a list with the first element being the results table and 
-the second element being the error and warning table. 
+Built-in graphing functions are available:
 
-CytoConverter has two required paramenters:
+```r
+# Source plotting functions
+source("plot_cyto_graph.R")
+source("cyto_graph.R")
 
-- in_data - input karyotype or karyotype table
-- build - a string of the build used for reference containing chromosome, chromosome position,
-corresponding cytoband, and staining pattern (GRCh38, hg19, hg18, hg17). This parameter is set to
-GRCh38 by default.
-
-To access each of the elements, place the result into an R variable like so:
-
+# Create visualization
+plot_cyto_graph(
+  cyto_list = result$Results,
+  ref_list = "GRCh38",
+  ylabel = TRUE
+)
 ```
-Variable_name <- CytoConverter(in_data);
+
+**Plotting Parameters:**
+- `cyto_list`: Results table from CytoConverter
+- `list_from_cyto`: Alternative input from cyto_graph function (optional)
+- `ref_list`: Reference genome for plotting coordinates (default: "GRCh38")
+- `ylabel`: Enable/disable sample names on graph (default: TRUE)
+
+## Supported Genome Builds
+
+CytoConverter supports multiple genome builds at 850 resolution:
+- **GRCh38** (default)
+- **hg19**
+- **hg18** 
+- **hg17**
+
+Custom cytoband lists can be provided if needed.
+
+## Examples
+
+### Basic Conversion
+```r
+# Simple trisomy 21
+result <- CytoConverter("47,XY,+21")
+print(result$Results)
 ```
 
-To get the results table use ```Variable_name$Results```
-To get the error log use ```Variable_name$Error_log```
+### Batch Processing
+```r
+# Multiple samples
+samples <- data.frame(
+  Sample = c("Patient1", "Patient2", "Patient3"),
+  Karyotype = c(
+    "46,XY,del(5q13q33)",
+    "47,XX,+21", 
+    "46,XY,t(9;22)(q34;q11)"
+  )
+)
+result <- CytoConverter(samples, build = "GRCh38")
+```
 
-The results table consists of the sample name followed by the clone line number, the start genomic
-coordinate of a gain or loss, the end coordinate of a gain or loss, an indicator if the sample is a
-gain or a loss, and the number of cells in a clone out of the total cells in a sample.
+### Error Handling
+```r
+result <- CytoConverter("invalid_karyotype")
+if (nrow(result$Error_log) > 0) {
+  print("Errors encountered:")
+  print(result$Error_log)
+}
+```
 
-A built in function to create a graph displaying samples with gains and losses is provided:
+## Contributing
 
-- Source functions plot_cyto_graph and cyto_graph. 
-- plot_cyto_graph contains 4 parameters:
-  - cyto_list - table output from CytoConverter
-  - list_from_cyto - output from cyto_graph (unnessesary if cyto_list is used)
-  - ref_list - sets reference to use for plotting coordinates, default is GRCh38
-  - ylabel - option to enable or disable printing sample names on the graph
+When contributing to this project:
+1. Follow the existing code style and structure
+2. Add appropriate documentation for new functions
+3. Test changes with various karyotype formats
+4. Update this README if adding new features
 
+## License
+
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+
+## Citation
+
+If you use CytoConverter in your research, please cite:
+
+> CytoConverter: a web-based tool to convert karyotypes to genomic coordinates. BMC Bioinformatics 20, 467 (2019). https://doi.org/10.1186/s12859-019-3062-4
