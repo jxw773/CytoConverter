@@ -1,5 +1,7 @@
 # CytoConverter
 
+ISB-CGC-CytoConverter code is modified from a fork of the CytoConverter project: [https://github.com/jxw773/CytoConverter](https://github.com/jxw773/CytoConverter)
+
 [CytoConverter: a web-based tool to convert karyotypes to genomic coordinates](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-019-3062-4)
 
 Cytogenetic nomenclature is used to describe chromosomal aberrations (or lack thereof) in a collection of cells, referred to as the cells’ karyotype. The nomenclature identifies locations on chromosomes using a system of cytogenetic bands, each with a unique name and region on a chromosome. Each band is microscopically visible after staining, and encompasses a large portion of the chromosome. More modern analyses employ genomic coordinates, which precisely specify a chromosomal location according to its distance from the end of the chromosome. Currently, there is no tool to convert cytogenetic nomenclature into genomic coordinates. Since locations of genes and other genomic features are usually specified by genomic coordinates, a conversion tool will facilitate the identification of the features that are harbored in the regions of chromosomal gain and loss that are implied by a karyotype.
@@ -31,6 +33,49 @@ Adjust parameters for your specific run:
 - threads: Number of parallel threads to run. The input file will be split into pieces accordingly.
 - output: Output file containing genomic coordinates and indications of gain or loss for all samples.
 - log: Log file containing any warnings or errors encountered during processing.
+
+
+## Code Structure
+
+The code has been split into multiple "modules" and structured as follows.
+
+- cytoconverter.R: includes the main entrypoint for CytoConverter. 
+- rowparser.R: includes control flow for parsing rows of a karyotype table.
+- colparser.R: includes control flow for parsing each cell line or component of a karyotype. 
+- merge.R: includes helper functions for handling and merging intervals.
+- utils.R: includes utility functions.  
+- cytobands.R: includes a function for getting cytobands for translocations and insertions.  
+
+
+```
+   ┌────────────────────┐      ┌───────────────────────────┐
+   │ cytoconverter.R    │      │ merge.R                   │
+   │                    │      │                           │
+   │    CytoConverter() │      │    insertSection()        │
+   └───┬────────────────┘      │    deleteIntersections()  │
+       │                       │    getContiguousSection() │
+       │                       │    mergeAdjacentSections()│
+       │                       │    mergeTable()           │
+       │                       │    mergeDel()             │
+   ┌───▼───────────┐           │    mergeDelmat()          │
+   │ rowparser.R   ├───────────►    bigDelMerge()          │
+   │               │           │    mergeDeletions()       │
+   │    rowparse() │           └───────────────────────────┘
+   └───┬────────┬──┘
+       │        │              ┌──────────────────────┐
+       │        └──────────────► utils.R              │
+       │                       │                      │
+       │                       │    positionSorter()  │
+   ┌───▼────────────┐          │    mergeIntOverlap() │
+   │ colparser.R    ├──────────►    detectAdd()       │
+   │                │          └──────────────────────┘
+   │     colparse() │
+   └────────────┬───┘          ┌───────────────────┐
+                │              │ cytobands.R       │
+                └──────────────►                   │
+                               │    getCytoBands() │
+                               └───────────────────┘
+```
 
 ## Additional Information
 
