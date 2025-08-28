@@ -1,0 +1,26 @@
+This is the tag list for fusions( ex: translocations, dicentric chromosomes, inversions) this is a work in progress 
+Currently only supported for short form and explicitly declared abberations (thus, if there is a derivative chromosomme that os also a dicentric chromosome that is called by der, it will not be declared as a dicentric chromosome)
+The nomeclature is 
+[Descriptive Field 1] |[Descriptive Field 2]| [Chromosome Label]
+such that the descriptive feild contains data descripbing the translocation and the chromosome label pairs together the modifications that are in the same chromosome (fus_1 is the first chromosome whos abberation is descripted chronologially, fus_2 is the second chromosome whos abberation is described and so on)
+
+//Descriptive Field 1 Tags
+#translocation 
+
+#inversion
+
+#insertion 
+
+
+||Descriptive Field 2 Tags
+#derivative_chrom
+	#recombinate_chrom
+	#isometric_chrom
+
+#ring_chrom
+
+#multicentric_chrom
+	#dicentric_chrom
+		#isometric_chrom
+	#tricentric_chrom 
+

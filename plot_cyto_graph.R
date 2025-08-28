@@ -8,7 +8,7 @@
 #' @export
 #' @examples 
 #' plot_cyto_graph()
-plot_cyto_graph<-function(cyto_list=NULL,list_from_cyto=NULL,ref_list="GRCh38",ylabel=NULL){
+plot_cyto_graph<-function(cyto_list=NULL,list_from_cyto=NULL,ref_list="GRCh38",ylabel=NULL,include_normals_graph=F,list_of_samples=NULL){
   
   if(is.null(ylabel)){
     if(length(uniq_coord_name) < 50){
@@ -19,7 +19,7 @@ plot_cyto_graph<-function(cyto_list=NULL,list_from_cyto=NULL,ref_list="GRCh38",y
   }
    if(!is.null(cyto_list))
   {
-    list_from_cyto<-cyto_graph(cyto_list,ref_list)
+    list_from_cyto<-cyto_graph(cyto_list,ref_list,include_normals_graph,list_of_samples)
     rect_maker<-list_from_cyto[[1]]
     xbegin<-list_from_cyto[[2]]
     xcoord_master<-list_from_cyto[[3]]

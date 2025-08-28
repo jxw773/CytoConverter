@@ -1,6 +1,6 @@
 
 ##setting up blank plot
-cyto_graph<-function(cyto_list,ref_list="GRCh38"){
+cyto_graph<-function(cyto_list,ref_list="GRCh38",include_normals_graph=F,list_of_samples=NULL){
   
   ##if it is string, set it equal to one of the stuff  
   if(length(ref_list)<=1)
@@ -45,8 +45,29 @@ cyto_graph<-function(cyto_list,ref_list="GRCh38"){
     ref_list<-apply(ref_list,2,as.character)  
   }
   
+  ##if include normals in graph
+  if(include_normals_graph){
+    temp<-cbind(list_of_samples,"chr1",0,0,"Gain",NA)
+    
+    if(nrow(cyto_list)==1)
+    {
+      cyto_list<-as.vector(cyto_list) 
+    }
+    
+    if(nrow(cyto_list)>0)
+    {
+      colnames(temp)<-colnames(cyto_list)
+      cyto_list<-rbind(temp,cyto_list)
+    }else{
+      cyto_list<-temp
+      colnames(temp) <- c(
+        "Sample ID", "Chr", "Start", "End", "Type", "Percent Present"
+      )
+    }
+  }
+  
   ##cyto_list<-cyto_list[order(cyto_list[,1],order(cyto_list[,2],cyto_list[,3])),]
-  if(nrow(cyto_list) >= 1)
+  if( nrow(cyto_list) >= 1)
   {
       
     double_loss<-cyto_list[which(cyto_list[,5]=="Loss"),]
@@ -219,9 +240,10 @@ cyto_graph<-function(cyto_list,ref_list="GRCh38"){
     
     
     ##calculate x coords and y coords according to y_coord_list by resorting cytolist
-    if(length(y_coordlist)>0 && nrow(cyto_list)>1)
+    if(length(y_coordlist)>0 && nrow(cyto_list)>1 )
     {
       cyto_list<-cyto_list[order(cyto_list[,1],y_coordlist[,1]),]
+
     }
     
     if(is.vector(cyto_list)){
@@ -232,8 +254,8 @@ cyto_graph<-function(cyto_list,ref_list="GRCh38"){
       coordlist<-as.numeric(temp_coords);
       
       ##adjust chrom name for x and y for input data
-      coords_listed[grep("X",coords_listed[,1])]<-23
-      coords_listed[grep("Y",coords_listed[,1])]<-24      
+      coords_listed[grep("X",coords_listed[,1]),1]<-23
+      coords_listed[grep("Y",coords_listed[,1]),1]<-24      
       
       y_area_coord=cbind((y_coordlist[,2]-1)*-(y_above-y_below)/length(uniq_coord_name)+y_above,y_above-y_coordlist[,2]*(y_above-y_below)/length(uniq_coord_name))
       
