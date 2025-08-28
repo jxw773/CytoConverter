@@ -1,7 +1,63 @@
 #' CytoConverter Row Parser
 #' 
 #' @description
-#' This function parses each row of a karyotype table.
+#' This function parses individual rows of cytogenetic data, processing karyotype
+#' information for each sample. It handles the conversion of karyotype strings
+#' into coordinate information by managing clonal evolution, sex chromosome
+#' variations, and complex karyotype patterns.
+#'
+#' @param cyto_ref_table Reference table containing cytogenetic band information
+#' @param ref_table Reference genome table for coordinate mapping
+#' @param Cyto_sample Vector containing cytogenetic sample data for a single sample
+#' @param Con_data Constitutional data information
+#' @param transloctable Table containing translocation lookup information
+#' @param Dump_table Table for storing processing information
+#' @param constitutional Logical, whether to include constitutional variations
+#' @param guess Logical, whether to attempt guessing ambiguous notations
+#' @param guess_q Logical, whether to guess '?' marks in karyotypes
+#' @param guess_by_first_val Logical, whether to use first value for guessing
+#' @param forMtn Logical, whether to include Mountain regions
+#' @param orOption Logical, whether to handle 'or' statements
+#' @param sexstimate Logical, whether to estimate sex from karyotype
+#'
+#' @return List containing processed coordinate information and metadata
+#'
+#' @details
+#' The function processes karyotype data by:
+#' \itemize{
+#'   \item Managing sex chromosome counts (X and Y)
+#'   \item Processing clonal evolution indicators
+#'   \item Handling composite and mosaic karyotypes
+#'   \item Converting individual karyotype components to coordinates
+#'   \item Merging overlapping or adjacent coordinate regions
+#' }
+#'
+#' Sex chromosome processing tracks normal and abnormal counts to identify
+#' conditions like Turner syndrome, Klinefelter syndrome, and other sex
+#' chromosome aneuploidies.
+#'
+#' @examples
+#' \dontrun{
+#' result <- rowparse(
+#'   cyto_ref_table = cyto_ref_table,
+#'   ref_table = ref_table,
+#'   Cyto_sample = c("46,XY", "+21"),
+#'   Con_data = NULL,
+#'   transloctable = list(),
+#'   Dump_table = NULL,
+#'   constitutional = TRUE,
+#'   guess = FALSE,
+#'   guess_q = FALSE,
+#'   guess_by_first_val = FALSE,
+#'   forMtn = TRUE,
+#'   orOption = TRUE,
+#'   sexstimate = FALSE
+#' )
+#' }
+#'
+#' @seealso 
+#' \code{\link{colparse}}, \code{\link{CytoConverter}}
+#'
 
 mod_utils <- modules::use('modules/utils.R')
 mod_merge <- modules::use('modules/merge.R')
