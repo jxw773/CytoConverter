@@ -1,0 +1,36 @@
+# R specific ignores
+.Rhistory
+.Rdata
+.RData
+.Ruserdata
+*.Rproj
+
+# Temporary files
+*~
+*.tmp
+*.temp
+
+# Log files
+*.log
+
+# Output files (unless specifically needed)
+cyto_result.txt
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*_backup.*
+*_old.*
+
+# Test outputs (if any)
+test_output/
+temp_test/

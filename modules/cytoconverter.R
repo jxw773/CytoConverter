@@ -1,20 +1,84 @@
 #' CytoConverter Main Function
 #'
 #' @description
-#' This function accepts string or matrix input. Strings must be karyotypes and tables must have
-#' sample name in the first column and karyotype in the second column. The function outputs a 
-#' table. Assumes order of abberations is from top to bottom, assumes all output goes top to bottom
-#' (eg no q20p23).
+#' This function converts cytogenetic nomenclature (karyotypes) into genomic coordinates.
+#' It accepts string or matrix input where strings must be karyotypes and tables must have
+#' sample name in the first column and karyotype in the second column. The function assumes
+#' the order of aberrations is from top to bottom and all output coordinates follow the same
+#' order (e.g., no q20p23 reversals).
 #' 
-#' @param in_data
-#' @param build
-#' @param constitutional
-#' @param guess
-#' @param guess_q
-#' @param forMtn
-#' @param orOption
-#' @param sexstimate
-#' @param allow_Shorthand
+#' @param in_data Input karyotype data. Can be:
+#'   \itemize{
+#'     \item A single karyotype string (e.g., "46,XY,+21")
+#'     \item A data frame with sample names in first column and karyotypes in second column
+#'   }
+#' @param build Genome build for coordinate reference. Options: "GRCh38", "hg19", "hg18", "hg17". Default: "GRCh38"
+#' @param constitutional Logical. Include constitutional variations in analysis. Default: TRUE
+#' @param guess Logical. Attempt to guess ambiguous karyotype notations. Default: FALSE
+#' @param guess_q Logical. Guess question mark (?) symbols in karyotypes. Default: FALSE
+#' @param guess_by_first_val Logical. Use first value for guessing ambiguous cases. Default: FALSE
+#' @param forMtn Logical. Include Mountain (Mtn) regions in processing. Default: TRUE
+#' @param orOption Logical. Handle "or" statements in karyotype descriptions. Default: TRUE
+#' @param sexstimate Logical. Estimate sex from karyotype information. Default: FALSE
+#' @param allow_Shorthand Logical. Allow shorthand notation in karyotype input. Default: FALSE
+#'
+#' @return A list containing two elements:
+#'   \describe{
+#'     \item{Results}{Data frame with genomic coordinates and gain/loss information}
+#'     \item{Error_log}{Data frame containing any errors or warnings encountered during processing}
+#'   }
+#'   
+#'   The Results table contains columns:
+#'   \itemize{
+#'     \item Sample: Sample identifier
+#'     \item Clone: Clone line number
+#'     \item Start: Start genomic coordinate of gain/loss
+#'     \item End: End genomic coordinate of gain/loss
+#'     \item Type: "Gain" or "Loss" indicator
+#'     \item CellCount: Number of cells in clone out of total cells in sample
+#'   }
+#'
+#' @details
+#' CytoConverter processes cytogenetic nomenclature by:
+#' \itemize{
+#'   \item Parsing standard cytogenetic band notation
+#'   \item Converting band locations to precise genomic coordinates
+#'   \item Identifying regions of chromosomal gain and loss
+#'   \item Handling complex aberrations like translocations and deletions
+#'   \item Managing derivative chromosomes and structural rearrangements
+#' }
+#'
+#' The function supports multiple genome builds and can handle various cytogenetic
+#' notation formats including ISCN (International System for Cytogenetic Nomenclature)
+#' compliant descriptions.
+#'
+#' @examples
+#' \dontrun{
+#' # Single karyotype conversion
+#' result <- CytoConverter("46,XY,+21")
+#' print(result$Results)
+#' 
+#' # Multiple samples
+#' samples <- data.frame(
+#'   Sample = c("Patient1", "Patient2"),
+#'   Karyotype = c("46,XY,del(5q13q33)", "47,XX,+21")
+#' )
+#' result <- CytoConverter(samples, build = "GRCh38")
+#' 
+#' # Access results and errors
+#' coordinates <- result$Results
+#' errors <- result$Error_log
+#' }
+#'
+#' @seealso 
+#' \code{\link{colparse}}, \code{\link{rowparse}}
+#'
+#' @references
+#' Shaffer, L.G., McGowan-Jordan, J., Schmid, M. (Eds.). (2013). 
+#' ISCN 2013: An International System for Human Cytogenetic Nomenclature. 
+#' Basel: Karger.
+#'
+#' @export
 
 mod_rowparser <- modules::use('modules/rowparser.R')
 
