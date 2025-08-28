@@ -1,8 +1,62 @@
-## function for getting cytobands for translocations and insertions
-## (taking compliment of stuff not included in discription)
+#' Cytoband Management Functions
+#' 
+#' @description
+#' This module contains functions for managing cytogenetic band information,
+#' particularly for translocations and insertions where specific band
+#' coordinates need to be extracted and processed.
 
-mod_utils <- modules::use('modules/utils.R')
-
+#' Get Cytogenetic Bands
+#' 
+#' @description
+#' Function for getting cytobands for translocations and insertions by taking
+#' the complement of regions not included in the description. This function
+#' handles complex cytogenetic rearrangements where specific chromosomal
+#' regions need to be identified and mapped to genomic coordinates.
+#' 
+#' @param Cyto_ref_table Reference table containing cytogenetic band information
+#' @param Cyto_sample Cytogenetic sample data vector
+#' @param lengthcount Current position in processing loop
+#' @param o Index parameter for current processing
+#' @param temp Temporary data structure containing parsed karyotype components
+#' @param coln Column number being processed
+#' @param derMods Derivative modification information
+#' @param forMtn Logical, whether to include Mountain regions in processing
+#' 
+#' @return Processed cytogenetic band information for coordinate mapping
+#' 
+#' @details
+#' The function handles several complex scenarios:
+#' \itemize{
+#'   \item Centromere regions (acen) and telomere regions (qter, pter)
+#'   \item Isoderivative chromosomes with different endpoints
+#'   \item Mountain regions when forMtn is TRUE
+#'   \item Complex rearrangements requiring band complement calculations
+#' }
+#' 
+#' Special considerations include:
+#' \itemize{
+#'   \item Single band listings that must relate to two regions
+#'   \item Reuse of code patterns for different rearrangement types
+#'   \item Proper handling of chromosome arm orientation (p vs q)
+#' }
+#' 
+#' @examples
+#' \dontrun{
+#' bands <- getCytoBands(
+#'   Cyto_ref_table = cyto_ref_table,
+#'   Cyto_sample = cyto_sample,
+#'   lengthcount = 1,
+#'   o = 1,
+#'   temp = parsed_temp,
+#'   coln = 2,
+#'   derMods = der_modifications,
+#'   forMtn = TRUE
+#' )
+#' }
+#' 
+#' @seealso 
+#' \code{\link{colparse}}, \code{\link{handle_translocation_cases}}
+#' 
 getCytoBands <- function(
         Cyto_ref_table,
         Cyto_sample,

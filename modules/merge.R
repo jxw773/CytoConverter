@@ -1,4 +1,44 @@
 
+#' Genomic Interval Merging Functions
+#' 
+#' @description
+#' This module contains functions for merging and handling genomic intervals,
+#' managing overlapping regions, and processing gain/loss sections in
+#' cytogenetic coordinate data. These functions are essential for consolidating
+#' overlapping or adjacent chromosomal aberrations into coherent coordinate ranges.
+#' 
+#' The module includes functions for:
+#' \itemize{
+#'   \item Inserting new sections into existing coordinate structures
+#'   \item Deleting intersecting regions to avoid double-counting
+#'   \item Merging adjacent and overlapping sections
+#'   \item Handling complex gain/loss patterns
+#'   \item Processing deletion-specific merging scenarios
+#' }
+
+#' Insert Section into Coordinate Structure
+#' 
+#' @description
+#' This function inserts regions into the data structure h_, which
+#' keeps track of all non-overlapping gain/loss sections within regions.
+#' 
+#' @param h_ Data structure tracking coordinate sections
+#' @param start Start coordinate for the new section
+#' @param end End coordinate for the new section  
+#' @param type Type of aberration ("Gain" or "Loss")
+#' 
+#' @details
+#' The h_ data structure format:
+#' \itemize{
+#'   \item Start coord: Contains end coordinate and gain/loss lists
+#'   \item End: End coordinate for this section
+#'   \item Gain: List of end coords of "Gain" regions, ordered by appearance
+#'   \item Loss: List of end coords of "Loss" regions, ordered by appearance
+#' }
+#' 
+#' For all existing sections in h_, the function splits them based on
+#' the new start and end coordinates to maintain non-overlapping regions.
+#' 
 insertSection <- function(h_, start, end, type) {
     # This function inserts regions into the data structure h_, which
     # keeps track of all non-overlapping gain/loss sections within regions
