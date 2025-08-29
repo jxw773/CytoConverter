@@ -76,8 +76,8 @@ example_result_table<-read.delim(file="cyto_result.txt",sep='\t',header=T)
     ##select fusion data to download
     fusionDatasetInput <- reactive({
       switch(input$dataset,"Both"=list(rbind(CytotableString()[[3]],CytotableFile()[[3]]),rbind(CytotableString()[[2]],CytotableFile()[[2]])),
-             "Text"= CytotableString(),
-             "File"= CytotableFile())
+             "Text"= list(CytotableString()[[3]], CytotableString()[[2]]),
+             "File"= list(CytotableFile()[[3]], CytotableFile()[[2]]))
     })
     
     
@@ -108,7 +108,7 @@ example_result_table<-read.delim(file="cyto_result.txt",sep='\t',header=T)
           paste('CytoConverter_Fusion_Results', '.txt', sep='')
         },
         content = function(file) {
-          write.table(fusionDatasetInput()[[3]], file,quote=F,sep='\t',row.names = F)
+          write.table(fusionDatasetInput()[[1]], file,quote=F,sep='\t',row.names = F)
         }
         
       )

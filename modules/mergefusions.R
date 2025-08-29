@@ -438,6 +438,13 @@ mergeTable_Fus <- function(M, keep_extras = F) {
 
 # Fusion-specific merge function that deletes "Loss" coordinates from entries beginning with "#"
 # This function is used in the fusion function similar to how mergeTable is used in gainloss
+# 
+# The key requirement is to delete coordinates labeled "Loss" in the fusion task from anything 
+# in the same sample that begins with "#" (fusion entries)
+#
+# @param M: Data frame with columns Chr, Start, End, Type containing fusion data
+# @param keep_extras: Boolean flag to include non-fusion entries in result
+# @return: Merged data frame with fusion loss entries removed
 mergeFusionTable <- function(M, keep_extras = F) {
   
   # Store non gains and losses for intermediate steps
