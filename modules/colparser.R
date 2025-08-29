@@ -5,6 +5,74 @@ mod_cytobands <- modules::use('modules/cytobands.R')
 mod_merge <- modules::use('modules/merge.R')
 mod_gainlossfusion<-modules::use('modules/gainlossfusion.R')
 
+#' Process Individual Karyotype Components  
+#' 
+#' @description
+#' The miniverter function handles individual components of a karyotype string,
+#' determining whether each element represents a simple chromosome gain/loss that
+#' can be processed directly, or a complex aberration requiring detailed parsing
+#' through the colparser system.
+#' 
+#' @param j Integer. Index of the current karyotype component being processed.
+#' @param cyto_ref_table Matrix. Reference cytoband data for coordinate conversion.
+#' @param ref_table Matrix. Chromosome end coordinates for the reference build.
+#' @param Cyto_sample Character vector. Split karyotype components for processing.
+#' @param Con_data Matrix. Sample metadata (sample ID and original karyotype).
+#' @param transloctable Data frame. Table tracking translocation events.
+#' @param Dump_table Matrix. Error and warning log accumulator.
+#' @param constitutional Logical. Whether to process constitutional changes.
+#' @param guess Logical. Attempt to interpret ambiguous notation.
+#' @param guess_q Logical. Process components with question marks.
+#' @param guess_by_first_val Logical. Use first value for ambiguous cases.
+#' @param forMtn Logical. Optimize for Mitelman database format.
+#' @param orOption Logical. Take first option when "or" appears.
+#' @param sexstimate Logical. Estimate sex chromosome composition.
+#' @param normX Numeric. Expected normal X chromosome count (default 2).
+#' @param normY Numeric. Expected normal Y chromosome count (default 0).
+#' @param xcount Numeric. Current X chromosome count (default 2).
+#' @param ycount Numeric. Current Y chromosome count (default 0).
+#' @param xadd Numeric. Count of X chromosome gains (default 0).
+#' @param yadd Numeric. Count of Y chromosome gains (default 0).
+#' @param xmod Numeric. Count of X chromosome modifications (default 0).
+#' @param ymod Numeric. Count of Y chromosome modifications (default 0).
+#' @param xdel Numeric. Count of X chromosome deletions (default 0).
+#' @param ydel Numeric. Count of Y chromosome deletions (default 0).
+#' @param xdel_Q Numeric. Count of uncertain X deletions (default 0).
+#' @param ydel_Q Numeric. Count of uncertain Y deletions (default 0).
+#' @param xconstitutional Numeric. Constitutional X chromosome correction (default 0).
+#' @param yconstitutional Numeric. Constitutional Y chromosome correction (default 0).
+#' @param idealx Numeric. Estimated ideal X chromosome count (default 2).
+#' @param idealy Numeric. Estimated ideal Y chromosome count (default 0).
+#' @param addtot Numeric. Total chromosome additions count (default 0).
+#' @param deltot Numeric. Total chromosome deletions count (default 0).
+#' @param modtot Numeric. Total chromosome modifications count (default 0).
+#' @param n Numeric. Ploidy multiplier (default 1).
+#' @param ploidy Numeric. Base ploidy level (default 1).
+#' @param startcol Numeric. Starting column for processing (default 1).
+#' @param count_fusions Logical. Whether to detect fusion events.
+#'
+#' @return List or character. Returns processing results or error message.
+#'   On success, returns list with processed intervals, counters, and metadata.
+#'   On error, returns character string describing the issue.
+#'
+#' @details
+#' The function processes karyotype components in this priority order:
+#' 1. **Simple whole chromosome changes**: +8, -7, +X, -Y
+#' 2. **Marker chromosomes**: +mar, +r(1), +neo
+#' 3. **Complex aberrations**: Calls colparse() for detailed processing
+#' 
+#' Processing steps include:
+#' - Pattern recognition for aberration types
+#' - Sex chromosome counting and validation  
+#' - Constitutional vs. acquired change handling
+#' - Error logging for unrecognizable patterns
+#' 
+#' @export
+#' 
+#' @seealso 
+#' \code{\link{colparse}} for complex aberration processing
+#' \code{\link{rowparse}} for row-level coordination
+
 #miniverter is the handling of the cytoconvertor sample by columns, deciding whether it is a straightforward loss/gain of a chromosome or if the colparser needs to be called
 miniverter<-function (j,
                       cyto_ref_table,
@@ -66,10 +134,12 @@ miniverter<-function (j,
   
   fusion=NULL
   #########
-  # if guess is true, try to process ? marks
-  # think about how this can affect counting  + and \\?
-  #############################
-  if(guess_q == T)
+  # PREPROCESSING: Handle ambiguous notation and options
+  #########
+  
+  # If guess_q is true, remove question marks and attempt processing
+  # Question marks typically indicate uncertainty in karyotype interpretation
+  if(guess_q == TRUE)
   {
     Cyto_sample[j] <- gsub("\\?","",Cyto_sample[j])
   }
@@ -79,7 +149,16 @@ miniverter<-function (j,
     Cyto_sample[j]<-gsub("or.*$","",Cyto_sample[j])
   }
   
+  #########
+  # MAIN PROCESSING: Categorize and process the karyotype component
+  #########
+  
   # Helper function to check if sample is marker/ring/neo chromosome
+  # This regex pattern matches:
+  # - "mar" = marker chromosomes (unidentifiable extra chromosomes)
+  # - "r(n)" = ring chromosomes (chromosome ends fused together)  
+  # - "neo" = neocentric chromosomes (new centromere formation)
+  # - "c" suffix = constitutional (present in normal cells)
   is_marker_or_special <- function(sample) {
     grepl("mar|^\\+*([[:digit:]]((~|-)[[:digit:]])*)*r\\(*[[:digit:]]*\\)*$|^\\+*([[:digit:]]((~|-)[[:digit:]])*)*neo[[:digit:]]*$", sample) ||
     (constitutional == FALSE && grepl("(c$)|(c\\?$)", sample))
