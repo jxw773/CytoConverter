@@ -1,20 +1,78 @@
-#' CytoConverter Main Function
+#' Convert Karyotypes to Genomic Coordinates
 #'
 #' @description
-#' This function accepts string or matrix input. Strings must be karyotypes and tables must have
-#' sample name in the first column and karyotype in the second column. The function outputs a 
-#' table. Assumes order of abberations is from top to bottom, assumes all output goes top to bottom
-#' (eg no q20p23).
+#' CytoConverter converts cytogenetic karyotype notation into genomic coordinates,
+#' identifying regions of chromosomal gains and losses. This function accepts either
+#' a single karyotype string or a matrix containing sample names and their associated
+#' karyotypes. The output includes genomic coordinates for aberrations and comprehensive
+#' error logging.
 #' 
-#' @param in_data
-#' @param build
-#' @param constitutional
-#' @param guess
-#' @param guess_q
-#' @param forMtn
-#' @param orOption
-#' @param sexstimate
-#' @param allow_Shorthand
+#' @param in_data Character string or matrix. If string, must be a valid karyotype.
+#'   If matrix, must have sample names in column 1 and karyotypes in column 2.
+#' @param build Character. Reference genome build to use. Options: "GRCh38" (default),
+#'   "hg19", "hg18", "hg17". Determines cytoband coordinates for conversion.
+#' @param constitutional Logical. Whether to include constitutional chromosomal changes
+#'   in the analysis. Default TRUE.
+#' @param guess Logical. Attempt to interpret ambiguous or incomplete karyotype notation.
+#'   Useful for processing variant formats. Default FALSE.
+#' @param guess_q Logical. Process karyotypes containing question marks (?) by removing
+#'   them and attempting conversion. Default FALSE.
+#' @param guess_by_first_val Logical. Use first value for ambiguous cases. Default FALSE.
+#' @param forMtn Logical. Optimize processing for Mitelman database format karyotypes.
+#'   Default TRUE.
+#' @param orOption Logical. When "or" appears in karyotype, take first option only.
+#'   Default TRUE.
+#' @param sexstimate Logical. Attempt to estimate sex chromosome composition based on
+#'   autosomal content. Default FALSE.
+#' @param allow_Shorthand Logical. Allow shorthand notation outside of clone specifications.
+#'   Default FALSE.
+#' @param count_fusions Logical. Detect and enumerate fusion events in addition to
+#'   gains/losses. Default FALSE.
+#' @param include_normals_graph Logical. Include normal (non-aberrant) samples in
+#'   output for visualization purposes. Default FALSE.
+#'
+#' @return List containing four elements:
+#'   \item{Result}{Data frame with columns: Sample ID, Chr, Start, End, Type, Percent Present}
+#'   \item{Error_log}{Data frame with processing errors and warnings}
+#'   \item{Fusion_table}{Data frame with fusion events (if count_fusions=TRUE)}
+#'   \item{List_of_samples}{Vector of sample identifiers (if include_normals_graph=TRUE)}
+#'
+#' @examples
+#' # Convert single karyotype
+#' result <- CytoConverter("47,XY,+8")
+#' gains_losses <- result$Result
+#' errors <- result$Error_log
+#' 
+#' # Convert multiple samples
+#' sample_data <- matrix(c("Sample1", "47,XY,+8", 
+#'                        "Sample2", "46,XX,del(17p)"), 
+#'                      ncol=2, byrow=TRUE)
+#' result <- CytoConverter(sample_data, build="hg19")
+#' 
+#' # Advanced usage with fusion detection
+#' result <- CytoConverter("46,XY,t(9;22)(q34;q11)", 
+#'                        count_fusions=TRUE, 
+#'                        guess=TRUE)
+#'
+#' @export
+#'
+#' @details
+#' The function processes karyotypes through several stages:
+#' 1. Input validation and format standardization
+#' 2. Clone line separation and idem processing  
+#' 3. Individual aberration parsing via rowparser module
+#' 4. Genomic coordinate conversion using reference cytobands
+#' 5. Gain/loss interval merging and conflict resolution
+#' 
+#' Supported karyotype elements include whole chromosome gains/losses, deletions,
+#' duplications, translocations, insertions, inversions, and complex rearrangements.
+#' The function handles clone evolution notation with cell counts and can process
+#' constitutional and acquired changes separately.
+#'
+#' @seealso 
+#' For visualization: \code{\link{plot_cyto_graph}}, \code{\link{cyto_graph}}
+#' 
+#' @author Original CytoConverter team, modularized version
 
 mod_rowparser <- modules::use('modules/rowparser.R')
 mod_colparser <- modules::use('modules/colparser.R')
