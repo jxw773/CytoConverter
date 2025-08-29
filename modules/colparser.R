@@ -1,11 +1,409 @@
 
-##function for separating normal data
-##take into acc same chrom insestion
-##add cen into here (pter qter analouge)
 
 mod_utils <- modules::use('modules/utils.R')
 mod_cytobands <- modules::use('modules/cytobands.R')
+mod_merge <- modules::use('modules/merge.R')
+mod_gainlossfusion<-modules::use('modules/gainlossfusion.R')
 
+#miniverter is the handling of the cytoconvertor sample by columns, deciding whether it is a straightforward loss/gain of a chromosome or if the colparser needs to be called
+miniverter<-function (j,
+                      cyto_ref_table,
+                      ref_table,
+                      Cyto_sample,
+                      Con_data,
+                      transloctable,
+                      Dump_table,
+                      constitutional,
+                      guess,
+                      guess_q,
+                      guess_by_first_val,
+                      forMtn,
+                      orOption,
+                      sexstimate,
+                      normX=2,  
+                      normY=0,   
+                      xcount=2, 
+                      ycount=0 ,  # counts number of y in 2nd slot
+                      xadd=0 ,    # counts if +X occurs
+                      yadd=0 ,    # counts if +Y occurs
+                      xmod=0 ,    # counts modifications that arent whole chromosome add/del for X
+                      ymod=0 ,    # counts modifications that arent whole chromosome add/del for Y
+                      xdel=0 ,    # counts if -X occures as constitutional
+                      ydel=0 ,    # counts if -Y occures as consitutional
+                      
+                      xconstitutional=0 ,  # shift counts for xc indications (kind of a correction factor)
+                      yconstitutional=0 ,  # shift counts for yc indications (kind of a correction factor)
+                      
+                      idealx=2 ,  # estimate of what the x value should be
+                      idealy=0 ,  # estimate of what the y value should be
+                      
+                      addtot=0 ,  # counts total "new chromosomes"
+                      deltot=0 ,  # counts total complete chrom deletions
+                      modtot=0 ,  # for idems only, counts modification chromosomes
+                      
+                      n=1 ,     # ploidy count
+                      ploidy=1 , # ploidy non additive ##default 2 for diploid
+                      
+                      startcol=1,
+                      count_fusions
+                      ) {
+  # temporary table for storage for mutations in add or losses 
+  temp_table <- matrix(
+    byrow = TRUE,
+    nrow = 1,
+    ncol = 4
+  )
+  # temporary table for storage for mutations for fusions
+  temp_fusion_table <- matrix(
+    byrow = TRUE,
+    nrow = 1,
+    ncol = 4
+  )
+  # for if deletions get completely eliminated in t() type abberations
+  deletions = F
+  
+  fusion=NULL
+  #########
+  # if guess is true, try to process ? marks
+  # think about how this can affect counting  + and \\?
+  #############################
+  if(guess_q == T)
+  {
+    Cyto_sample[j] <- gsub("\\?","",Cyto_sample[j])
+  }
+  
+  ##if or, delete second option based on booleen
+  if(orOption==T){
+    Cyto_sample[j]<-gsub("or.*$","",Cyto_sample[j])
+  }
+  
+  #addition and deletions of entire chromosomes can be handeled easily and separate from the rest
+  if (grepl(
+    "mar|^\\+*([[:digit:]]((~|-)[[:digit:]])*)*r\\(*[[:digit:]]*\\)*$|^\\+*([[:digit:]]((~|-)[[:digit:]])*)*neo[[:digit:]]*$",
+    Cyto_sample[j]
+  ) || (constitutional==F && grepl("(c$)|(c\\?$)",Cyto_sample[j])))
+  {
+    if (grepl("\\+", Cyto_sample[j]))
+    {
+      tem = 1
+      ##figure out how to do this
+      if (grepl("-|~", Cyto_sample[j]))
+      {
+        if (grepl("mar", Cyto_sample[j]))
+        {
+          Cyto_sample[j] <-
+            paste(unlist(strsplit(Cyto_sample[j], "~|-"))[1], "mar", sep = "")
+        }
+        if (grepl(
+          "^\\+*([[:digit:]]((~|-)[[:digit:]])*)*r\\(*[[:digit:]]*\\)*$",
+          Cyto_sample[j]
+        ))
+          Cyto_sample[j] <-
+            paste(unlist(strsplit(Cyto_sample[j], "~|-"))[1], "r", sep = "")
+        
+        if (grepl("neo", Cyto_sample[j]))
+          Cyto_sample[j] <-
+            paste(unlist(strsplit(Cyto_sample[j], "~|-"))[1], "neo", sep = "")
+        
+      }
+      
+      if (grepl("\\+[[:digit:]]", Cyto_sample[j]))
+      {
+        if(constitutional==F & grepl("\\+[[:digit:]]+c\\?*$", Cyto_sample[j]))
+        {
+          ##just one addition
+          tem<-1 
+        }else{
+          if(!grepl("\\+[[:digit:]]+c\\?*$", Cyto_sample[j]))
+          {
+            tem <-
+              as.numeric((strsplit(
+                strsplit(Cyto_sample[j], "mar|r\\(*[[:digit:]]*\\)*$|neo|c$|c\\?$")[[1]][1],
+                "\\+"
+              )[[1]][2]))
+          }
+        }
+      }
+      
+      ##only if tem is a number 
+      if(is.numeric(tem)||is.integer(tem)||is.double(tem))
+      {
+        addtot <- addtot + tem
+      }else{
+        ##output an error
+        Dump_table <- rbind(Dump_table, c(Con_data[i,], "Error in markers and other ambiguous objects not accounted for"))
+        
+      }
+      
+    }
+  }else if ((grepl("^\\+[[:digit:]]+c*$", Cyto_sample[j]) |
+             grepl("\\+X", Cyto_sample[j]) | grepl("\\+Y", Cyto_sample[j])) && ((guess_q == T )| (!grepl("\\?",Cyto_sample[j]))))
+  {
+    cytoName <- gsub("c", "", substring(Cyto_sample[j], first = 2))
+    chr_name <-
+      ref_table[grep(paste("chr", as.character(cytoName), "$", sep = ""), ref_table), ]
+    temp_table[1, 1] = chr_name[1]
+    temp_table[1, 2] = "0"
+    temp_table[1, 3] = chr_name[2]
+    temp_table[1, 4] = "Gain"
+    #if whole additions occur
+    if (grepl("X", chr_name[1]))
+    {
+      xadd <- xadd + 1
+    }
+    
+    if (grepl("Y", chr_name[1]))
+    {
+      yadd <- yadd + 1
+    }
+    ##if(!grepl("X|Y",chr_name[1]))
+    ##{
+    addtot <- addtot + 1
+    ##}
+  } else if (grepl("^-[[:digit:]]+c*$", Cyto_sample[j]) | grepl("-X", Cyto_sample[j]) | grepl("-Y", Cyto_sample[j]))
+  {
+    cytoName <- gsub("c", "", substring(Cyto_sample[j], first = 2))
+    chr_name <-
+      ref_table[grep(paste("chr", as.character(cytoName), "$", sep = ""), ref_table), ]
+    
+    ##exclude x and y deletions until the end
+    if(!grepl("Y",chr_name[1]) & !grepl("X",chr_name[1])){
+      temp_table[1, 1] = chr_name[1]
+      temp_table[1, 2] = "0"
+      temp_table[1, 3] = chr_name[2]
+      temp_table[1, 4] = "Loss"
+    }
+    
+    ##if deletions occur in X or Y, up count for the respective mutation
+    if (grepl("X", chr_name[1]))
+    {
+      xdel <- xdel + 1
+      
+      if(grepl("\\?", cytoName)){
+        
+        xdel_Q <- xdel_Q + 1
+      }
+    }
+    
+    if (grepl("Y", chr_name[1]))
+    {
+      ydel <- ydel + 1
+      
+      if(grepl("\\?", cytoName)){
+        
+        ydel_Q <- ydel_Q +1
+      }
+    }
+    
+    ##if(!grepl("X|Y",chr_name[1]))
+    ##{
+    deltot <- deltot + 1
+    ##}        
+  } else {
+    # for all other cases call this first
+    # check for x modifications in parser
+    
+    inc_table <- tryCatch({
+      colparse(
+        cyto_ref_table,
+        ref_table,
+        j,
+        xmod,
+        ymod,
+        transloctable,
+        addtot,
+        Cyto_sample,
+        guess_q,
+        constitutional,
+        forMtn
+      )
+    }, error = function(e) {
+      return(gsub("\n", " ", paste(e, "in", j, "field")))
+    }, finally = {
+      # print(paste("  Parsed field: ", Cyto_sample[j]))
+    })
+    
+
+  if (is.null(inc_table)){
+      
+  }else if (is.character(inc_table)) {
+        Dump_table <- rbind(Dump_table, c(Con_data, inc_table))
+        
+      
+  }else if (length(inc_table) == 1 && is.na(inc_table)) {
+      Dump_table <- rbind(
+        Dump_table,
+        c(
+          Con_data,
+          "Error in more than one band associated with a chromosome in a translocation"
+        )
+      )
+      
+    }else{
+      
+      temp_table <- inc_table[[1]]
+      temp_fusion_table <- inc_table[[1]]
+      original_temp_table <- inc_table[[1]]
+      ex_table <- inc_table[[2]]
+      ex_fusion_table <-inc_table[[2]]
+      original_ex_table <- inc_table[[2]]
+      xmod <- inc_table[[3]]
+      ymod <- inc_table[[4]]
+      Mainchr <- inc_table[[5]]
+      multi <- inc_table[[6]]
+      transloctable <- inc_table[[7]]
+      addtot <- inc_table[[8]]
+      
+      ##calculate gains
+      gainloss<-mod_gainlossfusion$gainloss(temp_table,
+                                            original_temp_table, 
+                                            ex_table,
+                                            original_ex_table,
+                                            Mainchr,
+                                            multi,
+                                            j,
+                                            cyto_ref_table,
+                                            ref_table,
+                                            Cyto_sample,
+                                            Con_data,
+                                            transloctable,
+                                            Dump_table,
+                                            constitutional,
+                                            guess,
+                                            guess_q,
+                                            guess_by_first_val,
+                                            forMtn,
+                                            orOption,
+                                            sexstimate,
+                                            normX,  
+                                            normY,   
+                                            xcount, 
+                                            ycount ,  # counts number of y in 2nd slot
+                                            xadd ,    # counts if +X occurs
+                                            yadd ,    # counts if +Y occurs
+                                            xmod ,    # counts modifications that arent whole chromosome add/del for X
+                                            ymod ,    # counts modifications that arent whole chromosome add/del for Y
+                                            xdel ,    # counts if -X occures as constitutional
+                                            ydel ,    # counts if -Y occures as consitutional
+                                            
+                                            xconstitutional ,  # shift counts for xc indications (kind of a correction factor)
+                                            yconstitutional ,  # shift counts for yc indications (kind of a correction factor)
+                                            
+                                            idealx ,  # estimate of what the x value should be
+                                            idealy ,  # estimate of what the y value should be
+                                            
+                                            addtot ,  # counts total "new chromosomes"
+                                            deltot ,  # counts total complete chrom deletions
+                                            modtot ,  # for idems only, counts modification chromosomes
+                                            
+                                            n ,     # ploidy count
+                                            ploidy , # ploidy non additive ##default 2 for diploid
+                                            
+                                            startcol)
+      temp_table <-gainloss[[1]]
+      xadd <-gainloss[[2]]
+      yadd <-gainloss[[3]]
+      xmod <-gainloss[[4]]
+      ymod <-gainloss[[5]]
+      xdel <-gainloss[[6]]
+      ydel <-gainloss[[7]]
+      xconstitutional <-gainloss[[8]]
+      yconstitutional <-gainloss[[9]]
+      idealx <-gainloss[[10]]
+      idealy <-gainloss[[11]]
+      addtot <-gainloss[[12]]
+      deltot <-gainloss[[13]]
+      modtot <-gainloss[[14]]
+      n <-gainloss[[15]]
+      ploidy <-gainloss[[16]]
+      startcol <-gainloss[[17]]
+      
+      ##if calculating fusions
+      if(count_fusions)
+      {
+        fusion<-mod_gainlossfusion$fusion(temp_fusion_table,
+                                          original_temp_table, 
+                                          ex_fusion_table,
+                                          original_ex_table,
+                                          Mainchr,
+                                          multi,
+                                          j,
+                                          cyto_ref_table,
+                                          ref_table,
+                                          Cyto_sample,
+                                          Con_data,
+                                          transloctable,
+                                          Dump_table,
+                                          constitutional,
+                                          guess,
+                                          guess_q,
+                                          guess_by_first_val,
+                                          forMtn,
+                                          orOption,
+                                          sexstimate,
+                                          normX,  
+                                          normY,   
+                                          xcount, 
+                                          ycount ,  # counts number of y in 2nd slot
+                                          xadd ,    # counts if +X occurs
+                                          yadd ,    # counts if +Y occurs
+                                          xmod ,    # counts modifications that arent whole chromosome add/del for X
+                                          ymod ,    # counts modifications that arent whole chromosome add/del for Y
+                                          xdel ,    # counts if -X occures as constitutional
+                                          ydel ,    # counts if -Y occures as consitutional
+                                          
+                                          xconstitutional ,  # shift counts for xc indications (kind of a correction factor)
+                                          yconstitutional ,  # shift counts for yc indications (kind of a correction factor)
+                                          
+                                          idealx ,  # estimate of what the x value should be
+                                          idealy ,  # estimate of what the y value should be
+                                          
+                                          addtot ,  # counts total "new chromosomes"
+                                          deltot ,  # counts total complete chrom deletions
+                                          modtot ,  # for idems only, counts modification chromosomes
+                                          
+                                          n ,     # ploidy count
+                                          ploidy , # ploidy non additive ##default 2 for diploid
+                                          
+                                          startcol)
+        
+        
+      }
+    }
+    
+
+  } 
+  
+  return(list(temp_table,
+              Con_data,
+              transloctable,
+              Dump_table,
+              normX ,  
+              normY ,   
+              xcount , 
+              ycount ,  # counts number of y in 2nd slot
+              xadd ,    # counts if +X occurs
+              yadd ,    # counts if +Y occurs
+              xmod ,    # counts modifications that arent whole chromosome add/del for X
+              ymod ,    # counts modifications that arent whole chromosome add/del for Y
+              xdel ,    # counts if -X occures as constitutional
+              ydel ,    # counts if -Y occures as consitutional
+              xconstitutional ,  # shift counts for xc indications (kind of a correction factor)
+              yconstitutional ,  # shift counts for yc indications (kind of a correction factor)
+              idealx ,  # estimate of what the x value should be
+              idealy ,  # estimate of what the y value should be
+              addtot ,  # counts total "new chromosomes"
+              deltot ,  # counts total complete chrom deletions
+              modtot ,  # for idems only, counts modification chromosomes
+              n    , # ploidy count
+              ploidy , # ploidy non additive ##default 2 for diploid
+              startcol,
+              fusion))
+}
+
+##function for separating normal data
+##take into acc same chrom insestion
+##add cen into here (pter qter analouge)
 colparse <- function(
         Cyto_ref_table,
         ref_table,
@@ -23,6 +421,7 @@ colparse <- function(
   
     # for or statements, take first statement
     Cyto_sample[coln] <- gsub("or.*$", "", Cyto_sample[coln])
+    
     
     # if we are guessing ? marks
     if (guess_q == T & any(grepl("\\?", Cyto_sample[coln]))) {
@@ -2092,3 +2491,4 @@ colparse <- function(
 
     return(listCoord)
 }
+

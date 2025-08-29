@@ -17,6 +17,8 @@
 #' @param allow_Shorthand
 
 mod_rowparser <- modules::use('modules/rowparser.R')
+mod_colparser <- modules::use('modules/colparser.R')
+
 
 CytoConverter <- function(
         in_data,
@@ -28,7 +30,9 @@ CytoConverter <- function(
         forMtn = T,
         orOption = T,
         sexstimate = F,
-        allow_Shorthand = F
+        allow_Shorthand = F,
+        count_fusions=F,
+        include_normals_graph=F
 ) {
     
     # Load the cyto reference table, cyto_ref_table
@@ -98,6 +102,14 @@ CytoConverter <- function(
     Final_table <- matrix(ncol = 5, nrow = 0)
     colnames(Final_table) <- c("Sample ID", "Chr", "Start", "End", "Type")
     
+    #sorted table for fusions 
+    sorted_sample_fusion_table<-matrix(ncol=3,nrow=0)
+    
+    
+    # Table with desired output for fusions
+    Final_fusion_table <- matrix(ncol = 5, nrow = 0)
+    colnames(Final_fusion_table) <- c("Sample ID", "Chr", "Start", "End", "Type")
+    
     # Convert any single string into a table
     if (is.vector(in_data)) {
         in_data <- t(matrix(c("sample", in_data)))
@@ -107,6 +119,7 @@ CytoConverter <- function(
     # Write this later, get all fish recorded
     Dump_table <- matrix(ncol = 3, nrow = 0)
 
+    
     # Double check that this does not delete later data potentially
     fish_table <- in_data[grep("ish.*$", in_data[, 2]), ]
     if (is.vector(fish_table) && length(fish_table) > 0) {
@@ -499,7 +512,8 @@ CytoConverter <- function(
                     guess_by_first_val,
                     forMtn,
                     orOption,
-                    sexstimate
+                    sexstimate,
+                    count_fusions
                 )
             }, error = function(e) {
                 return(gsub("\n", " ", paste(e, "in", i, "sample")))
@@ -518,7 +532,29 @@ CytoConverter <- function(
             } else {
                 sorted_sample_table <- tottable[[1]]
                 Dump_table <- tottable[[2]]
-
+                
+                if(count_fusions==T){
+                  sorted_sample_fusion_table <- tottable[[4]]
+                  temp2 <- cbind(
+                    rep(as.character(Con_data[i, 1]), nrow(sorted_sample_fusion_table)),
+                    sorted_sample_fusion_table
+                  )
+                  colnames(temp2) <- colnames(Final_fusion_table)
+                  Final_fusion_table <- rbind(Final_fusion_table, temp2)
+                  
+                  # Correct data formats from factors into chr int int chr
+                  if (nrow(Final_fusion_table) == 1) {
+                    Final_fusion_table <- as.data.frame(Final_fusion_table)
+                    Final_fusion_table[, 1] <- as.character(Final_fusion_table[, 1])
+                    Final_fusion_table[, 2] <- as.character(Final_fusion_table[, 2])
+                    Final_fusion_table[, 3] <- as.integer(as.numeric(as.character(Final_fusion_table[, 3])))
+                    Final_fusion_table[, 4] <- as.integer(as.numeric(as.character(Final_fusion_table[, 4])))
+                    Final_fusion_table[, 5] <- as.character(Final_fusion_table[, 5])
+                  }
+                }else{
+                  sorted_sample_fusion_table<-NULL
+                }
+                
                 # Master table with names
                 temp2 <- cbind(
                     rep(as.character(Con_data[i, 1]), nrow(sorted_sample_table)),
@@ -569,8 +605,112 @@ CytoConverter <- function(
                     Dump_table,
                     c(Con_data[i,], "Warning in karyotype number not specified")
                 )
-          
-            } else {
+            }
+             if(grepl("(((\\+|-)[[:digit:]])|(\\(.*\\)\\(.*\\)))", cyto_sample[1])){
+                  ##call miniverter if its one single abberation
+                  tottable<- tryCatch({ mod_colparser$miniverter(j=1,
+                    cyto_ref_table,
+                    ref_table,
+                    cyto_sample,
+                    Con_data[i, ],
+                    transloctable,
+                    Dump_table,
+                    constitutional,
+                    guess,
+                    guess_q,
+                    guess_by_first_val,
+                    forMtn,
+                    orOption,
+                    sexstimate,
+                    count_fusions=count_fusions
+                  )
+                  }, error = function(e) {
+                    return(gsub("\n", " ", paste(e, "in", i, "sample")))
+                  }, finally = {
+                    print(paste("Parsed sample: ", Con_data[i, 1], Con_data[i, 2]))
+                  })
+                  
+                  if (is.character(tottable) & length(tottable) == 1) {
+                    Dump_table <- rbind(Dump_table, c(Con_data[i,], tottable))
+                    transloctable <- data.frame()
+                    
+                  } else if (!is.list(tottable)) {
+                    Dump_table <- tottable
+                    transloctable <- data.frame()
+                    
+                  } else {
+                    sorted_sample_table <- tottable[[1]]
+                    Dump_table <- tottable[[4]]
+                    
+                    
+                    # Master table with names
+                    temp2 <- cbind(
+                      rep(as.character(Con_data[i, 1]), nrow(sorted_sample_table)),
+                      sorted_sample_table
+                    )
+                    
+                    # Sort temp2 to remove gains and losses that are cooresponding
+                    
+                    colnames(temp2) <- colnames(Final_table)
+                    Final_table <- rbind(Final_table, temp2)
+                    
+                    # Correct data formats from factors into chr int int chr
+                    if (nrow(Final_table) == 1) {
+                      Final_table <- as.data.frame(Final_table)
+                      Final_table[, 1] <- as.character(Final_table[, 1])
+                      Final_table[, 2] <- as.character(Final_table[, 2])
+                      Final_table[, 3] <- as.integer(as.numeric(as.character(Final_table[, 3])))
+                      Final_table[, 4] <- as.integer(as.numeric(as.character(Final_table[, 4])))
+                      Final_table[, 5] <- as.character(Final_table[, 5])
+                    }
+                    
+                    if(count_fusions==T){
+                      sorted_sample_fusion_table<-tottable[[25]]  
+                            temp2 <- cbind(
+                              rep(as.character(Con_data[i, 1]), nrow(sorted_sample_fusion_table)),
+                              sorted_sample_fusion_table
+                            )
+                            
+                            # Sort temp2 to remove gains and losses that are cooresponding
+                            
+                            colnames(temp2) <- colnames(Final_fusion_table)
+                            Final_fusion_table <- rbind(Final_fusion_table, temp2)
+                            
+                            # Correct data formats from factors into chr int int chr
+                            if (nrow(Final_fusion_table) == 1) {
+                              Final_fusion_table <- as.data.frame(Final_fusion_table)
+                              Final_fusion_table[, 1] <- as.character(Final_fusion_table[, 1])
+                              Final_fusion_table[, 2] <- as.character(Final_fusion_table[, 2])
+                              Final_fusion_table[, 3] <- as.integer(as.numeric(as.character(Final_fusion_table[, 3])))
+                              Final_fusion_table[, 4] <- as.integer(as.numeric(as.character(Final_fusion_table[, 4])))
+                              Final_fusion_table[, 5] <- as.character(Final_fusion_table[, 5])
+                            }
+                    }else{sorted_sample_fusion_table <- NULL}
+                    
+                    # Make list to store translocations and insertions
+                    # If clone line, then, carry over transloctable to next one
+                    if (i < nrow(Con_data)) {
+                      curname <- strsplit(Con_data[i, 1], "_")[[1]]
+                      nextname <- strsplit(Con_data[i + 1, 1], "_")[[1]]
+                      if (
+                        curname[-length(curname)] == nextname[-length(nextname)]
+                        & as.numeric(curname[length(curname)]) + 1
+                        == as.numeric(nextname[length(nextname)])
+                      ) {
+                        # Keep previous transloctable if sample names the same and cell line
+                        # is in correct order
+                        transloctable <- tottable[[3]]
+                        
+                      } else {
+                        transloctable <- data.frame()
+                        
+                      }
+                      
+                    }
+                
+              }
+              
+            }else {
                 Dump_table <- rbind(
                     Dump_table,
                     c(Con_data[i,], "Warning in karyotype is incorrect")
@@ -712,13 +852,41 @@ CytoConverter <- function(
 
     colnames(Dump_table) <- c("Sample ID", "Karyotype", "Error Message")
     
-    result <- list(Final_Final_table, Dump_table)
-    names(result) <- list("Result", "Error_log")
+    if(count_fusions==F)
+      {
+        if(include_normals_graph==F)
+        {
+          result <- list(Final_Final_table, Dump_table,sorted_sample_fusion_table,NULL)
+          names(result) <- list("Result", "Error_log","Fusion_table","List_of_samples")
+        }else{
+          result <- list(Final_Final_table, Dump_table,sorted_sample_fusion_table,Con_data[,1])
+          names(result) <- list("Result", "Error_log","Fusion_table","List_of_samples")
+        }
+    }else{
+      if(include_normals_graph==F)
+      {
+        result <- list(Final_Final_table, Dump_table,Final_fusion_table,NULL)
+        names(result) <- list("Result", "Error_log","Fusion_table","List_of_samples")
+      }else{
+        result <- list(Final_Final_table, Dump_table,Final_fusion_table,Con_data[,1])
+        names(result) <- list("Result", "Error_log","Fusion_table","List_of_samples")
+      }
+    }
     
     return(result)
 
 }
 
 
+##CGC 2023 
+##every two years 2024  ACC
+
+#breakpoints important 
+##cytogenetics listserv 
+
+##we are soliciting feedback on use of . write up email. 
+
+
+## long form chromosome conversion of entire chromosomes 
 
 
