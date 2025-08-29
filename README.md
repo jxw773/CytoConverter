@@ -28,3 +28,44 @@ cyto_list - table output from CytoConverter
 list_from_cyto - output from cyto_graph (unnessesary if cyto_list is used)
 ref_list - sets reference to use for plotting coordinates, default is GRCh38
 ylabel - option to enable or disable printing sample names on the graph
+
+## CNV Hierarchical Clustering Analysis
+
+An additional R script `cnv_clustering_analysis.R` is provided for performing hierarchical clustering analysis on CNV data based on Gain/Loss patterns.
+
+### Features:
+- Converts CNV data to binary matrix (Gain = 1, Loss = -1, unknown = 0)
+- Performs hierarchical clustering using binary distance
+- Generates dendrogram and heatmap visualizations
+- Saves high-quality PNG images and analysis results
+
+### Usage:
+```r
+# Source the clustering script
+source("cnv_clustering_analysis.R")
+
+# Run analysis on CNV data
+results <- cnv_clustering_analysis(
+  input_file = "cyto_result.txt",      # Input CNV data file
+  output_dir = "clustering_results",   # Output directory
+  use_bins = FALSE,                    # Use actual CNV regions (TRUE for genomic bins)
+  bin_size = 10000000,                 # Bin size in bp (if use_bins = TRUE)
+  distance_method = "binary",          # Distance method for clustering
+  clustering_method = "complete"       # Clustering linkage method
+)
+```
+
+### Input Format:
+The script expects tab-delimited files with columns:
+- Sample ID: Sample identifier
+- Chr: Chromosome
+- Start: Start position
+- End: End position  
+- Type: "Gain" or "Loss"
+- Cells Present: Cell count information
+
+### Output Files:
+- `cnv_dendrogram.png`: Hierarchical clustering dendrogram
+- `cnv_heatmap.png`: Heatmap of CNV patterns
+- `cnv_binary_matrix.txt`: Binary matrix used for clustering
+- `cnv_cluster_assignments.txt`: Sample cluster assignments
