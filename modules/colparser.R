@@ -668,7 +668,7 @@ colparse <- function(
 
         } else if (
             grepl("der|rec", Cyto_sample[coln])
-            && !is.na(derMods)
+            && !is.na(derMods[1])
             && length(derMods) > 1
             && grepl("^r\\(", derMods[2])
         ) {
@@ -976,7 +976,7 @@ colparse <- function(
                             temp[lengthcount * 2 - 1]
                         },
                         arm,
-                        if (length(temp) >= 2) {
+                        if (length(temp) >= (lengthcount * 2) && (lengthcount * 2) <= length(temp)) {
                             temp[[(lengthcount * 2):length(temp)]]
                         }
                     )
@@ -1280,6 +1280,7 @@ colparse <- function(
                             transtemp[2],
                             if (
                                 (length(temp) >= lengthcount * 2)
+                                && (lengthcount * 2 <= length(temp))
                                 && (
                                     !grepl("p|q|->|:", derMods[length(temp)])
                                     || IsOdd(length(temp))
@@ -2005,7 +2006,7 @@ colparse <- function(
                                             derMods[lengthcount * 2 - 1]
                                         )
                                     )
-                                } else {
+                                } else if (nrow(positions_table) >= 1 && ncol(positions_table) >= 3) {
                                     in_table <- rbind(
                                         in_table,
                                         cbind(
@@ -2122,7 +2123,7 @@ colparse <- function(
                                         )
                                     }
                                 }
-                            } else {
+                            } else if (nrow(positions_table) >= 1 && ncol(positions_table) >= 3) {
                                 in_table <- rbind(
                                     in_table,
                                     cbind(
@@ -2569,13 +2570,14 @@ colparse <- function(
     if (
         (
             nrow(coord) > 0
+            && length(coord[, 4]) > 0
             && any(grepl("multi", coord[, 4]))
         )
         && (
             constitutional == T
             | (
                 constitutional == F
-                & !grepl("(c$)|(c\\?$)", coord[, 4])
+                && !any(grepl("(c$)|(c\\?$)", coord[, 4]))
             )
         )
     ) {
