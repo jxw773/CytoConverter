@@ -1,39 +1,64 @@
+#' CytoConverter Shiny User Interface
+#' 
+#' @description
+#' This module defines the user interface for the CytoConverter Shiny web application.
+#' It provides a responsive web interface for cytogenetic analysis with options for
+#' text input, file upload, parameter configuration, and result visualization.
+#' 
+#' @details
+#' The interface includes:
+#' \itemize{
+#'   \item Input options (text entry and file upload)
+#'   \item Parameter configuration (reference genome, analysis options)
+#'   \item Results display (tables and visualizations)  
+#'   \item Help documentation and examples
+#' }
+
 navbarPage( "CytoConverter : Cytogenetic Nomenclature to Genomic Coordinate Translator",
 tabPanel("Main Page",
   fluidPage(
   tags$head(
+      # Custom CSS styling for visual elements
       tags$style(HTML("hr {border-top: 1px solid #000000;}"))
     ),
-    ##titlePanel("Cytogenetics Nomenclature to Genomic Coordinate Translator"),
+    # Main application layout with sidebar and main content area
     sidebarLayout(
       
-      # Sidebar panel for inputs ----
+      # Sidebar panel for user inputs and parameter configuration
       sidebarPanel(
-        ##select file to download
+        # Display mode selector - choose what to show in results
         selectInput("dataset", "Display:",
                     choices = c("Both","Text","File")),
   
+        # Text input field for direct karyotype entry
+        # Users can type karyotypes directly for quick analysis
         textInput("text", label = h3("Text input"), value = ""),
   
+        # File upload widget for batch processing
+        # Accepts tab-delimited files with sample names and karyotypes
         fileInput("file", label = h3("File input"),accept=""),
        
         
-        ##buttons for reference type
+        # Reference genome build selection
+        # Different builds have different cytoband coordinates
         radioButtons("radio", label = h3("Reference Build"),
                      choices = list("GRCh38" = "GRCh38", "hg19" = "hg19", "hg18" = "hg18"), 
                      selected = "GRCh38"),
         
-        ##buttons for constitional changes
+        # Constitutional analysis mode toggle
+        # Affects how chromosomal aberrations are interpreted
         radioButtons("radio2", label = h3("Include Constitutional Changes"),
                      choices = list("yes" = T, "no" = F), 
                      selected = T),
         
-        ##buttons for estimating ploidy
+        # Ploidy estimation option
+        # Enables automatic detection of ploidy levels from karyotype
         radioButtons("radio3", label = h3("Estimate Ploidy"),
                      choices = list("yes" = T, "no" = F), 
                      selected = T),
         
-        ##buttons for estimating uncertainties
+        # Uncertainty handling for ambiguous notation
+        # Determines how to handle ? marks in karyotype descriptions
         radioButtons("radio4", label = h3("Estimate ? Uncertainties"),
                      choices = list("yes" = T, "no" = F), 
                      selected = F),

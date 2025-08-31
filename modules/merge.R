@@ -1,4 +1,66 @@
 
+#' Merge Functions for CytoConverter
+#' 
+#' @description
+#' This module contains functions for merging overlapping chromosomal intervals 
+#' and handling complex gain/loss regions. These functions maintain non-overlapping
+#' data structures while preserving the hierarchical nature of nested aberrations.
+#' 
+#' @details
+#' The merge system uses a hash-based data structure to efficiently track:
+#' \itemize{
+#'   \item Non-overlapping genomic intervals
+#'   \item Gain and loss regions within each interval
+#'   \item Plus-loss events (+Loss) for specialized processing
+#'   \item Order preservation for original aberration sequence
+#' }
+
+#' Insert Section into Merge Data Structure
+#' 
+#' @description
+#' This function inserts chromosomal regions into the merge data structure h_, which
+#' tracks all non-overlapping gain/loss sections within genomic regions. It handles
+#' the complex logic of splitting existing intervals when new regions overlap.
+#' 
+#' @param h_ Hash data structure containing existing genomic intervals with the format:
+#'   Start coordinate (key) -> hash containing:
+#'     \itemize{
+#'       \item End: end coordinate for this section
+#'       \item Gain: list of end coordinates of "Gain" regions
+#'       \item Loss: list of end coordinates of "Loss" regions  
+#'       \item "+Loss": list of end coordinates of "+Loss" regions
+#'     }
+#' @param start Numeric start coordinate of the new region to insert
+#' @param end Numeric end coordinate of the new region to insert
+#' @param type Character string specifying the type of aberration ("Gain", "Loss", or "+Loss")
+#' 
+#' @return Modified hash data structure with the new region inserted and existing
+#'   intervals split as necessary to maintain non-overlapping structure
+#' 
+#' @details
+#' The function performs three main operations:
+#' \enumerate{
+#'   \item **Split at start position**: If the start coordinate falls within an existing
+#'     interval, split that interval at the start position
+#'   \item **Split at end position**: If the end coordinate falls within an existing  
+#'     interval, split that interval at the end position
+#'   \item **Update overlapping intervals**: For all intervals completely contained
+#'     within the new region, add the aberration type to their respective lists
+#' }
+#' 
+#' This approach ensures that overlapping gains and losses are properly tracked
+#' without creating conflicting interval boundaries.
+#' 
+#' @examples
+#' \dontrun{
+#' # Create new hash structure
+#' h <- hash::hash()
+#' h["100"] <- hash::hash(End=200, Gain=list(), Loss=list(), "+Loss"=list())
+#' 
+#' # Insert a gain from 150-250
+#' h <- insertSection(h, 150, 250, "Gain")
+#' # This splits the 100-200 interval and creates appropriate gain annotations
+#' }
 insertSection <- function(h_, start, end, type) {
     # This function inserts regions into the data structure h_, which
     # keeps track of all non-overlapping gain/loss sections within regions
@@ -157,7 +219,35 @@ insertSection <- function(h_, start, end, type) {
     return(h_)
 
 } # insertSection
- 
+
+#' Delete Intersecting Gain/Loss Regions
+#' 
+#' @description
+#' This function removes overlapping gain and loss regions from the merge data structure,
+#' implementing the biological logic that simultaneous gains and losses in the same
+#' genomic region cancel each other out. It prioritizes +Loss events over regular Loss events.
+#' 
+#' @param h_ Hash data structure containing genomic intervals with gain/loss annotations
+#' 
+#' @return Modified hash data structure with overlapping gain/loss regions removed
+#' 
+#' @details
+#' The function implements a two-step deletion process:
+#' \enumerate{
+#'   \item **+Loss cancellation**: Remove equal numbers of Gain and +Loss events first,
+#'     as +Loss events take priority in cytogenetic interpretation
+#'   \item **Standard cancellation**: Remove equal numbers of remaining Gain and Loss events
+#' }
+#' 
+#' Deletion rules:
+#' \itemize{
+#'   \item If gains == (+Loss + Loss), delete the entire section (complete cancellation)
+#'   \item Otherwise, remove pairs of overlapping events while preserving order
+#'   \item Maintains original event order by removing from the beginning of lists
+#' }
+#' 
+#' This ensures that complex karyotypes with multiple overlapping aberrations
+#' are resolved according to cytogenetic conventions.
 deleteIntersections <- function(h_) {
 
     start_vals <- sort(as.numeric(hash::keys(h_)))
@@ -215,6 +305,35 @@ deleteIntersections <- function(h_) {
 
 }
 
+#' Get Contiguous Section Extension
+#' 
+#' @description
+#' This recursive function crawls the hash data structure to build contiguous sections
+#' by extending genomic intervals that share the same aberration type and connect
+#' at their boundaries. It ensures that adjacent intervals of the same type are
+#' merged into single, longer intervals.
+#' 
+#' @param h__ Hash data structure containing genomic intervals organized by chromosome
+#' @param section Named vector representing the current genomic section being extended,
+#'   containing: Chr, Start, End, Type
+#' @param orig_end Numeric value of the original end coordinate used for matching
+#'   adjacent sections
+#' 
+#' @return Extended section with updated End coordinate if contiguous sections
+#'   of the same type are found, otherwise the original section unchanged
+#' 
+#' @details
+#' The function works by:
+#' \enumerate{
+#'   \item Checking if there's an adjacent section starting where current section ends
+#'   \item Verifying the adjacent section has the same aberration type (Gain/Loss/+Loss)
+#'   \item Extending the current section to encompass the adjacent section
+#'   \item Recursively continuing to find further extensions
+#'   \item Cleaning up empty sections after merging
+#' }
+#' 
+#' This recursive approach ensures that all contiguous regions of the same type
+#' are merged into single intervals, simplifying downstream analysis.
 getContiguousSection <- function(h__, section, orig_end) {
 
     # This is a recursive function that crawls the hash to build
@@ -253,6 +372,35 @@ getContiguousSection <- function(h__, section, orig_end) {
 
 }
   
+#' Merge Adjacent Genomic Sections
+#' 
+#' @description
+#' This function processes the hash data structure to create a final table of merged
+#' genomic intervals. It systematically processes each chromosome and merges adjacent
+#' sections of the same aberration type into contiguous regions, producing the final
+#' output format for CytoConverter results.
+#' 
+#' @param h_ Hash data structure containing genomic intervals organized by chromosome,
+#'   with each chromosome containing sections with Gain, Loss, and +Loss annotations
+#' 
+#' @return Data frame with columns Chr, Start, End, Type containing the final merged
+#'   genomic intervals ready for output
+#' 
+#' @details
+#' The function implements a systematic merging process:
+#' \enumerate{
+#'   \item **Initialize output**: Creates empty data frame with standard column structure
+#'   \item **Process by chromosome**: Iterates through each chromosome in the hash
+#'   \item **Build contiguous sections**: For each starting position, identifies the
+#'     aberration type and extends it using getContiguousSection()
+#'   \item **Clean up data structure**: Removes processed sections from the hash
+#'   \item **Accumulate results**: Adds completed intervals to the output table
+#' }
+#' 
+#' Priority order for aberration types when multiple types exist at the same position:
+#' Gain → Loss → +Loss
+#' 
+#' This ensures consistent output formatting and proper merging of overlapping regions.
 mergeAdjacentSections <- function(h_) {
 
    
@@ -361,6 +509,40 @@ mergeAdjacentSections <- function(h_) {
 
 }
 
+#' Merge Gain/Loss Table Using Hash-Based Algorithm
+#' 
+#' @description
+#' This is the main merging function that processes a table of genomic intervals
+#' containing gains, losses, and other aberrations. It uses a hash-based algorithm
+#' to efficiently merge overlapping intervals while properly handling gain/loss
+#' cancellations and preserving non-gain/loss aberrations.
+#' 
+#' @param M Data frame containing genomic intervals with columns:
+#'   \itemize{
+#'     \item Chr - Chromosome identifier
+#'     \item Start - Start coordinate (numeric)
+#'     \item End - End coordinate (numeric)
+#'     \item Type - Aberration type ("Gain", "Loss", "+Loss", or other)
+#'   }
+#' @param keep_extras Logical flag indicating whether to preserve non-gain/loss
+#'   aberrations in the output (default: FALSE)
+#' 
+#' @return Data frame with merged genomic intervals, containing only net gains
+#'   and losses after cancellation, plus any extra aberrations if keep_extras=TRUE
+#' 
+#' @details
+#' The merging algorithm:
+#' \enumerate{
+#'   \item **Separate data**: Extract non-gain/loss aberrations for later inclusion
+#'   \item **Initialize hash structure**: Create chromosome-specific hash maps
+#'   \item **Populate intervals**: Insert all gain/loss intervals using insertSection()
+#'   \item **Cancel overlaps**: Remove intersecting gain/loss pairs using deleteIntersections()
+#'   \item **Merge adjacent**: Combine contiguous intervals of the same type
+#'   \item **Combine results**: Add back extra aberrations if requested
+#' }
+#' 
+#' This approach efficiently handles complex karyotypes with multiple overlapping
+#' aberrations while maintaining biological accuracy.
 mergeTable <- function(M, keep_extras = F) {
 
     # Store non gains and losses for intermediate steps
@@ -425,6 +607,34 @@ mergeTable <- function(M, keep_extras = F) {
 # returns NA if they don't overlap and merges them if they do.
 # v1 and v2 are each two-vectors giving the interval
 
+#' Merge Two Overlapping Genomic Intervals
+#' 
+#' @description
+#' This function handles the merging of two genomic intervals, typically representing
+#' opposing aberrations (gain vs loss). It calculates the non-overlapping portions
+#' after cancellation and returns the remaining segments along with information
+#' about whether the original intervals were modified.
+#' 
+#' @param v1 Numeric vector of length 3: c(start, end, type) for first interval
+#' @param v2 Numeric vector of length 3: c(start, end, type) for second interval
+#' 
+#' @return List containing:
+#'   \item{intervals}{Data frame with remaining non-overlapping intervals after merging}
+#'   \item{modified}{Logical indicating whether intervals were changed (FALSE if no overlap)}
+#' 
+#' @details
+#' The function handles various overlap scenarios:
+#' \itemize{
+#'   \item **Complete containment**: One interval completely contains another
+#'   \item **Partial overlap**: Intervals overlap at their boundaries  
+#'   \item **No overlap**: Intervals are completely separate
+#'   \item **Exact match**: Intervals have identical coordinates (complete cancellation)
+#' }
+#' 
+#' Order independence: The function automatically orders intervals by start position
+#' to ensure consistent results regardless of input order.
+#' 
+#' Used primarily for gain/loss cancellation in cytogenetic analysis.
 mergeDel <- function(v1, v2) {
 
     labs <- c(v1[3], v2[3])
@@ -496,6 +706,38 @@ mergeDel <- function(v1, v2) {
 
 }
 
+#' Merge Gain and Loss Matrices with Iterative Cancellation
+#' 
+#' @description
+#' This function performs comprehensive merging of gain and loss intervals using
+#' an iterative algorithm. It systematically compares each gain against all losses
+#' and vice versa, removing overlapping regions to produce final non-conflicting
+#' interval sets. This is an alternative to the hash-based mergeTable approach.
+#' 
+#' @param G Data frame containing gain intervals with columns: Start, End, Type
+#' @param L Data frame containing loss intervals with columns: Start, End, Type
+#' 
+#' @return List containing:
+#'   \item{gains}{Data frame with remaining gain intervals after cancellation}
+#'   \item{losses}{Data frame with remaining loss intervals after cancellation}
+#' 
+#' @details
+#' The iterative merging process:
+#' \enumerate{
+#'   \item **Process gains against losses**: For each gain interval, check against
+#'     all loss intervals for overlaps, using mergeDel() to handle cancellations
+#'   \item **Process losses against original gains**: Use the original gain set
+#'     to process remaining losses, ensuring bidirectional cancellation
+#'   \item **Handle special cases**: Processes intervals with "del" and "add" prefixes
+#'     differently to preserve structural aberration information
+#'   \item **Iterate until convergence**: Continue until no more modifications occur
+#' }
+#' 
+#' This approach ensures complete cancellation of overlapping gain/loss pairs
+#' while preserving the biological interpretation of complex karyotypes.
+#' 
+#' @note This function provides an alternative algorithm to mergeTable() for
+#' scenarios requiring more explicit control over the merging process.
 mergeDelmat <- function(G, L) {
 
     i <- 1
@@ -629,6 +871,31 @@ mergeDelmat <- function(G, L) {
 
 }
 
+#' Big Deletion Merge for Multiple Chromosomes
+#' 
+#' @description
+#' This function applies the mergeDelmat algorithm across multiple chromosomes
+#' in a single operation. It processes each chromosome separately while handling
+#' special structural aberrations like translocations, isodicentric, Robertsonian,
+#' tricentric, and dicentric chromosomes.
+#' 
+#' @param M Data frame containing genomic intervals with columns:
+#'   Chr, Start, End, Type (where Type may include gains, losses, and structural aberrations)
+#' 
+#' @return Data frame with merged intervals where gain/loss cancellations have been
+#'   applied chromosome by chromosome
+#' 
+#' @details
+#' The function handles complex structural aberrations by:
+#' \itemize{
+#'   \item Identifying structural aberrations using regex patterns for t(, idic(, rob(, trc(, dic(
+#'   \item Separating gains/structural aberrations from deletions/additions
+#'   \item Applying mergeDelmat to opposing interval types within each chromosome
+#'   \item Preserving structural aberration information during merging
+#' }
+#' 
+#' Used primarily for complex karyotypes containing both simple gains/losses
+#' and structural rearrangements.
 bigDelMerge <- function(M) {
 
     ##ask what does this do
@@ -701,6 +968,38 @@ bigDelMerge <- function(M) {
 
 }
 
+#' Merge Deletions with Complex Structural Aberrations
+#' 
+#' @description
+#' This function handles the merging of deletions and additions in the context of
+#' complex structural aberrations. It categorizes different types of aberrations
+#' and applies appropriate merging strategies while preserving the biological
+#' significance of structural rearrangements.
+#' 
+#' @param M Data frame containing genomic intervals with structural aberrations
+#' @param Mainchr Character vector indicating the main chromosomes involved in the analysis
+#' 
+#' @return Data frame with processed genomic intervals where deletions have been
+#'   appropriately merged with structural aberrations
+#' 
+#' @details
+#' The function implements a sophisticated categorization system:
+#' \enumerate{
+#'   \item **Structural aberrations**: Translocations, dicentric, Robertsonian, etc.
+#'   \item **Deletions**: Intervals marked with "del" but not starting with "del"
+#'   \item **Additions**: Intervals marked with "add" but not starting with "add"
+#'   \item **Gains**: Standard gain intervals
+#' }
+#' 
+#' The merging process:
+#' \itemize{
+#'   \item First applies bigDelMerge for complex structural interactions
+#'   \item Then performs final coordinate adjustments
+#'   \item Preserves non-conflicting aberrations in the final output
+#' }
+#' 
+#' This function is particularly important for complex constitutional and somatic
+#' karyotypes involving multiple types of chromosomal rearrangements.
 mergeDeletions <- function(M, Mainchr) {
 
     OldM <- M
