@@ -166,6 +166,8 @@ cyto_graph<-function(cyto_list,ref_list="GRCh38",include_normals_graph=F,list_of
                         if(first %overlaps% sec)
                         {
                           overlap=T
+                         ##if(first[2] >  sec[1]){
+                         ## chr_table[d,3] <- sec[1]
                           # Mark overlapping regions for "Double" classification
                          ## }
                          
@@ -174,8 +176,7 @@ cyto_graph<-function(cyto_list,ref_list="GRCh38",include_normals_graph=F,list_of
                           ##  chr_table[d,2] <- sec[2]
                          ## }
                           
-                         ##if(first[2] >  sec[1]){
-                         ## chr_table[d,3] <- sec[1]
+
                           
                           if(first[2] >  sec[2]){
                             chr_table[d,4] <- sec[2]
@@ -386,4 +387,5 @@ cyto_graph<-function(cyto_list,ref_list="GRCh38",include_normals_graph=F,list_of
   sorted_reflist[,2]<-as.numeric(as.character(sorted_reflist[,2]))
   return(list(rect_maker,xbegin,xcoord_master,y_above,y_below,sorted_reflist,cum_length_coords,start_cum_length,uniq_coord_name))
 }
+
 
