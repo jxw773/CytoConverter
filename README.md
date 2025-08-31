@@ -15,6 +15,27 @@ are installed by changing to the CytoConverter directory and running:
 
 ## Running CytoConverter
 
+### Quick Start
+
+For basic gain/loss analysis:
+```bash
+./cytoconverter \
+  --input cyto_example.txt \
+  --threads 4 \
+  --output results.txt \
+  --log log.txt
+```
+
+For fusion analysis (requires R environment):
+```r
+source("modules/cytoconverter.R")
+data <- read.table("cyto_fusion_examples.txt", sep="\t", header=FALSE)
+result <- CytoConverter(data, count_fusions = TRUE)
+write.table(result$Results, "fusion_results.txt", sep="\t", quote=FALSE)
+```
+
+### Command Line Usage
+
 Run CytoConverter with the wrapper script using the following command:
 
 ```
@@ -32,17 +53,40 @@ Adjust parameters for your specific run:
 - output: Output file containing genomic coordinates and indications of gain or loss for all samples.
 - log: Log file containing any warnings or errors encountered during processing.
 
+### Example Files
+
+The repository includes several example files to demonstrate different capabilities:
+
+- **cyto_example.txt** - Basic examples with gains, losses, and simple structural aberrations
+- **cyto_fusion_examples.txt** - Comprehensive examples of fusion events and complex structural rearrangements
+- **cyto_example_empty.txt** - Template for creating your own input files
+
+Example karyotypes in cyto_fusion_examples.txt include:
+- Balanced translocations: `t(9;22)(q34;q11.2)`
+- Derivative chromosomes: `der(10)t(10;21)(p13;q21)`
+- Dicentric chromosomes: `dic(X;Y)(p22.3;p11.3)`
+- Ring chromosomes: `r(7)(p22q36)`
+- Inversions: `inv(16)(p13.1q22)`
+- And many other structural aberrations
+
 
 ## Code Structure
 
 The code has been split into multiple "modules" and structured as follows.
 
-- cytoconverter.R: includes the main entrypoint for CytoConverter. 
-- rowparser.R: includes control flow for parsing rows of a karyotype table.
-- colparser.R: includes control flow for parsing each cell line or component of a karyotype. 
-- merge.R: includes helper functions for handling and merging intervals.
-- utils.R: includes utility functions.  
-- cytobands.R: includes a function for getting cytobands for translocations and insertions.  
+- **cytoconverter.R**: includes the main entrypoint for CytoConverter. 
+- **rowparser.R**: includes control flow for parsing rows of a karyotype table.
+- **colparser.R**: includes control flow for parsing each cell line or component of a karyotype. 
+- **merge.R**: includes helper functions for handling and merging intervals.
+- **mergefusions.R**: includes specialized merge functions for fusion data and structural rearrangements.
+- **gainlossfusion.R**: includes functions for detecting and classifying gains, losses, and fusion events.
+- **utils.R**: includes utility functions.  
+- **cytobands.R**: includes a function for getting cytobands for translocations and insertions.  
+
+### Additional Files
+- **cyto_graph_fusion.R**: specialized plotting functions for fusion visualization
+- **plot_cyto_graph.R**: standard plotting functions for gains and losses
+- **Fusion_tags_WIP.txt**: documentation of fusion tag system and supported fusion types  
 
 
 ```
@@ -73,7 +117,119 @@ The code has been split into multiple "modules" and structured as follows.
                 └──────────────►                   │
                                │    getCytoBands() │
                                └───────────────────┘
+
+   ┌─────────────────────────────────────────────────────────┐
+   │ Fusion Detection & Analysis Modules                     │
+   ├─────────────────────────────────────────────────────────┤
+   │ gainlossfusion.R        │ mergefusions.R                │
+   │                         │                               │
+   │   gainloss()            │   insertSection_Fus()         │
+   │   fusion()              │   deleteIntersections_Fus()   │
+   │                         │   mergeAdjacentSections_Fus() │
+   │                         │   mergeTable_Fus()            │
+   └─────────────────────────────────────────────────────────┘
+
+   ┌─────────────────────────────────────────────────────────┐
+   │ Visualization Modules                                   │
+   ├─────────────────────────────────────────────────────────┤
+   │ cyto_graph_fusion.R     │ plot_cyto_graph.R             │
+   │                         │                               │
+   │   cyto_graph_fusion()   │   plot_cyto_graph()           │
+   │                         │                               │
+   └─────────────────────────────────────────────────────────┘
 ```
+
+## Fusion Capabilities
+
+CytoConverter has comprehensive support for detecting and analyzing chromosomal fusions and structural aberrations. The fusion detection module can identify and classify various types of chromosomal rearrangements, providing detailed information about their genomic coordinates and fusion characteristics.
+
+### Supported Fusion Types
+
+CytoConverter can detect and analyze the following types of chromosomal fusions and structural aberrations:
+
+#### Basic Fusion Types
+- **Translocations** - Both balanced and unbalanced translocations
+  - `t(chromosome1;chromosome2)(breakpoint1;breakpoint2)` - Balanced translocations
+  - `der(chromosome)t(chromosome1;chromosome2)(breakpoint1;breakpoint2)` - Derivative chromosomes from translocations
+  
+- **Inversions** - Chromosomal inversions
+  - `inv(chromosome)(breakpoint1breakpoint2)` - Paracentric or pericentric inversions
+  
+- **Insertions** - Material inserted from one chromosome to another
+  - `ins(chromosome1;chromosome2)(insertion_point;breakpoint1breakpoint2)` - Insertions
+
+#### Complex Fusion Types
+- **Derivative Chromosomes** - Chromosomes derived from structural rearrangements
+  - `der(chromosome)` - General derivative chromosome notation
+  - `rec(chromosome)` - Recombinant chromosomes
+  
+- **Ring Chromosomes** - Circular chromosomes formed by terminal deletions and fusion
+  - `r(chromosome)(breakpoint1breakpoint2)` - Ring chromosomes
+  
+- **Multicentric Chromosomes** - Chromosomes with multiple centromeres
+  - **Dicentric Chromosomes** - `dic(chromosome1;chromosome2)` - Two centromeres
+  - **Tricentric Chromosomes** - `trc(chromosome1;chromosome2;chromosome3)` - Three centromeres
+  
+- **Isochromosomes** - Chromosomes with identical arms
+  - `i(chromosomearm)` - Isochromosomes
+  - `ider(chromosome)` - Isochromosome for derivative chromosome
+  - `idic(chromosome)` - Isodicentric chromosomes
+  
+- **Robertsonian Translocations** - Fusion of acrocentric chromosomes
+  - `rob(chromosome1;chromosome2)` - Robertsonian translocations
+
+#### Additional Structural Aberrations
+- **Duplications** - `dup(chromosome)(breakpoint1breakpoint2)` 
+- **Triplications** - `trp(chromosome)(breakpoint1breakpoint2)`
+- **Quadruplications** - `qdp(chromosome)(breakpoint1breakpoint2)`
+- **Fragile Sites** - `fra(chromosome)(breakpoint)`
+- **Centromere Fission** - `fis(chromosome)(breakpoint)`
+
+### Fusion Input Format
+
+Fusion karyotypes should follow standard cytogenetic nomenclature. Examples:
+
+```
+Sample1    47,XY,+der(10)t(10;21)(p13;q21)
+Sample2    46,XX,der(1;19)(q10;p10)
+Sample3    46,XY,t(9;22)(q34;q11.2)
+Sample4    45,X,dic(X;Y)(p22.3;p11.3)
+Sample5    46,XX,inv(16)(p13.1q22)
+Sample6    47,XY,+r(7)(p22q36)
+Sample7    46,XY,ins(2;5)(p13;q14q33)
+```
+
+### Fusion Output Format
+
+When fusion analysis is enabled, CytoConverter outputs additional information about detected fusions:
+
+- **Fusion Type Classification** - Each fusion is tagged with its specific type (e.g., `#translocation_balanced`, `#derivative_chrom`, `#ring_chrom`)
+- **Chromosomal Breakpoints** - Precise genomic coordinates of fusion breakpoints
+- **Fusion Partners** - Identification of chromosomes involved in each fusion
+- **Fusion Orientation** - Direction and orientation of fused segments
+
+### Using Fusion Analysis
+
+To enable fusion detection and analysis:
+
+```r
+# Enable fusion counting and analysis
+result <- CytoConverter(input_data, count_fusions = TRUE)
+
+# Access fusion-specific results
+fusion_table <- result$Results[grepl("#", result$Results$Type), ]
+
+# Plot fusion data using fusion-specific plotting
+plot_result <- cyto_graph_fusion(fusion_table, ref_list = "GRCh38")
+```
+
+### Fusion Visualization
+
+CytoConverter provides specialized visualization capabilities for fusion data:
+
+- **cyto_graph_fusion()** - Creates fusion-specific plots highlighting structural rearrangements
+- **Fusion-specific color coding** - Different colors for different types of fusions
+- **Breakpoint visualization** - Precise marking of fusion breakpoints on chromosome plots
 
 ## Additional Information
 
@@ -84,12 +240,15 @@ bands at 850 resolution for build GRCh38 as default.
 The function CytoConverter will output a list with the first element being the results table and 
 the second element being the error and warning table. 
 
-CytoConverter has two required paramenters:
+CytoConverter has multiple parameters:
 
-- in_data - input karyotype or karyotype table
-- build - a string of the build used for reference containing chromosome, chromosome position,
+- **in_data** - input karyotype or karyotype table
+- **build** - a string of the build used for reference containing chromosome, chromosome position,
 corresponding cytoband, and staining pattern (GRCh38, hg19, hg18, hg17). This parameter is set to
 GRCh38 by default.
+- **count_fusions** - boolean flag to enable fusion detection and analysis (default: FALSE)
+- **constitutional** - boolean flag for constitutional analysis (default: TRUE)
+- **guess** - boolean flag to enable guessing of ambiguous regions (default: FALSE)
 
 To access each of the elements, place the result into an R variable like so:
 
@@ -102,14 +261,27 @@ To get the error log use ```Variable_name$Error_log```
 
 The results table consists of the sample name followed by the clone line number, the start genomic
 coordinate of a gain or loss, the end coordinate of a gain or loss, an indicator if the sample is a
-gain or a loss, and the number of cells in a clone out of the total cells in a sample.
+gain, loss, or fusion type, and the number of cells in a clone out of the total cells in a sample.
 
-A built in function to create a graph displaying samples with gains and losses is provided:
+For fusion analysis, additional columns may include fusion type classifications (marked with # symbols)
+and breakpoint information for structural rearrangements.
 
-- Source functions plot_cyto_graph and cyto_graph. 
-- plot_cyto_graph contains 4 parameters:
-  - cyto_list - table output from CytoConverter
-  - list_from_cyto - output from cyto_graph (unnessesary if cyto_list is used)
-  - ref_list - sets reference to use for plotting coordinates, default is GRCh38
-  - ylabel - option to enable or disable printing sample names on the graph
+### Visualization Functions
+
+Built-in functions are provided to create graphs displaying samples with gains, losses, and fusions:
+
+#### Standard Plotting
+- **plot_cyto_graph()** - Standard plotting for gains and losses
+- **cyto_graph()** - Data preparation for standard plotting
+
+#### Fusion-Specific Plotting  
+- **plot_cyto_graph_fusion()** - Specialized plotting for fusion data with enhanced visualization
+- **cyto_graph_fusion()** - Data preparation for fusion plotting with additional fusion metadata
+
+#### Parameters for Plotting Functions
+- **cyto_list** - table output from CytoConverter
+- **list_from_cyto** - output from cyto_graph (unnecessary if cyto_list is used)
+- **ref_list** - sets reference to use for plotting coordinates, default is GRCh38
+- **ylabel** - option to enable or disable printing sample names on the graph
+- **include_normals_graph** - option to include normal samples in fusion graphs (fusion plotting only)
 

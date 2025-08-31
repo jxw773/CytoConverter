@@ -1,4 +1,63 @@
 
+#' Fusion-Specific Cytogenetic Graph Function
+#' 
+#' @description
+#' This function creates specialized visualizations for chromosomal fusions and structural 
+#' aberrations detected by CytoConverter. It extends the standard cyto_graph functionality
+#' with enhanced support for fusion data, breakpoint visualization, and fusion-specific
+#' color coding and labeling.
+#' 
+#' @param cyto_list Data frame containing fusion analysis results from CytoConverter with 
+#'   fusion tags and breakpoint information
+#' @param ref_list Reference genome build for coordinate mapping (default: "GRCh38").
+#'   Supported builds: "GRCh38", "hg19", "hg18", "hg17"
+#' @param include_normals_graph Boolean flag to include normal (non-aberrant) samples 
+#'   in the visualization (default: FALSE)
+#' @param list_of_samples Optional vector of sample names to include in normal sample 
+#'   visualization when include_normals_graph is TRUE
+#' 
+#' @return List containing:
+#'   \item{rect_maker}{Data frame with rectangle coordinates and fusion type information for plotting}
+#'   \item{xbegin}{X-axis starting coordinate}  
+#'   \item{xcoord_master}{Master X-coordinate for sample name positioning}
+#'   \item{y_above}{Upper Y-axis boundary}
+#'   \item{y_below}{Lower Y-axis boundary}
+#'   \item{sorted_reflist}{Sorted reference chromosome list with coordinates}
+#'   \item{cum_length_coords}{Cumulative chromosome length coordinates}
+#'   \item{start_cum_length}{Starting positions for each chromosome}
+#'   \item{uniq_coord_name}{Unique sample names for labeling}
+#' 
+#' @details
+#' This function processes fusion-specific data by:
+#' \itemize{
+#'   \item Handling fusion tags and breakpoint coordinates
+#'   \item Creating specialized color schemes for different fusion types
+#'   \item Supporting complex structural rearrangements visualization
+#'   \item Providing enhanced coordinate mapping for fusion breakpoints
+#' }
+#' 
+#' The function automatically detects fusion tags (marked with "#") in the Type column
+#' and applies appropriate visualization parameters for structural aberrations.
+#' 
+#' @examples
+#' \dontrun{
+#' # Basic fusion graph
+#' fusion_data <- CytoConverter(input_data, count_fusions = TRUE)
+#' graph_data <- cyto_graph_fusion(fusion_data$Results)
+#' 
+#' # Include normal samples for comparison
+#' graph_data <- cyto_graph_fusion(fusion_data$Results, 
+#'                                include_normals_graph = TRUE,
+#'                                list_of_samples = c("Control1", "Control2"))
+#' 
+#' # Use different reference build
+#' graph_data <- cyto_graph_fusion(fusion_data$Results, ref_list = "hg19")
+#' }
+#' 
+#' @seealso \code{\link{cyto_graph}} for standard gain/loss visualization
+#' @seealso \code{\link{plot_cyto_graph}} for standard plotting functions
+#' 
+#' @export
 ##setting up blank plot
 cyto_graph_fusion<-function(cyto_list,ref_list="GRCh38",include_normals_graph=F,list_of_samples=NULL){
   

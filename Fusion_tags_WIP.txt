@@ -1,26 +1,84 @@
-This is the tag list for fusions( ex: translocations, dicentric chromosomes, inversions) this is a work in progress 
-Currently only supported for short form and explicitly declared abberations (thus, if there is a derivative chromosomme that os also a dicentric chromosome that is called by der, it will not be declared as a dicentric chromosome)
-The nomeclature is 
-[Descriptive Field 1] |[Descriptive Field 2]| [Chromosome Label]
-such that the descriptive feild contains data descripbing the translocation and the chromosome label pairs together the modifications that are in the same chromosome (fus_1 is the first chromosome whos abberation is descripted chronologially, fus_2 is the second chromosome whos abberation is described and so on)
+# Fusion Detection Tag System
 
-//Descriptive Field 1 Tags
-#translocation 
+This document describes the tag classification system used by CytoConverter for identifying and categorizing chromosomal fusions and structural aberrations.
 
-#inversion
+## Overview
 
-#insertion 
+CytoConverter uses a hierarchical tag system to classify different types of chromosomal fusions. Tags are used internally to track fusion types and are included in the output to provide detailed information about detected structural rearrangements.
 
+## Tag Structure
 
-||Descriptive Field 2 Tags
-#derivative_chrom
-	#recombinate_chrom
-	#isometric_chrom
+The tag nomenclature follows the pattern:
+**[Descriptive Field 1] | [Descriptive Field 2] | [Chromosome Label]**
 
-#ring_chrom
+Where:
+- **Descriptive Field 1**: Primary fusion type classification
+- **Descriptive Field 2**: Secondary characteristics or subtype
+- **Chromosome Label**: Identifies which chromosomes are involved (fus_1, fus_2, etc.)
 
-#multicentric_chrom
-	#dicentric_chrom
-		#isometric_chrom
-	#tricentric_chrom 
+The chromosome label pairs together modifications that occur in the same chromosome, where:
+- `fus_1` = first chromosome whose aberration is described chronologically
+- `fus_2` = second chromosome whose aberration is described chronologically  
+- And so on...
+
+## Descriptive Field 1 Tags (Primary Fusion Types)
+
+### Basic Structural Rearrangements
+- **`#translocation`** - General translocation events
+- **`#translocation_balanced`** - Balanced translocations with no net gain/loss
+- **`#translocation_robertsonian`** - Robertsonian translocations (fusion of acrocentric chromosomes)
+- **`#inversion`** - Chromosomal inversions (paracentric or pericentric)
+- **`#insertion`** - Insertion of chromosomal material from one location to another
+
+### Chromosome Formation Types  
+- **`#derivative_chrom`** - General derivative chromosome formation
+- **`#derivative_chrom::translocation`** - Derivative chromosome formed by translocation
+- **`#derivative_chrom::insertion_recipiant_chrom`** - Recipient chromosome in insertion
+- **`#derivative_chrom::insertion_inserted_piece`** - Inserted piece in insertion
+- **`#derivative_chrom::insertion_leftover_chrom`** - Remaining chromosome after insertion
+- **`#derivative_chrom::isometric_chrom`** - Derivative isochromosome
+- **`#recombinate_chrom`** - Recombinant chromosomes
+
+### Specialized Chromosome Types
+- **`#ring_chrom`** - Ring chromosome formation
+- **`#isometric_chrom`** - Isochromosome formation
+- **`#fragile`** - Fragile site identification
+- **`#fission_centromere`** - Centromere fission events
+
+## Descriptive Field 2 Tags (Secondary Characteristics)
+
+### Centromere-Related Classifications
+- **`#centric_chrom`** - General multicentric chromosome
+- **`#centric_chrom::dicentric_chrom`** - Dicentric chromosomes (two centromeres)
+- **`#centric_chrom_tri`** - Tricentric chromosomes (three centromeres)
+- **`#concentric_chrom::dicentric_chrom::isometric_chrom`** - Complex dicentric isochromosome
+
+### Insertion Subtypes
+- **`#insertion_chrom::inserted_piece`** - The piece of chromosome being inserted
+- **`#insertion_chrom::recipiant_chrom_insertion_band`** - Specific insertion band location
+- **`#insertion_chrom::recipiant_chrom`** - The chromosome receiving the insertion
+
+### Special Cases
+- **`#ider::isochrom::der`** - Isochromosome for derivative chromosome
+- **`#guess`** - Computationally inferred fusion (when exact breakpoints are ambiguous)
+
+## Usage Examples
+
+### Example Tag Interpretations:
+1. **`#translocation_balanced|chrom_1`** - Balanced translocation involving the first chromosome in the fusion
+2. **`#derivative_chrom::translocation|chrom_2`** - Derivative chromosome formed by translocation, involving the second chromosome
+3. **`#ring_chrom|chrom_1`** - Ring chromosome formation involving the first chromosome
+4. **`#centric_chrom::dicentric_chrom|chrom_1`** - Dicentric chromosome involving the first chromosome
+5. **`#insertion_chrom::inserted_piece|chrom_1`** - Chromosomal piece being inserted from the first chromosome
+
+## Implementation Notes
+
+- Tags marked with `#` are fusion-specific and can be filtered from standard gain/loss analysis
+- The tag system allows for hierarchical classification of complex structural rearrangements
+- Multiple tags may be applied to a single chromosomal region if it's involved in multiple fusion events
+- The system supports both simple fusions (single tag) and complex rearrangements (multiple hierarchical tags)
+
+## Status
+
+This fusion detection system is actively maintained and supports the full range of cytogenetic nomenclature for structural aberrations as defined by the International System for Human Cytogenomic Nomenclature (ISCN).
 
