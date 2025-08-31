@@ -156,6 +156,8 @@ CytoConverter <- function(
     }
    
     # ref_table stores the end coordinate for each chromosome
+    # This creates a lookup table with chromosome names and their maximum coordinates
+    # by finding the last cytoband entry for each chromosome
 
     ref_table <- as.data.frame(
         cyto_ref_table[
@@ -184,16 +186,21 @@ CytoConverter <- function(
     colnames(Final_fusion_table) <- c("Sample ID", "Chr", "Start", "End", "Type")
     
     # Convert any single string into a table
+    # This ensures consistent input format - single karyotypes are converted
+    # to single-row matrices for uniform processing
     if (is.vector(in_data)) {
         in_data <- t(matrix(c("sample", in_data)))
     }
     
     # Dump table of stuff containing unprocessed reads
+    # This will collect error messages and warnings during processing
     # Write this later, get all fish recorded
     Dump_table <- matrix(ncol = 3, nrow = 0)
 
     
     # Double check that this does not delete later data potentially
+    # Handle FISH (fluorescence in situ hybridization) data separately
+    # FISH results are flagged as warnings since they require different processing
     fish_table <- in_data[grep("ish.*$", in_data[, 2]), ]
     if (is.vector(fish_table) && length(fish_table) > 0) {
         Dump_table <- rbind(Dump_table, c(fish_table, "Warning in fish reading"))

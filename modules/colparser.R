@@ -1,11 +1,46 @@
 
+#' Column Parser Module for CytoConverter
+#' 
+#' @description
+#' This module contains functions for parsing individual columns (components) of cytogenetic
+#' nomenclature within a karyotype. It handles the detailed interpretation of specific 
+#' chromosomal aberrations and structural rearrangements.
 
 mod_utils <- modules::use('modules/utils.R')
 mod_cytobands <- modules::use('modules/cytobands.R')
 mod_merge <- modules::use('modules/merge.R')
 mod_gainlossfusion<-modules::use('modules/gainlossfusion.R')
 
-#miniverter is the handling of the cytoconvertor sample by columns, deciding whether it is a straightforward loss/gain of a chromosome or if the colparser needs to be called
+#' Mini-Converter for Simple Chromosomal Aberrations
+#' 
+#' @description
+#' This function handles the initial processing of cytogenetic components, deciding whether
+#' they represent straightforward whole chromosome gains/losses or require more complex
+#' parsing through the full column parser. It serves as a triage function to optimize
+#' processing of simple vs complex aberrations.
+#' 
+#' @param j Index of the current component being processed
+#' @param cyto_ref_table Reference cytoband table for coordinate mapping
+#' @param ref_table Additional reference data structures
+#' @param Cyto_sample Vector containing parsed components of the karyotype
+#' @param Con_data Context data for the current sample
+#' @param transloctable Table tracking translocation and rearrangement events
+#' @param Dump_table Error and warning collection table  
+#' @param constitutional Boolean flag for constitutional vs somatic analysis
+#' @param guess Boolean flag to enable guessing of ambiguous regions
+#' @param guess_q Boolean flag for q-arm specific guessing logic
+#' @param guess_by_first_val Boolean flag to guess based on first values
+#' @param forMtn Boolean flag for Montreal nomenclature compatibility
+#' @param orOption Boolean flag to enable OR logic in parsing
+#' @param sexstimate Boolean flag for sex chromosome estimation
+#' @param normX Expected number of normal X chromosomes (default: 2)
+#' @param normY Expected number of normal Y chromosomes (default: 0)
+#' @param xcount Current count of X chromosomes (default: 2)
+#' @param ycount Current count of Y chromosomes (default: 0)
+#' @param xadd Count of +X events (default: 0)
+#' @param yadd Count of +Y events (default: 0)
+#' @param xmod Count of X chromosome modifications that aren't whole chromosome gains/losses (default: 0)
+#' @param ymod Count of Y chromosome modifications that aren't whole chromosome gains/losses (default: 0)
 miniverter<-function (j,
                       cyto_ref_table,
                       ref_table,
@@ -402,6 +437,46 @@ miniverter<-function (j,
 }
 
 ##function for separating normal data
+#' Detailed Column Parser for Complex Cytogenetic Aberrations
+#' 
+#' @description  
+#' This function performs detailed parsing of complex cytogenetic aberrations including
+#' structural rearrangements, translocations, deletions, duplications, and insertions.
+#' It handles the intricate logic required to convert cytogenetic nomenclature into
+#' precise genomic coordinates.
+#' 
+#' @param Cyto_ref_table Reference cytoband table containing chromosome band information
+#' @param ref_table Additional reference tables for coordinate mapping
+#' @param coln Column index of the current cytogenetic component being parsed
+#' @param xmod Count of X chromosome modifications for sex chromosome tracking
+#' @param ymod Count of Y chromosome modifications for sex chromosome tracking  
+#' @param transloctable Table for tracking complex translocation events
+#' @param addtot Running total of chromosomal additions for the current sample
+#' @param Cyto Vector containing the parsed cytogenetic components
+#' @param guess_q Boolean flag to enable guessing for ambiguous q-arm regions (? symbols)
+#' @param constitutional Boolean flag indicating constitutional analysis mode
+#' @param forMtn Boolean flag for Montreal nomenclature compatibility
+#' 
+#' @return Matrix with genomic coordinates and aberration types, or character string 
+#'   indicating parsing errors, or NULL for components that don't produce coordinate output
+#'   
+#' @details
+#' This function handles complex cytogenetic parsing including:
+#' \itemize{
+#'   \item Structural rearrangements (translocations, inversions, insertions)
+#'   \item Derivative chromosomes and recombinant chromosomes
+#'   \item Ring chromosomes and dicentric chromosomes
+#'   \item Partial deletions and duplications with precise breakpoints
+#'   \item Constitutional vs somatic karyotype differences
+#'   \item Ambiguous region handling when guess_q is enabled
+#' }
+#' 
+#' The function applies extensive preprocessing to normalize nomenclature variations
+#' and then routes different aberration types to specialized parsing logic.
+#' 
+#' @note This function contains complex regular expression matching and should be used
+#' with caution when modifying. It expects specific formatting of cytogenetic nomenclature.
+#' 
 ##take into acc same chrom insestion
 ##add cen into here (pter qter analouge)
 colparse <- function(

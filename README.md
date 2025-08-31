@@ -6,12 +6,22 @@ Cytogenetic nomenclature is used to describe chromosomal aberrations (or lack th
 
 ## Requirements
 
-CytoConverter requires R 4.0+. Before running the main script, make sure that required R packages
-are installed by changing to the CytoConverter directory and running:
+CytoConverter requires R 4.0+ with the following R packages:
+- modules
+- stringr  
+- stringi
+- DescTools
+- dplyr
+- hash
+- optparse
 
-```
+Before running the main script, install the required R packages by changing to the CytoConverter directory and running:
+
+```bash
 ./init.R
 ```
+
+**Note**: If you encounter permission issues, you may need to run with `sudo ./init.R` or ensure you have write access to your R library directory. For troubleshooting installation issues, see the Installation Troubleshooting section below.
 
 ## Running CytoConverter
 
@@ -38,7 +48,7 @@ write.table(result$Results, "fusion_results.txt", sep="\t", quote=FALSE)
 
 Run CytoConverter with the wrapper script using the following command:
 
-```
+```bash
 ./cytoconverter \
   --input input-file.txt \
   --threads 4 \
@@ -46,12 +56,12 @@ Run CytoConverter with the wrapper script using the following command:
   --log log-file.txt
 ```
 
-Adjust parameters for your specific run:
+**Parameters:**
 
-- input: Input file of sample names and associated karyotypes, one per line, tab delimited.
-- threads: Number of parallel threads to run. The input file will be split into pieces accordingly.
-- output: Output file containing genomic coordinates and indications of gain or loss for all samples.
-- log: Log file containing any warnings or errors encountered during processing.
+- **input**: Input file of sample names and associated karyotypes, one per line, tab-delimited.
+- **threads**: Number of parallel threads to run. The input file will be split into pieces accordingly.
+- **output**: Output file containing genomic coordinates and indications of gain or loss for all samples.
+- **log**: Log file containing any warnings or errors encountered during processing.
 
 ### Example Files
 
@@ -68,6 +78,46 @@ Example karyotypes in cyto_fusion_examples.txt include:
 - Ring chromosomes: `r(7)(p22q36)`
 - Inversions: `inv(16)(p13.1q22)`
 - And many other structural aberrations
+
+
+## Installation Troubleshooting
+
+If you encounter issues during installation or running CytoConverter:
+
+### R Package Installation Issues
+
+1. **Permission Denied Errors**: If you get permission errors when running `./init.R`:
+   ```bash
+   sudo ./init.R  # Run with administrator privileges
+   ```
+
+2. **Network/CRAN Access Issues**: If packages fail to download:
+   ```bash
+   # Set a different CRAN mirror in R:
+   R> options(repos = c(CRAN = "https://cran.rstudio.com/"))
+   ```
+
+3. **Missing System Dependencies**: Some R packages require system libraries:
+   ```bash
+   # Ubuntu/Debian:
+   sudo apt-get install libcurl4-openssl-dev libssl-dev libxml2-dev
+   
+   # CentOS/RHEL:
+   sudo yum install libcurl-devel openssl-devel libxml2-devel
+   ```
+
+4. **Alternative Installation Method**: If the automated script fails, install packages manually in R:
+   ```r
+   install.packages(c("modules", "stringr", "stringi", "DescTools", "dplyr", "hash", "optparse"))
+   ```
+
+### Runtime Issues
+
+1. **Missing Build Files**: Ensure the `Builds/` directory contains the cytoBand files for your desired reference genome.
+
+2. **Input Format Issues**: Ensure your input file is tab-delimited with sample names in column 1 and karyotypes in column 2.
+
+3. **Memory Issues**: For large datasets, consider increasing available memory or processing in smaller batches.
 
 
 ## Code Structure
@@ -233,8 +283,8 @@ CytoConverter provides specialized visualization capabilities for fusion data:
 
 ## Additional Information
 
-Builds are at 850 resolution and provided for human genome builds GRCh38, hg19, hg18, and hg17
-if wanted, the user can supply thier own list of cytobands to process as CytoConverter uses the 
+Builds are at 850 resolution and provided for human genome builds GRCh38, hg19, hg18, and hg17.
+If desired, the user can supply their own list of cytobands to process as CytoConverter uses the 
 bands at 850 resolution for build GRCh38 as default.
 
 The function CytoConverter will output a list with the first element being the results table and 
@@ -262,6 +312,22 @@ To get the error log use ```Variable_name$Error_log```
 The results table consists of the sample name followed by the clone line number, the start genomic
 coordinate of a gain or loss, the end coordinate of a gain or loss, an indicator if the sample is a
 gain, loss, or fusion type, and the number of cells in a clone out of the total cells in a sample.
+
+### Example Output Format
+
+**Standard Gains/Losses Output:**
+```
+Sample1	1	156040896	156598415	Gain	1/10
+Sample1	2	chr7	38245000	95496748	Loss	1/10  
+Sample2	1	chr12	57900000	133275309	Gain	3/15
+```
+
+**Fusion Analysis Output (when count_fusions=TRUE):**
+```
+Sample1	1	chr9	130854089	130920000	#translocation_balanced|fus_1	1/10
+Sample1	1	chr22	23500000	23632600	#translocation_balanced|fus_2	1/10
+Sample2	1	chr10	42300000	42400000	#derivative_chrom|fus_1	2/15
+```
 
 For fusion analysis, additional columns may include fusion type classifications (marked with # symbols)
 and breakpoint information for structural rearrangements.
