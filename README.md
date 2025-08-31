@@ -15,6 +15,27 @@ are installed by changing to the CytoConverter directory and running:
 
 ## Running CytoConverter
 
+### Quick Start
+
+For basic gain/loss analysis:
+```bash
+./cytoconverter \
+  --input cyto_example.txt \
+  --threads 4 \
+  --output results.txt \
+  --log log.txt
+```
+
+For fusion analysis (requires R environment):
+```r
+source("modules/cytoconverter.R")
+data <- read.table("cyto_fusion_examples.txt", sep="\t", header=FALSE)
+result <- CytoConverter(data, count_fusions = TRUE)
+write.table(result$Results, "fusion_results.txt", sep="\t", quote=FALSE)
+```
+
+### Command Line Usage
+
 Run CytoConverter with the wrapper script using the following command:
 
 ```
@@ -31,6 +52,22 @@ Adjust parameters for your specific run:
 - threads: Number of parallel threads to run. The input file will be split into pieces accordingly.
 - output: Output file containing genomic coordinates and indications of gain or loss for all samples.
 - log: Log file containing any warnings or errors encountered during processing.
+
+### Example Files
+
+The repository includes several example files to demonstrate different capabilities:
+
+- **cyto_example.txt** - Basic examples with gains, losses, and simple structural aberrations
+- **cyto_fusion_examples.txt** - Comprehensive examples of fusion events and complex structural rearrangements
+- **cyto_example_empty.txt** - Template for creating your own input files
+
+Example karyotypes in cyto_fusion_examples.txt include:
+- Balanced translocations: `t(9;22)(q34;q11.2)`
+- Derivative chromosomes: `der(10)t(10;21)(p13;q21)`
+- Dicentric chromosomes: `dic(X;Y)(p22.3;p11.3)`
+- Ring chromosomes: `r(7)(p22q36)`
+- Inversions: `inv(16)(p13.1q22)`
+- And many other structural aberrations
 
 
 ## Code Structure

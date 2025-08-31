@@ -1,20 +1,93 @@
 #' CytoConverter Main Function
 #'
 #' @description
-#' This function accepts string or matrix input. Strings must be karyotypes and tables must have
-#' sample name in the first column and karyotype in the second column. The function outputs a 
-#' table. Assumes order of abberations is from top to bottom, assumes all output goes top to bottom
-#' (eg no q20p23).
+#' This function accepts string or matrix input for cytogenetic karyotype analysis. 
+#' Strings must be karyotypes and tables must have sample name in the first column 
+#' and karyotype in the second column. The function outputs a table with genomic 
+#' coordinates for gains, losses, and optionally fusion events. Assumes order of 
+#' aberrations is from top to bottom (e.g., no q20p23).
 #' 
-#' @param in_data
-#' @param build
-#' @param constitutional
-#' @param guess
-#' @param guess_q
-#' @param forMtn
-#' @param orOption
-#' @param sexstimate
-#' @param allow_Shorthand
+#' @param in_data Input data containing karyotypes. Can be:
+#'   \itemize{
+#'     \item Single karyotype string (e.g., "46,XY,t(9;22)(q34;q11.2)")
+#'     \item Matrix/data.frame with sample names in column 1, karyotypes in column 2
+#'   }
+#' @param build Reference genome build for coordinate mapping. Options:
+#'   "GRCh38" (default), "hg19", "hg18", "hg17"
+#' @param constitutional Boolean flag for constitutional analysis mode (default: TRUE)
+#' @param guess Boolean flag to enable guessing of ambiguous chromosomal regions (default: FALSE)
+#' @param guess_q Boolean flag for q-arm specific guessing logic (default: FALSE)
+#' @param guess_by_first_val Boolean flag to guess coordinates based on first values (default: FALSE)
+#' @param forMtn Boolean flag for Montreal nomenclature compatibility (default: TRUE)
+#' @param orOption Boolean flag to enable OR logic in parsing (default: TRUE)
+#' @param sexstimate Boolean flag for sex chromosome estimation (default: FALSE)
+#' @param allow_Shorthand Boolean flag to allow shorthand cytogenetic notation (default: FALSE)
+#' @param count_fusions Boolean flag to enable fusion detection and analysis (default: FALSE).
+#'   When TRUE, the function will:
+#'   \itemize{
+#'     \item Detect and classify chromosomal fusions and structural rearrangements
+#'     \item Apply fusion-specific tags to results (marked with # symbols)
+#'     \item Provide detailed breakpoint information for structural aberrations
+#'     \item Support visualization with cyto_graph_fusion()
+#'   }
+#' @param include_normals_graph Boolean flag for including normal samples in fusion graphs (default: FALSE).
+#'   Used in conjunction with fusion analysis for comparative visualization.
+#' 
+#' @return List containing:
+#'   \item{Results}{Data frame with genomic coordinates of aberrations. Columns include:
+#'     \itemize{
+#'       \item Sample ID - Sample identifier
+#'       \item Chr - Chromosome name  
+#'       \item Start - Starting genomic coordinate
+#'       \item End - Ending genomic coordinate
+#'       \item Type - Aberration type ("Gain", "Loss", or fusion tags like "#translocation_balanced")
+#'       \item Percent Present - Percentage of cells with the aberration
+#'     }
+#'   }
+#'   \item{Error_log}{Data frame containing any errors or warnings encountered during processing}
+#' 
+#' @details
+#' The function supports comprehensive cytogenetic analysis including:
+#' \itemize{
+#'   \item Standard gains and losses from numerical aberrations
+#'   \item Structural rearrangements (when count_fusions = TRUE):
+#'     \itemize{
+#'       \item Translocations: t(chr1;chr2)(breakpoint1;breakpoint2)
+#'       \item Inversions: inv(chr)(breakpoints)
+#'       \item Insertions: ins(chr1;chr2)(insertion_point;breakpoints)
+#'       \item Derivative chromosomes: der(chr)
+#'       \item Ring chromosomes: r(chr)(breakpoints)  
+#'       \item Dicentric chromosomes: dic(chr1;chr2)
+#'       \item And many other structural aberrations
+#'     }
+#'   \item Complex karyotypes with multiple aberrations
+#'   \item Constitutional and acquired aberrations
+#'   \item Sex chromosome aberrations with specialized handling
+#' }
+#' 
+#' @examples
+#' \dontrun{
+#' # Basic gain/loss analysis
+#' result <- CytoConverter("47,XY,+21")
+#' 
+#' # Analysis with fusion detection
+#' result <- CytoConverter("46,XY,t(9;22)(q34;q11.2)", count_fusions = TRUE)
+#' 
+#' # Batch analysis of multiple samples
+#' data <- data.frame(
+#'   Sample = c("Sample1", "Sample2"), 
+#'   Karyotype = c("47,XY,+21", "46,XY,del(17p)")
+#' )
+#' result <- CytoConverter(data, count_fusions = TRUE)
+#' 
+#' # Access results
+#' gains_losses <- result$Results[result$Results$Type %in% c("Gain", "Loss"), ]
+#' fusions <- result$Results[grepl("#", result$Results$Type), ]
+#' }
+#' 
+#' @seealso 
+#' \code{\link{cyto_graph_fusion}} for fusion-specific visualization
+#' \code{\link{plot_cyto_graph}} for standard gain/loss visualization
 
 mod_rowparser <- modules::use('modules/rowparser.R')
 mod_colparser <- modules::use('modules/colparser.R')

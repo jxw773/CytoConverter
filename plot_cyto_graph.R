@@ -1,13 +1,49 @@
-#' plot_cyto_graph Function
+#' Standard Cytogenetic Plotting Function
 #' 
-#' This function takes the output of cyto_graph and plots the information or, given the results and the reference build, generates the information and then plots a heatmap-eaque graph.
-#' @param list_from_cyto
-#' cyto_list
-#' ref_list
-#' @keyword
+#' @description
+#' This function creates standard visualizations for chromosomal gains and losses from 
+#' CytoConverter analysis. It takes the output of cyto_graph and plots the information 
+#' as a heatmap-style graph showing genomic aberrations across samples.
+#' 
+#' For structural rearrangements and fusion events, use cyto_graph_fusion() instead,
+#' which provides specialized visualization capabilities for complex karyotypes.
+#' 
+#' @param cyto_list Data frame containing CytoConverter results with gains and losses
+#' @param list_from_cyto Pre-computed output from cyto_graph (optional, unnecessary if cyto_list provided)
+#' @param ref_list Reference genome build ("GRCh38", "hg19", "hg18", "hg17") 
+#' @param ylabel Boolean flag to enable/disable sample name labels on y-axis (auto-determined if NULL)
+#' @param include_normals_graph Boolean flag to include normal samples for comparison (default: FALSE)
+#' @param list_of_samples Vector of normal sample names when include_normals_graph is TRUE
+#' 
+#' @details
+#' This function visualizes:
+#' \itemize{
+#'   \item Gains (red regions)
+#'   \item Hemizygous losses (blue regions)  
+#'   \item Homozygous losses (orange regions)
+#' }
+#' 
+#' Note: This function is optimized for standard gains and losses. For fusion events
+#' and structural rearrangements detected with count_fusions=TRUE, use the specialized
+#' cyto_graph_fusion() function which provides enhanced visualization for complex
+#' chromosomal aberrations.
+#' 
+#' @examples
+#' \dontrun{
+#' # Standard plotting for gains/losses
+#' result <- CytoConverter(data)
+#' plot_cyto_graph(result$Results)
+#' 
+#' # For fusion data, use cyto_graph_fusion instead:
+#' fusion_result <- CytoConverter(data, count_fusions = TRUE)
+#' plot_cyto_graph_fusion(fusion_result$Results)
+#' }
+#' 
+#' @seealso 
+#' \code{\link{cyto_graph_fusion}} for fusion-specific visualization
+#' \code{\link{cyto_graph}} for data preparation
+#' 
 #' @export
-#' @examples 
-#' plot_cyto_graph()
 plot_cyto_graph<-function(cyto_list=NULL,list_from_cyto=NULL,ref_list="GRCh38",ylabel=NULL,include_normals_graph=F,list_of_samples=NULL){
   
   if(is.null(ylabel)){
