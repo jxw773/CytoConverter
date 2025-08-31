@@ -5,74 +5,6 @@ mod_cytobands <- modules::use('modules/cytobands.R')
 mod_merge <- modules::use('modules/merge.R')
 mod_gainlossfusion<-modules::use('modules/gainlossfusion.R')
 
-#' Process Individual Karyotype Components  
-#' 
-#' @description
-#' The miniverter function handles individual components of a karyotype string,
-#' determining whether each element represents a simple chromosome gain/loss that
-#' can be processed directly, or a complex aberration requiring detailed parsing
-#' through the colparser system.
-#' 
-#' @param j Integer. Index of the current karyotype component being processed.
-#' @param cyto_ref_table Matrix. Reference cytoband data for coordinate conversion.
-#' @param ref_table Matrix. Chromosome end coordinates for the reference build.
-#' @param Cyto_sample Character vector. Split karyotype components for processing.
-#' @param Con_data Matrix. Sample metadata (sample ID and original karyotype).
-#' @param transloctable Data frame. Table tracking translocation events.
-#' @param Dump_table Matrix. Error and warning log accumulator.
-#' @param constitutional Logical. Whether to process constitutional changes.
-#' @param guess Logical. Attempt to interpret ambiguous notation.
-#' @param guess_q Logical. Process components with question marks.
-#' @param guess_by_first_val Logical. Use first value for ambiguous cases.
-#' @param forMtn Logical. Optimize for Mitelman database format.
-#' @param orOption Logical. Take first option when "or" appears.
-#' @param sexstimate Logical. Estimate sex chromosome composition.
-#' @param normX Numeric. Expected normal X chromosome count (default 2).
-#' @param normY Numeric. Expected normal Y chromosome count (default 0).
-#' @param xcount Numeric. Current X chromosome count (default 2).
-#' @param ycount Numeric. Current Y chromosome count (default 0).
-#' @param xadd Numeric. Count of X chromosome gains (default 0).
-#' @param yadd Numeric. Count of Y chromosome gains (default 0).
-#' @param xmod Numeric. Count of X chromosome modifications (default 0).
-#' @param ymod Numeric. Count of Y chromosome modifications (default 0).
-#' @param xdel Numeric. Count of X chromosome deletions (default 0).
-#' @param ydel Numeric. Count of Y chromosome deletions (default 0).
-#' @param xdel_Q Numeric. Count of uncertain X deletions (default 0).
-#' @param ydel_Q Numeric. Count of uncertain Y deletions (default 0).
-#' @param xconstitutional Numeric. Constitutional X chromosome correction (default 0).
-#' @param yconstitutional Numeric. Constitutional Y chromosome correction (default 0).
-#' @param idealx Numeric. Estimated ideal X chromosome count (default 2).
-#' @param idealy Numeric. Estimated ideal Y chromosome count (default 0).
-#' @param addtot Numeric. Total chromosome additions count (default 0).
-#' @param deltot Numeric. Total chromosome deletions count (default 0).
-#' @param modtot Numeric. Total chromosome modifications count (default 0).
-#' @param n Numeric. Ploidy multiplier (default 1).
-#' @param ploidy Numeric. Base ploidy level (default 1).
-#' @param startcol Numeric. Starting column for processing (default 1).
-#' @param count_fusions Logical. Whether to detect fusion events.
-#'
-#' @return List or character. Returns processing results or error message.
-#'   On success, returns list with processed intervals, counters, and metadata.
-#'   On error, returns character string describing the issue.
-#'
-#' @details
-#' The function processes karyotype components in this priority order:
-#' 1. **Simple whole chromosome changes**: +8, -7, +X, -Y
-#' 2. **Marker chromosomes**: +mar, +r(1), +neo
-#' 3. **Complex aberrations**: Calls colparse() for detailed processing
-#' 
-#' Processing steps include:
-#' - Pattern recognition for aberration types
-#' - Sex chromosome counting and validation  
-#' - Constitutional vs. acquired change handling
-#' - Error logging for unrecognizable patterns
-#' 
-#' @export
-#' 
-#' @seealso 
-#' \code{\link{colparse}} for complex aberration processing
-#' \code{\link{rowparse}} for row-level coordination
-
 #miniverter is the handling of the cytoconvertor sample by columns, deciding whether it is a straightforward loss/gain of a chromosome or if the colparser needs to be called
 miniverter<-function (j,
                       cyto_ref_table,
@@ -98,8 +30,6 @@ miniverter<-function (j,
                       ymod=0 ,    # counts modifications that arent whole chromosome add/del for Y
                       xdel=0 ,    # counts if -X occures as constitutional
                       ydel=0 ,    # counts if -Y occures as consitutional
-                      xdel_Q=0 ,  # counts if -X? occurs  
-                      ydel_Q=0 ,  # counts if -Y? occurs
                       
                       xconstitutional=0 ,  # shift counts for xc indications (kind of a correction factor)
                       yconstitutional=0 ,  # shift counts for yc indications (kind of a correction factor)
@@ -134,12 +64,10 @@ miniverter<-function (j,
   
   fusion=NULL
   #########
-  # PREPROCESSING: Handle ambiguous notation and options
-  #########
-  
-  # If guess_q is true, remove question marks and attempt processing
-  # Question marks typically indicate uncertainty in karyotype interpretation
-  if(guess_q == TRUE)
+  # if guess is true, try to process ? marks
+  # think about how this can affect counting  + and \\?
+  #############################
+  if(guess_q == T)
   {
     Cyto_sample[j] <- gsub("\\?","",Cyto_sample[j])
   }
@@ -149,158 +77,127 @@ miniverter<-function (j,
     Cyto_sample[j]<-gsub("or.*$","",Cyto_sample[j])
   }
   
-  #########
-  # MAIN PROCESSING: Categorize and process the karyotype component
-  #########
-  
-  # Helper function to check if sample is marker/ring/neo chromosome
-  # This regex pattern matches:
-  # - "mar" = marker chromosomes (unidentifiable extra chromosomes)
-  # - "r(n)" = ring chromosomes (chromosome ends fused together)  
-  # - "neo" = neocentric chromosomes (new centromere formation)
-  # - "c" suffix = constitutional (present in normal cells)
-  is_marker_or_special <- function(sample) {
-    grepl("mar|^\\+*([[:digit:]]((~|-)[[:digit:]])*)*r\\(*[[:digit:]]*\\)*$|^\\+*([[:digit:]]((~|-)[[:digit:]])*)*neo[[:digit:]]*$", sample) ||
-    (constitutional == FALSE && grepl("(c$)|(c\\?$)", sample))
-  }
-  
-  # Helper function to process marker/ring/neo chromosomes
-  process_marker_chromosome <- function(sample, addtot, Dump_table, Con_data) {
-    if (!grepl("\\+", sample)) {
-      return(list(addtot = addtot, Dump_table = Dump_table))
+  #addition and deletions of entire chromosomes can be handeled easily and separate from the rest
+  if (grepl(
+    "mar|^\\+*([[:digit:]]((~|-)[[:digit:]])*)*r\\(*[[:digit:]]*\\)*$|^\\+*([[:digit:]]((~|-)[[:digit:]])*)*neo[[:digit:]]*$",
+    Cyto_sample[j]
+  ) || (constitutional==F && grepl("(c$)|(c\\?$)",Cyto_sample[j])))
+  {
+    if (grepl("\\+", Cyto_sample[j]))
+    {
+      tem = 1
+      ##figure out how to do this
+      if (grepl("-|~", Cyto_sample[j]))
+      {
+        if (grepl("mar", Cyto_sample[j]))
+        {
+          Cyto_sample[j] <-
+            paste(unlist(strsplit(Cyto_sample[j], "~|-"))[1], "mar", sep = "")
+        }
+        if (grepl(
+          "^\\+*([[:digit:]]((~|-)[[:digit:]])*)*r\\(*[[:digit:]]*\\)*$",
+          Cyto_sample[j]
+        ))
+          Cyto_sample[j] <-
+            paste(unlist(strsplit(Cyto_sample[j], "~|-"))[1], "r", sep = "")
+        
+        if (grepl("neo", Cyto_sample[j]))
+          Cyto_sample[j] <-
+            paste(unlist(strsplit(Cyto_sample[j], "~|-"))[1], "neo", sep = "")
+        
+      }
+      
+      if (grepl("\\+[[:digit:]]", Cyto_sample[j]))
+      {
+        if(constitutional==F & grepl("\\+[[:digit:]]+c\\?*$", Cyto_sample[j]))
+        {
+          ##just one addition
+          tem<-1 
+        }else{
+          if(!grepl("\\+[[:digit:]]+c\\?*$", Cyto_sample[j]))
+          {
+            tem <-
+              as.numeric((strsplit(
+                strsplit(Cyto_sample[j], "mar|r\\(*[[:digit:]]*\\)*$|neo|c$|c\\?$")[[1]][1],
+                "\\+"
+              )[[1]][2]))
+          }
+        }
+      }
+      
+      ##only if tem is a number 
+      if(is.numeric(tem)||is.integer(tem)||is.double(tem))
+      {
+        addtot <- addtot + tem
+      }else{
+        ##output an error
+        Dump_table <- rbind(Dump_table, c(Con_data[i,], "Error in markers and other ambiguous objects not accounted for"))
+        
+      }
+      
+    }
+  }else if ((grepl("^\\+[[:digit:]]+c*$", Cyto_sample[j]) |
+             grepl("\\+X", Cyto_sample[j]) | grepl("\\+Y", Cyto_sample[j])) && ((guess_q == T )| (!grepl("\\?",Cyto_sample[j]))))
+  {
+    cytoName <- gsub("c", "", substring(Cyto_sample[j], first = 2))
+    chr_name <-
+      ref_table[grep(paste("chr", as.character(cytoName), "$", sep = ""), ref_table), ]
+    temp_table[1, 1] = chr_name[1]
+    temp_table[1, 2] = "0"
+    temp_table[1, 3] = chr_name[2]
+    temp_table[1, 4] = "Gain"
+    #if whole additions occur
+    if (grepl("X", chr_name[1]))
+    {
+      xadd <- xadd + 1
     }
     
-    tem <- 1
-    
-    # Handle range notation (e.g., 1~3)
-    if (grepl("-|~", sample)) {
-      sample <- clean_range_notation(sample)
+    if (grepl("Y", chr_name[1]))
+    {
+      yadd <- yadd + 1
     }
-    
-    # Extract number of additions
-    if (grepl("\\+[[:digit:]]", sample)) {
-      tem <- extract_addition_count(sample, constitutional)
-    }
-    
-    # Update totals or log error
-    if (is.numeric(tem) || is.integer(tem) || is.double(tem)) {
-      addtot <- addtot + tem
-    } else {
-      Dump_table <- rbind(Dump_table, c(Con_data, "Error in markers and other ambiguous objects not accounted for"))
-    }
-    
-    return(list(addtot = addtot, Dump_table = Dump_table))
-  }
-  
-  # Helper function to clean range notation
-  clean_range_notation <- function(sample) {
-    if (grepl("mar", sample)) {
-      return(paste(unlist(strsplit(sample, "~|-"))[1], "mar", sep = ""))
-    }
-    if (grepl("^\\+*([[:digit:]]((~|-)[[:digit:]])*)*r\\(*[[:digit:]]*\\)*$", sample)) {
-      return(paste(unlist(strsplit(sample, "~|-"))[1], "r", sep = ""))
-    }
-    if (grepl("neo", sample)) {
-      return(paste(unlist(strsplit(sample, "~|-"))[1], "neo", sep = ""))
-    }
-    return(sample)
-  }
-  
-  # Helper function to extract addition count
-  extract_addition_count <- function(sample, constitutional) {
-    if (constitutional == FALSE && grepl("\\+[[:digit:]]+c\\?*$", sample)) {
-      return(1)  # Just one addition for constitutional
-    }
-    
-    if (!grepl("\\+[[:digit:]]+c\\?*$", sample)) {
-      count_str <- strsplit(
-        strsplit(sample, "mar|r\\(*[[:digit:]]*\\)*$|neo|c$|c\\?$")[[1]][1],
-        "\\+"
-      )[[1]][2]
-      return(as.numeric(count_str))
-    }
-    
-    return(1)
-  }
-  
-  # Helper function to process whole chromosome gains
-  process_whole_chromosome_gain <- function(sample, xadd, yadd, addtot, temp_table, ref_table) {
-    cytoName <- gsub("c", "", substring(sample, first = 2))
-    chr_name <- ref_table[grep(paste("chr", as.character(cytoName), "$", sep = ""), ref_table), ]
-    
-    temp_table[1, 1] <- chr_name[1]
-    temp_table[1, 2] <- "0"
-    temp_table[1, 3] <- chr_name[2]
-    temp_table[1, 4] <- "Gain"
-    
-    # Update sex chromosome counters
-    if (grepl("X", chr_name[1])) xadd <- xadd + 1
-    if (grepl("Y", chr_name[1])) yadd <- yadd + 1
-    
+    ##if(!grepl("X|Y",chr_name[1]))
+    ##{
     addtot <- addtot + 1
+    ##}
+  } else if (grepl("^-[[:digit:]]+c*$", Cyto_sample[j]) | grepl("-X", Cyto_sample[j]) | grepl("-Y", Cyto_sample[j]))
+  {
+    cytoName <- gsub("c", "", substring(Cyto_sample[j], first = 2))
+    chr_name <-
+      ref_table[grep(paste("chr", as.character(cytoName), "$", sep = ""), ref_table), ]
     
-    return(list(xadd = xadd, yadd = yadd, addtot = addtot, temp_table = temp_table))
-  }
-  
-  # Helper function to process whole chromosome losses
-  process_whole_chromosome_loss <- function(sample, xdel, ydel, xdel_Q, ydel_Q, deltot, temp_table, ref_table) {
-    cytoName <- gsub("c", "", substring(sample, first = 2))
-    chr_name <- ref_table[grep(paste("chr", as.character(cytoName), "$", sep = ""), ref_table), ]
-    
-    # Exclude X and Y deletions from main table until the end
-    if (!grepl("Y", chr_name[1]) && !grepl("X", chr_name[1])) {
-      temp_table[1, 1] <- chr_name[1]
-      temp_table[1, 2] <- "0"
-      temp_table[1, 3] <- chr_name[2]
-      temp_table[1, 4] <- "Loss"
+    ##exclude x and y deletions until the end
+    if(!grepl("Y",chr_name[1]) & !grepl("X",chr_name[1])){
+      temp_table[1, 1] = chr_name[1]
+      temp_table[1, 2] = "0"
+      temp_table[1, 3] = chr_name[2]
+      temp_table[1, 4] = "Loss"
     }
     
-    # Update sex chromosome deletion counters
-    if (grepl("X", chr_name[1])) {
+    ##if deletions occur in X or Y, up count for the respective mutation
+    if (grepl("X", chr_name[1]))
+    {
       xdel <- xdel + 1
-      if (grepl("\\?", cytoName)) {
+      
+      if(grepl("\\?", cytoName)){
+        
         xdel_Q <- xdel_Q + 1
       }
     }
     
-    if (grepl("Y", chr_name[1])) {
+    if (grepl("Y", chr_name[1]))
+    {
       ydel <- ydel + 1
-      if (grepl("\\?", cytoName)) {
-        ydel_Q <- ydel_Q + 1
+      
+      if(grepl("\\?", cytoName)){
+        
+        ydel_Q <- ydel_Q +1
       }
     }
     
+    ##if(!grepl("X|Y",chr_name[1]))
+    ##{
     deltot <- deltot + 1
-    
-    return(list(xdel = xdel, ydel = ydel, xdel_Q = xdel_Q, ydel_Q = ydel_Q, deltot = deltot, temp_table = temp_table))
-  }
-
-  #addition and deletions of entire chromosomes can be handeled easily and separate from the rest
-  if (is_marker_or_special(Cyto_sample[j])) {
-    result <- process_marker_chromosome(Cyto_sample[j], addtot, Dump_table, Con_data)
-    addtot <- result$addtot
-    Dump_table <- result$Dump_table
-    
-  } else if ((grepl("^\\+[[:digit:]]+c*$", Cyto_sample[j]) |
-             grepl("\\+X", Cyto_sample[j]) | grepl("\\+Y", Cyto_sample[j])) && 
-             ((guess_q == TRUE) | (!grepl("\\?", Cyto_sample[j])))) {
-    
-    result <- process_whole_chromosome_gain(Cyto_sample[j], xadd, yadd, addtot, temp_table, ref_table)
-    xadd <- result$xadd
-    yadd <- result$yadd
-    addtot <- result$addtot
-    temp_table <- result$temp_table
-    
-  } else if (grepl("^-[[:digit:]]+c*$", Cyto_sample[j]) | 
-             grepl("-X", Cyto_sample[j]) | grepl("-Y", Cyto_sample[j])) {
-    
-    result <- process_whole_chromosome_loss(Cyto_sample[j], xdel, ydel, xdel_Q, ydel_Q, deltot, temp_table, ref_table)
-    xdel <- result$xdel
-    ydel <- result$ydel
-    xdel_Q <- result$xdel_Q
-    ydel_Q <- result$ydel_Q
-    deltot <- result$deltot
-    temp_table <- result$temp_table
     ##}        
   } else {
     # for all other cases call this first

@@ -2,7 +2,6 @@
 mod_utils <- modules::use('modules/utils.R')
 mod_cytobands <- modules::use('modules/cytobands.R')
 mod_merge <- modules::use('modules/merge.R')
-mod_mergefusions <- modules::use('modules/mergefusions.R')
 
 ##function that parses gains and losses
 gainloss<-function(temp_table,
@@ -2072,7 +2071,7 @@ fusion<-function(temp_fusion_table,
         && nrow(Plus_Loss) > 0
         && any(grepl("Gain", temp_fusion_table[, 4]) & any(grepl("Loss", temp_fusion_table[, 4])))
       ) {
-        temp_fusion_table <- mod_mergefusions$mergeFusionTable(temp_fusion_table)
+        temp_fusion_table <- mod_merge$mergeTable(temp_fusion_table)
         
       }
       
