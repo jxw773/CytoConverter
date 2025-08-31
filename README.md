@@ -4,6 +4,20 @@
 
 Cytogenetic nomenclature is used to describe chromosomal aberrations (or lack thereof) in a collection of cells, referred to as the cells’ karyotype. The nomenclature identifies locations on chromosomes using a system of cytogenetic bands, each with a unique name and region on a chromosome. Each band is microscopically visible after staining, and encompasses a large portion of the chromosome. More modern analyses employ genomic coordinates, which precisely specify a chromosomal location according to its distance from the end of the chromosome. Currently, there is no tool to convert cytogenetic nomenclature into genomic coordinates. Since locations of genes and other genomic features are usually specified by genomic coordinates, a conversion tool will facilitate the identification of the features that are harbored in the regions of chromosomal gain and loss that are implied by a karyotype.
 
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Running CytoConverter](#running-cytoconverter)
+  - [Quick Start](#quick-start)
+  - [Command Line Usage](#command-line-usage)
+  - [Example Files](#example-files)
+- [Installation Troubleshooting](#installation-troubleshooting)
+- [Code Structure](#code-structure)
+- [Fusion Capabilities](#fusion-capabilities)
+- [Visualization Functions](#visualization-functions)
+- [Additional Information](#additional-information)
+- [Documentation](#documentation)
+
 ## Requirements
 
 CytoConverter requires R 4.0+ with the following R packages:
@@ -350,4 +364,29 @@ Built-in functions are provided to create graphs displaying samples with gains, 
 - **ref_list** - sets reference to use for plotting coordinates, default is GRCh38
 - **ylabel** - option to enable or disable printing sample names on the graph
 - **include_normals_graph** - option to include normal samples in fusion graphs (fusion plotting only)
+
+## Documentation
+
+For comprehensive documentation, please refer to these additional resources:
+
+### 📚 **[API Reference](API_REFERENCE.md)**
+Complete function reference with detailed parameters, examples, and usage patterns for all CytoConverter functions.
+
+### ⚙️ **[Configuration Guide](CONFIGURATION.md)**  
+Detailed guide for configuring CytoConverter for different analysis scenarios including constitutional vs somatic analysis, fusion detection, and parameter optimization.
+
+### 🏷️ **[Fusion Tags Documentation](Fusion_tags_WIP.txt)**
+Comprehensive reference for fusion tag classification system used to identify and categorize chromosomal fusions and structural aberrations.
+
+### 📁 **Module Documentation**
+Individual R module files contain detailed roxygen documentation:
+- `modules/cytoconverter.R` - Main function documentation
+- `modules/rowparser.R` - Row parsing logic
+- `modules/colparser.R` - Column parsing functions  
+- `modules/utils.R` - Utility functions
+- `modules/merge.R` - Interval merging functions
+- `modules/gainlossfusion.R` - Fusion detection functions
+
+### 🔧 **Installation & Troubleshooting**
+See the [Installation Troubleshooting](#installation-troubleshooting) section above for common installation issues and solutions.
 
