@@ -15,8 +15,52 @@
 #' @param include_normals_graph Boolean flag to include normal samples for comparison (default: FALSE)
 #' @param list_of_samples Vector of normal sample names when include_normals_graph is TRUE
 #' 
+#' @return Creates a plot showing chromosomal aberrations (no return value)
+#' 
 #' @details
 #' This function visualizes:
+#' \itemize{
+#'   \item **Gains**: Red rectangles indicating chromosomal gains
+#'   \item **Losses**: Semi-transparent blue rectangles indicating losses  
+#'   \item **Double aberrations**: Orange rectangles for overlapping gain/loss regions
+#'   \item **Chromosome structure**: Gray background showing chromosome boundaries
+#'   \item **Sample labels**: Optional y-axis labels (auto-disabled for >50 samples)
+#' }
+#' 
+#' **Visualization features**:
+#' \itemize{
+#'   \item Proportional chromosome sizing based on actual genomic lengths
+#'   \item Automatic sample spacing and positioning
+#'   \item Chromosome boundary lines and tick marks
+#'   \item Customizable sample labeling
+#' }
+#' 
+#' @examples
+#' \dontrun{
+#' # Basic plotting with CytoConverter results
+#' data <- read.table("cyto_example.txt", sep="\t", header=FALSE)
+#' result <- CytoConverter(data)
+#' plot_cyto_graph(result$Results)
+#' 
+#' # Plot with specific reference genome
+#' plot_cyto_graph(result$Results, ref_list="hg19")
+#' 
+#' # Include sample labels for small datasets
+#' plot_cyto_graph(result$Results, ylabel=TRUE)
+#' 
+#' # Use pre-computed cyto_graph output for efficiency
+#' graph_data <- cyto_graph(result$Results, "GRCh38")
+#' plot_cyto_graph(list_from_cyto=graph_data)
+#' 
+#' # Include normal samples for comparison
+#' plot_cyto_graph(result$Results, include_normals_graph=TRUE, 
+#'                 list_of_samples=c("Normal1", "Normal2"))
+#' }
+#' 
+#' @seealso 
+#' \code{\link{cyto_graph}} for data preparation
+#' \code{\link{cyto_graph_fusion}} for fusion-specific plotting
+#' \code{\link{CytoConverter}} for generating input data
 #' \itemize{
 #'   \item Gains (red regions)
 #'   \item Hemizygous losses (blue regions)  

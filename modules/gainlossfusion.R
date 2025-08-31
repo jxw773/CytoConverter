@@ -1069,6 +1069,111 @@ return(list(temp_table,
 
 ##this is going to be the function that parses fusions 
 
+#' Fusion Detection and Analysis Function
+#' 
+#' @description
+#' This function specializes in detecting and analyzing chromosomal fusions and 
+#' structural rearrangements from cytogenetic data. It processes complex aberrations
+#' including translocations, derivative chromosomes, and multi-centric chromosomes,
+#' applying fusion-specific tags and breakpoint analysis.
+#' 
+#' @param temp_fusion_table Data frame containing potential fusion events to analyze
+#' @param original_temp_table Backup copy of original temp_table for reference
+#' @param ex_fusion_table Data frame containing exclusion regions for fusion analysis
+#' @param original_ex_table Backup copy of original exclusion table
+#' @param Mainchr Vector of main chromosomes involved in the analysis
+#' @param multi Multiplicity factor indicating number of copies of the aberration
+#' @param j Current column index being processed in the parsing sequence
+#' @param cyto_ref_table Reference cytoband table for coordinate mapping
+#' @param ref_table Reference genome coordinate table
+#' @param Cyto_sample Vector containing the current karyotype components being analyzed
+#' @param Con_data Complete dataset context for the current analysis
+#' @param transloctable Hash table tracking translocation events
+#' @param Dump_table Error and warning collection table
+#' @param constitutional Boolean flag for constitutional vs somatic analysis mode
+#' @param guess Boolean flag to enable guessing of ambiguous chromosomal regions
+#' @param guess_q Boolean flag for q-arm specific guessing logic
+#' @param guess_by_first_val Boolean flag to guess coordinates based on first values
+#' @param forMtn Boolean flag for Montreal nomenclature compatibility
+#' @param orOption Boolean flag to enable OR logic in parsing
+#' @param sexstimate Boolean flag for sex chromosome estimation
+#' @param normX Expected normal X chromosome count
+#' @param normY Expected normal Y chromosome count  
+#' @param xcount Current X chromosome count
+#' @param ycount Current Y chromosome count
+#' @param xadd Count of +X events
+#' @param yadd Count of +Y events
+#' @param xmod Count of X chromosome modifications (non-whole chromosome)
+#' @param ymod Count of Y chromosome modifications (non-whole chromosome)
+#' @param xdel Count of X chromosome deletions
+#' @param ydel Count of Y chromosome deletions
+#' @param xconstitutional X chromosome constitutional correction factor
+#' @param yconstitutional Y chromosome constitutional correction factor
+#' @param idealx Estimated ideal X chromosome count
+#' @param idealy Estimated ideal Y chromosome count
+#' @param addtot Total count of additional chromosomes
+#' @param deltot Total count of complete chromosome deletions
+#' @param modtot Count of modification chromosomes (for ideogram analysis)
+#' @param n Ploidy count for the sample
+#' @param ploidy Base ploidy level (default: 2 for diploid)
+#' @param startcol Starting column index for processing
+#' 
+#' @return List containing:
+#'   \item{fusion_table}{Data frame with detected fusion events and their fusion tags}
+#'   \item{fusion_exclusions}{Data frame with regions excluded from fusion analysis}
+#'   \item{chromosome_counts}{Updated chromosome count information}
+#'   \item{fusion_metadata}{Additional metadata about detected structural rearrangements}
+#' 
+#' @details
+#' The fusion analysis system implements several key features:
+#' 
+#' **Fusion Type Detection**:
+#' \itemize{
+#'   \item **Balanced translocations**: t(A;B)(p1;q1) → #translocation_balanced
+#'   \item **Derivative chromosomes**: der(A)t(A;B) → #derivative_chrom  
+#'   \item **Ring chromosomes**: r(A)(p1q1) → #ring_chrom
+#'   \item **Dicentric chromosomes**: dic(A;B) → #dicentric_chrom
+#'   \item **Insertions**: ins(A;B)(p1;q1q2) → #insertion
+#'   \item **Inversions**: inv(A)(p1q1) → #inversion
+#' }
+#' 
+#' **Breakpoint Analysis**:
+#' \itemize{
+#'   \item Precise genomic coordinate mapping for fusion breakpoints
+#'   \item Integration with getCytoBands() for complex breakpoint notation
+#'   \item Handling of multiple chromosome involvement
+#'   \item Support for complex rearrangements with :: and -> notation
+#' }
+#' 
+#' **Fusion Tags**:
+#' \itemize{
+#'   \item Each fusion receives a unique tag starting with #
+#'   \item Tags indicate fusion type and sequence number (fus_1, fus_2, etc.)
+#'   \item Compatible with fusion-specific visualization functions
+#'   \item Enables filtering and analysis of fusion-specific results
+#' }
+#' 
+#' @examples
+#' \dontrun{
+#' # Analyze a balanced translocation
+#' result <- fusion(temp_table, orig_table, ex_table, orig_ex, 
+#'                  c("9", "22"), 1, 1, cyto_ref, ref_data, 
+#'                  c("46,XY,t(9;22)(q34;q11.2)"), con_data, 
+#'                  trans_table, dump_table, FALSE, TRUE, FALSE, FALSE,
+#'                  TRUE, TRUE, FALSE, 2, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0,
+#'                  2, 0, 0, 0, 0, 46, 2, 1)
+#' 
+#' # Process derivative chromosome
+#' result <- fusion(der_table, orig_table, ex_table, orig_ex,
+#'                  c("10", "21"), 1, 2, cyto_ref, ref_data,
+#'                  c("47,XY,+der(10)t(10;21)(p13;q21)"), con_data,
+#'                  trans_table, dump_table, TRUE, FALSE, FALSE, FALSE,
+#'                  TRUE, TRUE, FALSE, 2, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0,
+#'                  2, 0, 1, 1, 0, 47, 2, 2)
+#' }
+#' 
+#' @note This function is typically called internally by the main parsing
+#' functions when count_fusions=TRUE is specified in CytoConverter().
 fusion<-function(temp_fusion_table,
                  original_temp_table, 
                  ex_fusion_table,
