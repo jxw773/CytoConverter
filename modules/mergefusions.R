@@ -1,4 +1,67 @@
+#' Fusion-Specific Merge Functions
+#' 
+#' @description
+#' This module contains specialized merge functions for handling fusion data and 
+#' structural rearrangements. These functions extend the standard merge functionality
+#' to properly handle fusion tags and complex chromosomal rearrangements.
+#' 
+#' @details
+#' The fusion merge system maintains separate tracking for:
+#' \itemize{
+#'   \item Standard gains and losses
+#'   \item Fusion events (marked with # tags)
+#'   \item Plus-loss events (+Loss)
+#'   \item Complex structural rearrangements
+#' }
+#' 
+#' Key differences from standard merge functions:
+#' \itemize{
+#'   \item Preserves fusion tags during merge operations
+#'   \item Handles overlapping fusion events appropriately
+#'   \item Maintains breakpoint precision for structural aberrations
+#'   \item Supports hierarchical fusion classification
+#' }
+
 ##this is the the merge function for fusions 
+
+#' Insert Fusion Section Function
+#' 
+#' @description
+#' Inserts fusion regions into the data structure while maintaining proper tracking
+#' of overlapping regions and fusion types. This function extends insertSection() 
+#' to handle fusion-specific data.
+#' 
+#' @param h_ Hash data structure tracking non-overlapping sections within regions
+#' @param start Starting coordinate of the fusion region
+#' @param end Ending coordinate of the fusion region  
+#' @param type Fusion type identifier (e.g., "#translocation", "#derivative_chrom")
+#' 
+#' @details
+#' The function maintains the following structure in h_:
+#' \itemize{
+#'   \item Start coord -> End: end coordinate for this section
+#'   \item Start coord -> Gain: list of end coords of "Gain" regions
+#'   \item Start coord -> Loss: list of end coords of "Loss" regions  
+#'   \item Start coord -> Fusion: list of end coords of fusion regions
+#' }
+#' 
+#' For fusion types (those starting with "#"), the function:
+#' \itemize{
+#'   \item Stores fusion data in the "Fusion" category
+#'   \item Preserves fusion type information for downstream processing
+#'   \item Handles overlaps with existing gains/losses appropriately
+#' }
+#' 
+#' @return Modified hash data structure with inserted fusion section
+#' 
+#' @examples
+#' \dontrun{
+#' # Insert a translocation region
+#' h_ <- insertSection_Fus(h_, 1000000, 2000000, "#translocation_balanced")
+#' 
+#' # Insert a derivative chromosome region  
+#' h_ <- insertSection_Fus(h_, 500000, 1500000, "#derivative_chrom")
+#' }
 
 insertSection_Fus <- function(h_, start, end, type) {
   # This function inserts regions into the data structure h_, which

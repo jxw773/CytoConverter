@@ -3,6 +3,68 @@ mod_utils <- modules::use('modules/utils.R')
 mod_cytobands <- modules::use('modules/cytobands.R')
 mod_merge <- modules::use('modules/merge.R')
 
+#' Gain/Loss Analysis Function
+#' 
+#' @description
+#' This function analyzes cytogenetic data to identify chromosomal gains and losses,
+#' including complex structural aberrations. It processes various types of chromosomal
+#' modifications and categorizes them into gain, loss, or specialized categories.
+#' 
+#' @details
+#' The function handles multiple types of chromosomal aberrations including:
+#' \itemize{
+#'   \item Simple gains and losses
+#'   \item Derivative chromosomes (der, rec)
+#'   \item Isochromosomes (i, ider)
+#'   \item Dicentric chromosomes (idic, dic)
+#'   \item Ring chromosomes (r)
+#'   \item Duplications, triplications, quadruplications
+#'   \item Deletions and additions
+#'   \item Complex rearrangements
+#' }
+#' 
+#' @param temp_table Data frame containing chromosomal regions to analyze
+#' @param original_temp_table Backup of original temp_table for reference
+#' @param ex_fusion_table Data frame containing exclusion regions
+#' @param original_ex_fusion_table Backup of original ex_fusion_table
+#' @param Mainchr Vector of main chromosomes involved
+#' @param multi Multiplicity factor for the aberration
+#' @param j Current column index being processed
+#' @param cyto_ref_table Reference cytogenetic band table
+#' @param ref_table Reference genome coordinate table
+#' @param Cyto_sample Current cytogenetic sample being processed
+#' @param Con_data Complete dataset being analyzed
+#' @param transloctable Table of translocation events
+#' @param Dump_table Table for error/warning messages
+#' @param constitutional Boolean flag for constitutional analysis
+#' @param guess Boolean flag for enabling guessing of ambiguous regions
+#' @param guess_q Boolean flag for q-arm specific guessing
+#' @param guess_by_first_val Boolean flag for guessing based on first value
+#' @param forMtn Boolean flag for Montreal nomenclature compatibility
+#' @param orOption Boolean flag for OR logic in parsing
+#' @param sexstimate Boolean flag for sex chromosome estimation
+#' @param normX Normal X chromosome count
+#' @param normY Normal Y chromosome count
+#' @param xcount Current X chromosome count
+#' @param ycount Current Y chromosome count
+#' @param xadd Count of X chromosome additions
+#' @param yadd Count of Y chromosome additions
+#' @param xmod Count of X chromosome modifications
+#' @param ymod Count of Y chromosome modifications
+#' @param xdel Count of X chromosome deletions
+#' @param ydel Count of Y chromosome deletions
+#' @param xconstitutional X chromosome constitutional correction factor
+#' @param yconstitutional Y chromosome constitutional correction factor
+#' @param idealx Estimated ideal X chromosome count
+#' @param idealy Estimated ideal Y chromosome count
+#' @param addtot Total count of additional chromosomes
+#' @param deltot Total count of deleted chromosomes
+#' @param modtot Total count of modified chromosomes
+#' @param n Ploidy count
+#' @param ploidy Base ploidy level (default 2 for diploid)
+#' @param startcol Starting column for processing
+#' 
+#' @return List containing updated counts and analysis results
 ##function that parses gains and losses
 gainloss<-function(temp_table,
                    original_temp_table, 
@@ -913,6 +975,97 @@ return(list(temp_table,
 
 
 
+
+#' Fusion Detection and Analysis Function
+#' 
+#' @description
+#' This function specifically detects and analyzes chromosomal fusions and structural
+#' rearrangements. It identifies various types of fusion events and assigns appropriate
+#' fusion tags for downstream analysis and visualization.
+#' 
+#' @details
+#' The function processes multiple types of chromosomal fusions including:
+#' \itemize{
+#'   \item Balanced translocations - t(chr1;chr2)(break1;break2)
+#'   \item Insertions - ins(chr1;chr2)(insertion_point;breakpoints)
+#'   \item Inversions - inv(chr)(breakpoints)
+#'   \item Derivative chromosomes from fusions - der(chr)t(...)
+#'   \item Ring chromosomes - r(chr)(breakpoints)
+#'   \item Dicentric chromosomes - dic(chr1;chr2)
+#'   \item Tricentric chromosomes - trc(chr1;chr2;chr3)
+#'   \item Robertsonian translocations - rob(chr1;chr2)
+#'   \item Isochromosomes - i(chr), ider(chr), idic(chr)
+#'   \item Fragile sites - fra(chr)(breakpoint)
+#'   \item Centromere fission - fis(chr)(breakpoint)
+#' }
+#' 
+#' Each fusion type is assigned specific tags using the fusion tag system:
+#' \itemize{
+#'   \item #translocation_balanced - for balanced translocations
+#'   \item #derivative_chrom::translocation - for derivative chromosomes
+#'   \item #insertion_chrom::* - for various insertion types
+#'   \item #inversion - for chromosomal inversions
+#'   \item #ring_chrom - for ring chromosomes
+#'   \item #centric_chrom::dicentric_chrom - for dicentric chromosomes
+#'   \item #derivative_chrom::translocation_robertsonian - for Robertsonian translocations
+#'   \item And many others as defined in the fusion tag system
+#' }
+#' 
+#' @param temp_fusion_table Data frame containing potential fusion regions
+#' @param original_temp_table Original backup of temp_fusion_table
+#' @param ex_fusion_table Data frame containing exclusion regions for fusions
+#' @param original_ex_table Original backup of ex_fusion_table
+#' @param Mainchr Vector of main chromosomes involved in the fusion
+#' @param multi Multiplicity factor for the fusion event
+#' @param j Current column index being processed
+#' @param cyto_ref_table Reference cytogenetic band table
+#' @param ref_table Reference genome coordinate table
+#' @param Cyto_sample Current cytogenetic sample being analyzed
+#' @param Con_data Complete dataset being analyzed
+#' @param transloctable Table tracking translocation events
+#' @param Dump_table Table for collecting error and warning messages
+#' @param constitutional Boolean flag for constitutional analysis mode
+#' @param guess Boolean flag to enable guessing of ambiguous breakpoints
+#' @param guess_q Boolean flag for q-arm specific guessing
+#' @param guess_by_first_val Boolean flag for guessing based on first values
+#' @param forMtn Boolean flag for Montreal nomenclature compatibility
+#' @param orOption Boolean flag for OR logic in fusion parsing
+#' @param sexstimate Boolean flag for sex chromosome estimation
+#' @param normX Expected normal X chromosome count
+#' @param normY Expected normal Y chromosome count
+#' @param xcount Current X chromosome count
+#' @param ycount Current Y chromosome count
+#' @param xadd Count of X chromosome additions
+#' @param yadd Count of Y chromosome additions
+#' @param xmod Count of X chromosome modifications (non-whole chromosome)
+#' @param ymod Count of Y chromosome modifications (non-whole chromosome)
+#' @param xdel Count of constitutional X chromosome deletions
+#' @param ydel Count of constitutional Y chromosome deletions
+#' @param xconstitutional Constitutional X chromosome correction factor
+#' @param yconstitutional Constitutional Y chromosome correction factor
+#' @param idealx Estimated ideal X chromosome count
+#' @param idealy Estimated ideal Y chromosome count
+#' @param addtot Total count of additional chromosomes
+#' @param deltot Total count of completely deleted chromosomes
+#' @param modtot Total count of modified chromosomes (for complex karyotypes)
+#' @param n Current ploidy count
+#' @param ploidy Base ploidy level (default 2 for diploid)
+#' @param startcol Starting column index for processing
+#' 
+#' @return Data frame containing fusion analysis results with fusion tags
+#' 
+#' @examples
+#' \dontrun{
+#' # Process translocation: t(9;22)(q34;q11.2)
+#' fusion_result <- fusion(fusion_table, original_table, ex_table, ...)
+#' 
+#' # Result will contain tags like:
+#' # "#translocation_balanced|chrom_1" for chromosome 9
+#' # "#translocation_balanced|chrom_2" for chromosome 22
+#' }
+#' 
+#' @seealso \code{\link{gainloss}} for gain/loss analysis
+#' @seealso Fusion_tags_WIP.txt for complete fusion tag documentation
 
 ##this is going to be the function that parses fusions 
 
