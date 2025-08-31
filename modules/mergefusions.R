@@ -435,3 +435,54 @@ mergeTable_Fus <- function(M, keep_extras = F) {
   return(final_coord_table)
   
 }
+
+# Fusion-specific merge function that deletes "Loss" coordinates from entries beginning with "#"
+# This function is used in the fusion function similar to how mergeTable is used in gainloss
+# 
+# The key requirement is to delete coordinates labeled "Loss" in the fusion task from anything 
+# in the same sample that begins with "#" (fusion entries)
+#
+# @param M: Data frame with columns Chr, Start, End, Type containing fusion data
+# @param keep_extras: Boolean flag to include non-fusion entries in result
+# @return: Merged data frame with fusion loss entries removed
+mergeFusionTable <- function(M, keep_extras = F) {
+  
+  # Store non gains and losses for intermediate steps
+  M_temp <- M[grep("#|Loss", M[, 4], invert = T), ]
+  
+  # Remove "Loss" coordinates from entries that begin with "#" 
+  # This is the core requirement - delete Loss coordinates from fusion entries
+  if (nrow(M) > 0) {
+    # Find rows that have both "#" at start and "Loss" 
+    fusion_loss_rows <- intersect(
+      grep("^#", M[, 4]),  # entries beginning with "#"
+      grep("Loss", M[, 4]) # entries containing "Loss"
+    )
+    
+    # Remove these rows as per requirement
+    if (length(fusion_loss_rows) > 0) {
+      M <- M[-fusion_loss_rows, ]
+    }
+  }
+  
+  # If no rows left after deletion, return empty table with proper structure
+  if (nrow(M) == 0) {
+    empty_table <- data.frame(matrix(ncol = 4, nrow = 0))
+    colnames(empty_table) <- c('Chr', 'Start', 'End', 'Type')
+    if (keep_extras) {
+      empty_table <- rbind(empty_table, M_temp)
+    }
+    return(empty_table)
+  }
+  
+  # Use the existing fusion merge functionality for remaining entries
+  final_coord_table <- mergeTable_Fus(M, keep_extras = F)
+  
+  # Add back extras if requested
+  if (keep_extras) {
+    final_coord_table <- rbind(final_coord_table, M_temp)
+  }
+  
+  return(final_coord_table)
+  
+}

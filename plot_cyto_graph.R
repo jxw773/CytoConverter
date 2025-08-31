@@ -1,13 +1,51 @@
-#' plot_cyto_graph Function
+#' Plot Chromosomal Gains and Losses
 #' 
-#' This function takes the output of cyto_graph and plots the information or, given the results and the reference build, generates the information and then plots a heatmap-eaque graph.
-#' @param list_from_cyto
-#' cyto_list
-#' ref_list
-#' @keyword
+#' @description
+#' Creates a graphical visualization of chromosomal gains and losses across samples.
+#' The function generates a heatmap-style plot showing gains (red), losses (blue), 
+#' and overlapping regions (orange) mapped to chromosomal coordinates.
+#' 
+#' @param cyto_list Data frame. Results table from CytoConverter containing gains/losses.
+#'   If provided, the function will process this data through cyto_graph internally.
+#' @param list_from_cyto List. Pre-processed output from cyto_graph function. Use this
+#'   if you have already processed the data to avoid redundant computation.
+#' @param ref_list Character. Reference genome build for coordinate mapping. Options:
+#'   "GRCh38" (default), "hg19", "hg18", "hg17". Can also be a custom reference matrix.
+#' @param ylabel Logical or NULL. Whether to display sample names on the y-axis. 
+#'   If NULL, automatically determined based on number of samples (<50 shows labels).
+#'
+#' @return Generates a plot displayed in the current graphics device. No return value.
+#'
+#' @examples
+#' # Basic plotting with CytoConverter results
+#' result <- CytoConverter(sample_data)
+#' plot_cyto_graph(cyto_list = result$Result)
+#' 
+#' # Advanced plotting with custom parameters
+#' plot_cyto_graph(cyto_list = result$Result, 
+#'                ref_list = "hg19",
+#'                ylabel = TRUE)
+#' 
+#' # Plot using pre-processed data
+#' graph_data <- cyto_graph(result$Result, "GRCh38")
+#' plot_cyto_graph(list_from_cyto = graph_data, ylabel = FALSE)
+#'
+#' @details
+#' The visualization displays:
+#' - Red regions: Chromosomal gains
+#' - Blue regions: Chromosomal losses  
+#' - Orange regions: Overlapping gains and losses (double aberrations)
+#' - Gray background: Normal chromosomal regions
+#' 
+#' Chromosomes are arranged horizontally with samples displayed vertically.
+#' The plot automatically scales based on the reference genome build and
+#' number of samples provided.
+#'
 #' @export
-#' @examples 
-#' plot_cyto_graph()
+#' 
+#' @seealso 
+#' \code{\link{cyto_graph}} for data preprocessing
+#' \code{\link{CytoConverter}} for generating input data
 plot_cyto_graph<-function(cyto_list=NULL,list_from_cyto=NULL,ref_list="GRCh38",ylabel=NULL,include_normals_graph=F,list_of_samples=NULL){
   
   if(is.null(ylabel)){
