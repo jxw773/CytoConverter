@@ -97,15 +97,18 @@ cyto_graph<-function(cyto_list,ref_list="GRCh38",include_normals_graph=F,list_of
     ref_list<-apply(ref_list,2,as.character)  
   }
   
-  ##if include normals in graph
+  # Include normal samples in graph if requested (for comparison visualization)
   if(include_normals_graph){
+    # Create dummy entries for normal samples with neutral aberrations
     temp<-cbind(list_of_samples,"chr1",0,0,"Gain",NA)
     
+    # Handle single row case (convert to vector for proper processing)
     if(nrow(cyto_list)==1)
     {
       cyto_list<-as.vector(cyto_list) 
     }
     
+    # Merge normal samples with aberration data
     if(nrow(cyto_list)>0)
     {
       colnames(temp)<-colnames(cyto_list)
@@ -118,32 +121,36 @@ cyto_graph<-function(cyto_list,ref_list="GRCh38",include_normals_graph=F,list_of
     }
   }
   
-  ##cyto_list<-cyto_list[order(cyto_list[,1],order(cyto_list[,2],cyto_list[,3])),]
+  # Process aberration data for overlapping loss detection and visualization setup
   if( nrow(cyto_list) >= 1)
   {
-      
+    # Detect overlapping losses for "Double" classification
+    # This algorithm identifies cases where the same sample has multiple 
+    # overlapping loss regions, which should be marked as "Double" events
     double_loss<-cyto_list[which(cyto_list[,5]=="Loss"),]
     double_loss[,1]<-as.character(double_loss[,1])
   
     if(nrow(double_loss)>1)
     {
       loss_overlap<-data.frame()
-      chr_list<-unique(double_loss[,2])
-      name_list<-as.character(unique(double_loss[,1]))
+      chr_list<-unique(double_loss[,2])  # Get unique chromosomes with losses
+      name_list<-as.character(unique(double_loss[,1]))  # Get unique sample names
       
+    # Iterate through each chromosome and sample combination
     for(i in 1:length(chr_list))
     {
           for(k in 1:length(name_list))
           {
+            # Get all loss events for this chromosome-sample combination
             chr_table<-double_loss[intersect(which(double_loss[,2]==chr_list[i]) , which(double_loss[,1]==name_list[k] )),]
             
-            ##don't do this, check for complete overlap first, if so , skip any that are in completely 
-            
-            ##chr_table_ctr<-cbind("test",unique.data.frame(chr_table[,2:4]),"Loss")
+            # Process only if there are multiple loss events in the same sample/chromosome
             if(nrow(chr_table) >=2)
             {
+              # Sort by chromosome position for overlap detection
               chr_table <- chr_table[order(chr_table[,2],chr_table[,3]),]
               
+              # Compare each loss event with subsequent events for overlaps
               for(d in 1:(nrow(chr_table)-1))
               {
                 overlap=F
@@ -151,13 +158,15 @@ cyto_graph<-function(cyto_list,ref_list="GRCh38",include_normals_graph=F,list_of
                   for(j in (d+1):(nrow(chr_table))){
                       if(!is.na(chr_table[j,1])){
                       
-                        first <- as.numeric(chr_table[d,3:4])
-                        sec <- as.numeric(chr_table[j,3:4])
+                        # Extract coordinate ranges for overlap testing
+                        first <- as.numeric(chr_table[d,3:4])  # Start-End of first loss
+                        sec <- as.numeric(chr_table[j,3:4])    # Start-End of second loss
+                        
+                        # Check for genomic overlap using %overlaps% function
                         if(first %overlaps% sec)
                         {
                           overlap=T
-                          ##if(first[2] >  sec[1]){
-                           ## chr_table[d,3] <- sec[1]
+                          # Mark overlapping regions for "Double" classification
                          ## }
                          
                           
@@ -278,57 +287,67 @@ cyto_graph<-function(cyto_list,ref_list="GRCh38",include_normals_graph=F,list_of
   ##  }
   ##  
    
-    if(is.list(matched_coord_names))
+  # Build y-coordinate list from matched coordinate names
+  # Handle both list and matrix formats for coordinate data
+  if(is.list(matched_coord_names))
+  {
+    for(i in 1:length(matched_coord_names))
     {
-      for(i in 1:length(matched_coord_names))
-      {
-        y_coordlist<-rbind(y_coordlist,matched_coord_names[[i]])
-      }
-    }else{
-      y_coordlist<-matched_coord_names
+      y_coordlist<-rbind(y_coordlist,matched_coord_names[[i]])
     }
+  }else{
+    y_coordlist<-matched_coord_names
   }
-    xcoord_master=max(nchar(as.character(uniq_coord_name)))*0.005+xbegin
-    
-    
-    ##calculate x coords and y coords according to y_coord_list by resorting cytolist
-    if(length(y_coordlist)>0 && nrow(cyto_list)>1 )
-    {
-      cyto_list<-cyto_list[order(cyto_list[,1],y_coordlist[,1]),]
+}
+  # Calculate x-coordinate master position based on maximum sample name length
+  # This determines where the chromosome plot area begins (after sample labels)
+  xcoord_master=max(nchar(as.character(uniq_coord_name)))*0.005+xbegin
+  
+  
+  # Sort cyto_list according to y_coordinate positions for proper vertical stacking
+  if(length(y_coordlist)>0 && nrow(cyto_list)>1 )
+  {
+    cyto_list<-cyto_list[order(cyto_list[,1],y_coordlist[,1]),]
 
-    }
+  }
+  
+  # Handle single aberration case (vector format)
+  if(is.vector(cyto_list)){
+    coords_listed<-cyto_list[2:5]  # Extract chromosome, start, end, type
+    temp_coords<-gsub("chr","",coords_listed[1])  # Remove "chr" prefix for numeric processing
     
-    if(is.vector(cyto_list)){
-      coords_listed<-cyto_list[2:5]
-      temp_coords<-gsub("chr","",coords_listed[1])
-      temp_coords[grep("Y",temp_coords)]<-24
-      temp_coords[grep("X",temp_coords)]<-23
-      coordlist<-as.numeric(temp_coords);
-      
-      ##adjust chrom name for x and y for input data
-      coords_listed[grep("X",coords_listed[,1]),1]<-23
-      coords_listed[grep("Y",coords_listed[,1]),1]<-24      
-      
-      y_area_coord=cbind((y_coordlist[,2]-1)*-(y_above-y_below)/length(uniq_coord_name)+y_above,y_above-y_coordlist[,2]*(y_above-y_below)/length(uniq_coord_name))
-      
-      
-      ##calculating where rectangle should start from how long the sample is
-      
-      
-      
-      ##x coordinates
-      xstart<-(start_cum_length[coordlist]+(as.numeric(coords_listed[2]))/(sum(coords)))*(1-xcoord_master)+xcoord_master
-      xend<-(start_cum_length[coordlist]+(as.numeric(coords_listed[3]))/(sum(coords)))*(1-xcoord_master)+xcoord_master
-      
-      
-      ##all info for coordinates
-      rect_maker<-as.data.frame(cbind(xstart,xend,y_area_coord,coords_listed[4]))
-      rect_maker[1:4]<-apply(rect_maker[,1:4],2,function(x){as.numeric(as.character(x))})
-      rect_maker[5]<-as.character(rect_maker[,5])
-      
-    }else{
-      coords_listed<-cyto_list[,2:5]
-      temp_coords<-gsub("chr","",coords_listed[,1])
+    # Convert sex chromosomes to numeric values for coordinate calculations
+    temp_coords[grep("Y",temp_coords)]<-24  # Y chromosome = 24
+    temp_coords[grep("X",temp_coords)]<-23  # X chromosome = 23
+    coordlist<-as.numeric(temp_coords);
+    
+    # Apply same conversion to coordinate list for consistent indexing
+    coords_listed[grep("X",coords_listed[,1]),1]<-23
+    coords_listed[grep("Y",coords_listed[,1]),1]<-24      
+    
+    # Calculate y-axis coordinates for sample positioning
+    # Distributes samples evenly across vertical plot space
+    y_area_coord=cbind((y_coordlist[,2]-1)*-(y_above-y_below)/length(uniq_coord_name)+y_above,y_above-y_coordlist[,2]*(y_above-y_below)/length(uniq_coord_name))
+    
+    
+    # Calculate rectangle x-coordinates based on genomic positions
+    # Maps genomic coordinates to proportional positions on plot x-axis
+    
+    # X-axis start position: cumulative chromosome position + relative position within chromosome
+    xstart<-(start_cum_length[coordlist]+(as.numeric(coords_listed[2]))/(sum(coords)))*(1-xcoord_master)+xcoord_master
+    # X-axis end position: similar calculation for end coordinate
+    xend<-(start_cum_length[coordlist]+(as.numeric(coords_listed[3]))/(sum(coords)))*(1-xcoord_master)+xcoord_master
+    
+    
+    # Assemble all rectangle coordinates and aberration type information
+    rect_maker<-as.data.frame(cbind(xstart,xend,y_area_coord,coords_listed[4]))
+    rect_maker[1:4]<-apply(rect_maker[,1:4],2,function(x){as.numeric(as.character(x))})
+    rect_maker[5]<-as.character(rect_maker[,5])
+    
+  }else{
+    # Handle multiple aberrations case (matrix format)
+    coords_listed<-cyto_list[,2:5]
+    temp_coords<-gsub("chr","",coords_listed[,1])
       temp_coords[grep("Y",temp_coords)]<-24
       temp_coords[grep("X",temp_coords)]<-23
       coordlist<-as.numeric(temp_coords);

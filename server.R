@@ -1,3 +1,10 @@
+#' CytoConverter Shiny Server Logic
+#' 
+#' @description
+#' This module implements the server-side logic for the CytoConverter Shiny web application.
+#' It handles user input processing, file uploads, parameter configuration, and output 
+#' generation for both text input and file-based karyotype analysis.
+
 library(shiny)
 library(stringr)
 library(stringi)
@@ -12,13 +19,14 @@ source("plot_cyto_graph.R")
 example_table<-read.delim(file="cyto_example.txt",sep='\t',header=F)
 colnames(example_table)<-NULL
 example_result_table<-read.delim(file="cyto_result.txt",sep='\t',header=T)
-# Define server logic required to plot various variables against mpg
+
+# Define server logic for CytoConverter web interface
+# Handles reactive data processing, file I/O, and visualization generation
 
   function(input, output) {
     
-    ##variable for hg type
-    
-    ##check file loaded
+    # File Upload Detection
+    # Reactive function to check if user has uploaded a file
     getData <- reactive({
       if(is.null(input$file)){return(NULL)}else{return(TRUE)}
     })
@@ -27,35 +35,52 @@ example_result_table<-read.delim(file="cyto_result.txt",sep='\t',header=T)
     })
     outputOptions(output, 'fileUploaded', suspendWhenHidden=FALSE)
     
-    ## output$read=renderText({datasetInput()})
     
-    # You can access the value of the widget with input$file, e.g.
+    #' Process Text Input Karyotypes
+    #' 
+    #' @description
+    #' Reactive function that processes karyotype data entered directly in the text input field.
+    #' Applies user-selected parameters and returns CytoConverter results.
+    #' 
+    #' @return List containing CytoConverter results and error logs
     CytotableString <- reactive({
       cyto=""
       
+      # Get text input from user interface
       if(!is.null(input$text))
       {
         cyto<-input$text
       }
-      ##if(!is.null(input$file))
-      ##{
-      ##  req(input$file)
-      ##  cyto<-sapply(as.data.frame(read.delim(input$file$datapath,header=FALSE,sep="\t")),as.character)
-      ##}
+      
+      # Process with CytoConverter using selected parameters
+      # input$radio = build selection, input$radio2 = constitutional mode
+      # input$radio3 = guess mode, input$radio4 = guess_q mode  
+      # input$radio5 = include normals, input$radio6 = count fusions
       CytoConverter(cyto,input$radio,input$radio2,input$radio3,input$radio4,forMtn=F,orOption=T,include_normals_graph = input$radio5,count_fusions=input$radio6)
       })
     
+    #' Process Uploaded File Karyotypes
+    #' 
+    #' @description
+    #' Reactive function that processes karyotype data from uploaded files.
+    #' Handles file reading, encoding, and data formatting before CytoConverter analysis.
+    #' 
+    #' @return List containing CytoConverter results and error logs
     CytotableFile<- reactive({
       cyto=""
 
+      # Process uploaded file if available
       if(!is.null(input$file))
       {
-        req(input$file)
+        req(input$file)  # Ensure file is available before processing
+        
+        # Read file with UTF-8 encoding to handle special characters
         cyto<-readLines(input$file$datapath,encoding = 'UTF-8')
         cyto<-sapply(as.data.frame(read.delim(input$file$datapath,header=FALSE,sep="\t")),as.character)
-        cyto<-({as.matrix(cyto)})
+        cyto<-({as.matrix(cyto)})  # Convert to matrix format expected by CytoConverter
       }
       
+      # Apply same parameter configuration as text input processing
       CytoConverter(cyto,input$radio,input$radio2,input$radio3,input$radio4,forMtn=F,orOption=T,include_normals_graph = input$radio5,count_fusions=input$radio6)
     })
     
