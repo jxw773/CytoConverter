@@ -1,3 +1,18 @@
+#' CytoConverter Original Implementation (Legacy)
+#' 
+#' @description
+#' This file contains the original monolithic implementation of CytoConverter
+#' functionality. This code has been refactored into modular components in 
+#' the modules/ directory for better maintainability.
+#' 
+#' @deprecated This file is maintained for historical reference and compatibility.
+#' For new development, use the modular implementation in modules/cytoconverter.R
+#' and related module files.
+#' 
+#' @note Some functions in this file may be outdated compared to the current
+#' modular implementation. Use the main.R script or modules/cytoconverter.R
+#' for the most up-to-date functionality.
+
 ##setwd("G:/My Drive/BRB work/cyto_project/Cytogenetic software/R/")
 if(require("stringr")){
   print("stringr is loaded correctly")

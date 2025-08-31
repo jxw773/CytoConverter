@@ -1,4 +1,56 @@
 
+#' Cytogenetic Graph Data Preparation
+#'
+#' @description
+#' This function prepares cytogenetic data for visualization by processing CytoConverter 
+#' results and organizing them for plotting. It handles coordinate transformation,
+#' chromosome ordering, and data structure preparation for the plotting functions.
+#' 
+#' This function is primarily used internally by plot_cyto_graph() and should typically
+#' not be called directly by end users.
+#'
+#' @param cyto_list Data frame containing CytoConverter results with chromosomal aberrations
+#' @param ref_list Reference genome build specification. Options:
+#'   \itemize{
+#'     \item "GRCh38" - GRCh38/hg38 human genome build (default)
+#'     \item "hg19" - hg19 human genome build  
+#'     \item "hg18" - hg18 human genome build
+#'     \item "hg17" - hg17 human genome build
+#'     \item Custom cytoband matrix - User-provided cytoband data
+#'   }
+#' @param include_normals_graph Boolean flag to include normal samples for comparison (default: FALSE)
+#' @param list_of_samples Vector of sample names to include when include_normals_graph is TRUE
+#'
+#' @return List containing processed data structures for plotting:
+#'   \item{rect_maker}{Data frame with rectangle coordinates for plotting aberrations}
+#'   \item{coordlist}{Processed chromosome coordinates}
+#'   \item{y_coordlist}{Y-axis positioning data for samples}
+#'   \item{uniq_coord_name}{Unique sample identifiers}
+#'   
+#' @details
+#' The function processes cytogenetic data through several steps:
+#' \itemize{
+#'   \item Loads appropriate cytoband reference data based on ref_list parameter
+#'   \item Converts chromosomal coordinates to plotting coordinates
+#'   \item Handles X and Y chromosome naming (converted to 23 and 24 respectively)
+#'   \item Organizes data for rectangular plotting regions representing aberrations
+#'   \item Calculates cumulative chromosome lengths for continuous plotting
+#' }
+#'
+#' @note This function expects cyto_list to contain columns for chromosome, start position,
+#' end position, and aberration type. Column names should match CytoConverter output format.
+#'
+#' @examples
+#' \dontrun{
+#' # Typically called internally by plot_cyto_graph()
+#' result <- CytoConverter(karyotype_data)
+#' graph_data <- cyto_graph(result$Results, ref_list = "GRCh38")
+#' }
+#'
+#' @seealso 
+#' \code{\link{plot_cyto_graph}} for the main plotting function that uses this data
+#' \code{\link{cyto_graph_fusion}} for fusion-specific data preparation
+#'
 ##setting up blank plot
 cyto_graph<-function(cyto_list,ref_list="GRCh38",include_normals_graph=F,list_of_samples=NULL){
   

@@ -1,7 +1,47 @@
 #' CytoConverter Row Parser
 #' 
 #' @description
-#' This function parses each row of a karyotype table.
+#' This function parses each row of a karyotype table, processing individual sample 
+#' karyotypes into structured genomic coordinate data. It handles the complex logic 
+#' for interpreting cytogenetic nomenclature and converting it to genomic intervals
+#' representing gains, losses, and structural rearrangements.
+#' 
+#' @param cyto_ref_table Reference table containing cytoband information for coordinate mapping
+#' @param ref_table Additional reference data for chromosome processing  
+#' @param Cyto_sample Vector containing the parsed components of a single karyotype
+#' @param Con_data Context data for the current sample being processed
+#' @param transloctable Table for tracking translocation events and complex rearrangements
+#' @param Dump_table Table for collecting error messages and warnings during parsing
+#' @param constitutional Boolean flag indicating constitutional vs somatic analysis mode
+#' @param guess Boolean flag to enable guessing of ambiguous chromosomal regions
+#' @param guess_q Boolean flag for q-arm specific guessing logic
+#' @param guess_by_first_val Boolean flag to guess coordinates based on first values
+#' @param forMtn Boolean flag for Montreal nomenclature compatibility
+#' @param orOption Boolean flag to enable OR logic in parsing ambiguous cases
+#' @param sexstimate Boolean flag for sex chromosome estimation and normalization
+#' @param count_fusions Boolean flag to enable fusion detection and specialized fusion processing
+#' 
+#' @return List containing:
+#'   \item{sample_table}{Matrix with processed genomic intervals for standard aberrations}
+#'   \item{sample_fusion_table}{Matrix with processed fusion events and structural rearrangements}
+#'   \item{Dump_table}{Updated error/warning table with any parsing issues encountered}
+#'   
+#' @details
+#' The row parser performs several key functions:
+#' \itemize{
+#'   \item Interprets cytogenetic nomenclature into genomic coordinates
+#'   \item Distinguishes between constitutional and somatic karyotypes  
+#'   \item Handles complex structural rearrangements when fusion counting is enabled
+#'   \item Manages sex chromosome normalization and counting
+#'   \item Processes deletion, duplication, and translocation events
+#'   \item Applies various heuristics for ambiguous cases when guess flags are enabled
+#' }
+#' 
+#' @note This function is called internally by the main CytoConverter function and typically
+#' should not be called directly by end users. It expects pre-processed karyotype components
+#' in the Cyto_sample vector.
+#' 
+#' @seealso \code{\link{colparse}} for column-level parsing logic
 
 mod_utils <- modules::use('modules/utils.R')
 mod_merge <- modules::use('modules/merge.R')
