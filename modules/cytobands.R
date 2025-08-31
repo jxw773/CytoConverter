@@ -287,7 +287,7 @@ getCytoBands <- function(
             # For q-arm breakpoint, include region from p-terminal to breakpoint
             currentvec <-
               c(currentvec, paste(chr_table[grep(positions, chr_table[, 4])[1]
-
+                         - 1, 4], chr_table[1, 4], sep = ''))
            ##currentvec <-
            ##c(currentvec, paste(chr_table[grep(positions, chr_table[, 4])[length(grep(positions, chr_table[, 4]))]
            ##           , 4], chr_table[nrow(chr_table), 4], sep = ''))
