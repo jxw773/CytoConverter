@@ -487,6 +487,8 @@ example_result_table<-read.delim(file="cyto_result.txt",sep='\t',header=T)
       output$tablelog<-renderTable({CytotableString()[[2]]})
       output$filetablelog<-renderTable({CytotableFile()[[2]]})
       
+      output$fusiontablelog<-renderTable({fusionDatasetInput()[[2]]})
+      output$fusionfiletablelog<-renderTable({fusionDatasetInput()[[2]]}) 
       ##make download button work
      ## output$downloadData <- downloadHandler(
       ##filename = function() {

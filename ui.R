@@ -58,15 +58,14 @@ tabPanel("Main Page",
         downloadButton("downloadErrorLog", "Download Error Log"),
        br(),
        br(),
-       conditionalPanel(
-         condition = "input.radio6 == 'true'",
-         downloadButton("downloadFusionData", "Download Fusion Results"),
-         br(),
-         br(),
-         downloadButton("downloadFusionErrorLog", "Download Fusion Error Log"),
-         br(),
-         br()
-       ),
+ 
+       downloadButton("downloadFusionData", "Download Fusion Results"),
+       br(),
+       br(),
+       downloadButton("downloadFusionErrorLog", "Download Fusion Error Log"),
+       br(),
+       br(),
+       
        hr(),
        h3("Instructions"),
        "1. Program accepts a single karyotype in the 'Text input' box or a tab-delimited UTF-8 encoded text file with sample name in column 1 and karyotype in column 2 in the 'File input' box. An example of a file input and output, in UTF-8 encoding, is shown below:",
@@ -220,7 +219,21 @@ tabPanel("Error Log",
                condition = "(input.dataset == 'File'||input.dataset == 'Both') && output.fileUploaded",
                headerPanel("File Error Log"),
                tableOutput("filetablelog")
-             )##,
+             ),
+             
+             ##for fusions
+             conditionalPanel(
+               condition = "(input.dataset == 'Text'||input.dataset == 'Both') && input.text != ''",
+               headerPanel("Text Fusion Error Log"),
+               tableOutput("fusiontablelog")
+             ),
+             
+             conditionalPanel(
+               condition = "(input.dataset == 'File'||input.dataset == 'Both') && output.fileUploaded",
+               headerPanel("File Fusion Error Log"),
+               tableOutput("fusionfiletablelog")
+             )
+             ##,
              
              ## conditionalPanel(
               ## condition ="true",
