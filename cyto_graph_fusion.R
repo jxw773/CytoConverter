@@ -1,11 +1,11 @@
 
-#' Fusion-Specific Cytogenetic Graph Function
+#' Fusion-Specific Cytogenetic Graph Function with Automatic Color Assignment
 #' 
 #' @description
 #' This function creates specialized visualizations for chromosomal fusions and structural 
 #' aberrations detected by CytoConverter. It extends the standard cyto_graph functionality
-#' with enhanced support for fusion data, breakpoint visualization, and fusion-specific
-#' color coding and labeling.
+#' with enhanced support for fusion data, automatic color assignment for fusion types,
+#' breakpoint visualization, and fusion-specific color coding and labeling.
 #' 
 #' @param cyto_list Data frame containing fusion analysis results from CytoConverter with 
 #'   fusion tags and breakpoint information
@@ -26,24 +26,33 @@
 #'   \item{cum_length_coords}{Cumulative chromosome length coordinates}
 #'   \item{start_cum_length}{Starting positions for each chromosome}
 #'   \item{uniq_coord_name}{Unique sample names for labeling}
+#'   \item{fusion_color_mapping}{Named vector mapping fusion types to colors}
+#'   \item{fusion_legend_data}{Data frame for creating fusion type legends}
 #' 
 #' @details
 #' This function processes fusion-specific data by:
 #' \itemize{
 #'   \item Handling fusion tags and breakpoint coordinates
-#'   \item Creating specialized color schemes for different fusion types
+#'   \item Automatically identifying unique fusion types (excluding |chrom portions)
+#'   \item Generating colorblind-friendly color schemes for different fusion types
+#'   \item Creating consistent color assignments across visualizations
 #'   \item Supporting complex structural rearrangements visualization
 #'   \item Providing enhanced coordinate mapping for fusion breakpoints
 #' }
 #' 
 #' The function automatically detects fusion tags (marked with "#") in the Type column
-#' and applies appropriate visualization parameters for structural aberrations.
+#' and applies appropriate visualization parameters for structural aberrations. Each
+#' unique fusion type receives a distinct color from a colorblind-friendly palette.
 #' 
 #' @examples
 #' \dontrun{
-#' # Basic fusion graph
+#' # Basic fusion graph with automatic coloring
 #' fusion_data <- CytoConverter(input_data, count_fusions = TRUE)
 #' graph_data <- cyto_graph_fusion(fusion_data$Results)
+#' 
+#' # Access color mapping for consistent plotting
+#' color_mapping <- graph_data$fusion_color_mapping
+#' legend_data <- graph_data$fusion_legend_data
 #' 
 #' # Include normal samples for comparison
 #' graph_data <- cyto_graph_fusion(fusion_data$Results, 
@@ -59,6 +68,9 @@
 #' 
 #' @export
 ##setting up blank plot
+##source fusion color module
+source("modules/fusion_colors.R")
+
 cyto_graph_fusion<-function(cyto_list,ref_list="GRCh38",include_normals_graph=F,list_of_samples=NULL){
   
   ##if it is string, set it equal to one of the stuff  
@@ -281,5 +293,35 @@ cyto_graph_fusion<-function(cyto_list,ref_list="GRCh38",include_normals_graph=F,
   sorted_reflist<-as.data.frame(sorted_reflist)
   sorted_reflist[,1]<-as.character(sorted_reflist[,1])
   sorted_reflist[,2]<-as.numeric(as.character(sorted_reflist[,2]))
-  return(list(rect_maker,xbegin,xcoord_master,y_above,y_below,sorted_reflist,cum_length_coords,start_cum_length,uniq_coord_name))
+  
+  # Implement automatic color assignment for fusion types
+  fusion_color_mapping <- character(0)
+  fusion_legend_data <- data.frame(
+    fusion_type = character(0),
+    color = character(0),
+    display_name = character(0),
+    stringsAsFactors = FALSE
+  )
+  
+  # Add color information to rect_maker if it contains fusion data
+  if (nrow(rect_maker) > 0) {
+    # Extract unique fusion types
+    fusion_types <- extract_fusion_types(rect_maker)
+    
+    if (length(fusion_types) > 0) {
+      # Create color mapping
+      fusion_color_mapping <- create_fusion_color_mapping(fusion_types)
+      
+      # Generate legend data
+      fusion_legend_data <- generate_fusion_legend_data(fusion_color_mapping)
+      
+      # Add color column to rect_maker
+      rect_maker <- assign_fusion_colors(rect_maker, fusion_color_mapping)
+    } else {
+      # No fusion data, add default color column
+      rect_maker$Color <- "#CCCCCC"
+    }
+  }
+  
+  return(list(rect_maker,xbegin,xcoord_master,y_above,y_below,sorted_reflist,cum_length_coords,start_cum_length,uniq_coord_name,fusion_color_mapping,fusion_legend_data))
 }
