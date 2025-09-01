@@ -179,7 +179,7 @@ tabPanel("Main Page",
         
        ##text output fusions
        conditionalPanel(
-         condition = "(input.dataset == 'Text'||input.dataset == 'Both') && input.text != ''",
+         condition = "(input.dataset == 'Text'||input.dataset == 'Both') && input.text != '' && input.radio6 == true",
          headerPanel("Text Result Fusion"),
          br(),
          ##indicates error in text output
@@ -202,7 +202,7 @@ tabPanel("Main Page",
        
        ##table output fusions
        conditionalPanel(
-         condition = "(input.dataset == 'File'||input.dataset == 'Both') && output.fileUploaded",
+         condition = "(input.dataset == 'File'||input.dataset == 'Both') && output.fileUploaded && input.radio6 == true",
          
          headerPanel("File Result Fusion"),
          
@@ -248,13 +248,13 @@ tabPanel("Error Log",
              
              ##for fusions
              conditionalPanel(
-               condition = "(input.dataset == 'Text'||input.dataset == 'Both') && input.text != ''",
+               condition = "(input.dataset == 'Text'||input.dataset == 'Both') && input.text != '' && input.radio6 == true",
                headerPanel("Text Fusion Error Log"),
                tableOutput("fusiontablelog")
              ),
              
              conditionalPanel(
-               condition = "(input.dataset == 'File'||input.dataset == 'Both') && output.fileUploaded",
+               condition = "(input.dataset == 'File'||input.dataset == 'Both') && output.fileUploaded && input.radio6 == true",
                headerPanel("File Fusion Error Log"),
                tableOutput("fusionfiletablelog")
              )
