@@ -129,11 +129,21 @@ plot_cyto_graph_fusion<-function(cyto_list=NULL,list_from_cyto=NULL,ref_list="GR
   {
     apply(rect_maker,1,
           function(x){ 
-            # Use the assigned color if available, otherwise default to light gray
-            plot_color <- if("Color" %in% names(x) && !is.na(x["Color"])) {
-              x["Color"]
+            # First check if Color column exists and is valid
+            if("Color" %in% names(x) && !is.na(x["Color"]) && x["Color"] != "#CCCCCC") {
+              plot_color <- x["Color"]
             } else {
-              "#CCCCCC"  # Light gray for non-fusion or unassigned
+              # Fallback to standard Gain/Loss/Double logic to match plot_cyto_graph
+              type_value <- as.character(x[5])
+              if (type_value == "Gain") {
+                plot_color <- "red"
+              } else if (type_value == "Loss") {
+                plot_color <- rgb(0, 0, 1, alpha = 0.5)
+              } else if (type_value == "Double") {
+                plot_color <- "orange"
+              } else {
+                plot_color <- "#CCCCCC"  # Light gray for unassigned
+              }
             }
             
             rect(xleft=as.numeric(x[1]), xright=as.numeric(x[2]),
@@ -162,12 +172,42 @@ plot_cyto_graph_fusion<-function(cyto_list=NULL,list_from_cyto=NULL,ref_list="GR
   
   rect(xleft=xcoord_master, xright=1,ybottom=y_below,ytop=y_above,col=NA)
   
-  # Create legend for fusion types if there are any
+  # Create comprehensive legend including both standard and fusion types
+  legend_items <- character(0)
+  legend_colors <- character(0)
+  
+  # Check if we have standard Gain/Loss/Double types in the data
+  if (nrow(rect_maker) > 0) {
+    standard_types <- rect_maker[rect_maker[,5] %in% c("Gain", "Loss", "Double"), 5]
+    unique_standard_types <- unique(standard_types)
+    
+    # Add standard types to legend
+    for (type in unique_standard_types) {
+      if (type == "Gain") {
+        legend_items <- c(legend_items, "Gain")
+        legend_colors <- c(legend_colors, "red")
+      } else if (type == "Loss") {
+        legend_items <- c(legend_items, "Hemizygous Loss")
+        legend_colors <- c(legend_colors, rgb(0,0,1,alpha=0.5))
+      } else if (type == "Double") {
+        legend_items <- c(legend_items, "Homozygous Loss")
+        legend_colors <- c(legend_colors, "orange")
+      }
+    }
+  }
+  
+  # Add fusion types if available
   if(length(fusion_color_mapping) > 0) {
-    legend(x=1,y= y_below-0.03,legend=fusion_legend_data$display_name,
-           fill=fusion_legend_data$color,xjust=1,yjust=1,cex=0.7,title="Fusion Types")
+    legend_items <- c(legend_items, fusion_legend_data$display_name)
+    legend_colors <- c(legend_colors, fusion_legend_data$color)
+  }
+  
+  # Create legend if we have any items
+  if (length(legend_items) > 0) {
+    legend(x=1,y= y_below-0.03,legend=legend_items,
+           fill=legend_colors,xjust=1,yjust=1,cex=0.7)
   } else {
-    # Fallback legend for non-fusion data
-    legend(x=1,y= y_below-0.03,legend=c("No Fusion Data"),fill=c("#CCCCCC"),xjust=1,yjust=1,cex=0.7)
+    # Fallback legend for empty data
+    legend(x=1,y= y_below-0.03,legend=c("No Data"),fill=c("#CCCCCC"),xjust=1,yjust=1,cex=0.7)
   }
 }

@@ -217,10 +217,23 @@ assign_fusion_colors <- function(fusion_data, color_mapping) {
     return(fusion_data)
   }
   
-  # Initialize color column with default color for non-fusion entries
-  fusion_data$Color <- "#CCCCCC"  # Light grey for non-fusion
+  # Initialize color column with default color for unassigned entries
+  fusion_data$Color <- "#CCCCCC"  # Light grey for unassigned
   
-  # Find fusion entries
+  # First, handle standard Gain/Loss/Double types to match standard plotting behavior
+  for (i in 1:nrow(fusion_data)) {
+    type_value <- as.character(fusion_data[i, 4])
+    
+    if (type_value == "Gain") {
+      fusion_data$Color[i] <- "red"
+    } else if (type_value == "Loss") {
+      fusion_data$Color[i] <- rgb(0, 0, 1, alpha = 0.5)
+    } else if (type_value == "Double") {
+      fusion_data$Color[i] <- "orange"
+    }
+  }
+  
+  # Then handle fusion entries (those starting with #)
   fusion_rows <- grepl("^#", fusion_data[, 4])
   
   if (any(fusion_rows)) {
@@ -229,7 +242,7 @@ assign_fusion_colors <- function(fusion_data, color_mapping) {
     cleaned_types <- gsub("^#", "", fusion_tags)
     cleaned_types <- gsub("\\|chrom_.*$", "", cleaned_types)
     
-    # Assign colors based on mapping
+    # Assign fusion-specific colors based on mapping
     for (i in which(fusion_rows)) {
       fusion_type <- cleaned_types[sum(fusion_rows[1:i])]
       if (fusion_type %in% names(color_mapping)) {
