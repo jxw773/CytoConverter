@@ -48,7 +48,7 @@ extract_fusion_types <- function(fusion_data) {
   }
   
   # Get all fusion tags (those starting with #)
-  fusion_tags <- fusion_data[grepl("^#", fusion_data[, 4]), 4]
+  fusion_tags <- fusion_data[grepl("^#", fusion_data[, 5]), 5]
   
   if (length(fusion_tags) == 0) {
     return(character(0))
@@ -221,11 +221,11 @@ assign_fusion_colors <- function(fusion_data, color_mapping) {
   fusion_data$Color <- "#CCCCCC"  # Light grey for non-fusion
   
   # Find fusion entries
-  fusion_rows <- grepl("^#", fusion_data[, 4])
+  fusion_rows <- grepl("^#", fusion_data[, 5])
   
   if (any(fusion_rows)) {
     # Extract fusion types for fusion rows
-    fusion_tags <- fusion_data[fusion_rows, 4]
+    fusion_tags <- fusion_data[fusion_rows, 5]
     cleaned_types <- gsub("^#", "", fusion_tags)
     cleaned_types <- gsub("\\|chrom_.*$", "", cleaned_types)
     
