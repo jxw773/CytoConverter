@@ -764,7 +764,7 @@ if(build =="GRCh38")
         
         derMods <- strsplit(derMods, "\\)")[[1]]
         temp <- tail(temp, length(temp) - 1)
-      }else if((grepl("der|rec",Cyto_sample[coln]) && !is.na(derMods) && length(derMods)>1 && grepl("^r\\(",derMods[2]) )){
+      }else if((grepl("der|rec",Cyto_sample[coln]) && !is.na(derMods[1]) && length(derMods)>1 && grepl("^r\\(",derMods[2]) )){
         derMods <-tail(derMods, length(derMods) - 1)
         temp <- tail(temp, length(temp) - 1)
          
@@ -2269,7 +2269,7 @@ if(build =="GRCh38")
     
     ##do multi (X2) processing right now
     ##for over X2 times, its a gain 
-    if ((nrow(coord) > 0 && any(grepl("multi", coord[, 4])) ) && (constitutional==T| (constitutional ==F & !grepl("(c$)|(c\\?$)",coord[,4]) )))
+    if ((nrow(coord) > 0 && length(coord[, 4]) > 0 && any(grepl("multi", coord[, 4])) ) && (constitutional==T| (constitutional ==F && !any(grepl("(c$)|(c\\?$)",coord[,4])) )))
     {
       
       n <- multi - 1
@@ -2282,7 +2282,7 @@ if(build =="GRCh38")
           multitemp<-coord[grep("multi", coord[, 4]), ]
           multitemp[,4]<-paste("+",multitemp[,4],sep='')
           multimastercoord<- rbind(multimastercoord, multitemp)
-          if (any(nrow(excoord) > 0 && grepl("multi", excoord[, 4])))
+          if (nrow(excoord) > 0 && length(excoord[, 4]) > 0 && any(grepl("multi", excoord[, 4])))
           {
             multitemp<-excoord[grep("multi", excoord[, 4]), ]
             multitemp[,4]<-paste("+",multitemp[,4],sep='')
@@ -2291,7 +2291,7 @@ if(build =="GRCh38")
           
         }else{
           multimastercoord<- rbind(coord, coord[grep("multi", coord[, 4]), ])
-          if (any(nrow(excoord) > 0 && grepl("multi", excoord[, 4])))
+          if (nrow(excoord) > 0 && length(excoord[, 4]) > 0 && any(grepl("multi", excoord[, 4])))
           {
             multimasterexcoord <- rbind(multimasterexcoord, excoord[grep("multi", excoord[, 4]), ])
             

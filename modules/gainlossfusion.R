@@ -942,7 +942,7 @@ if (nrow(temp_table) > 0) {
     if (
       length(Plus_Loss) > 0
       && nrow(Plus_Loss) > 0
-      && any(grepl("Gain", temp_table[, 4]) & any(grepl("Loss", temp_table[, 4])))
+      && any(grepl("Gain", temp_table[, 4])) && any(grepl("Loss", temp_table[, 4]))
     ) {
       temp_table <- mod_merge$mergeTable(temp_table)
       
@@ -2327,7 +2327,7 @@ fusion<-function(temp_fusion_table,
       if (
         length(Plus_Loss) > 0
         && nrow(Plus_Loss) > 0
-        && any(grepl("Gain", temp_fusion_table[, 4]) & any(grepl("Loss", temp_fusion_table[, 4])))
+        && any(grepl("Gain", temp_fusion_table[, 4])) && any(grepl("Loss", temp_fusion_table[, 4]))
       ) {
         temp_fusion_table <- mod_merge$mergeTable(temp_fusion_table)
         
